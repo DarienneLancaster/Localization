@@ -47,3 +47,8 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+#don't push original, working, or figures folders
+odata/
+wdata/
+figures/
