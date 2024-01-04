@@ -4,7 +4,8 @@
 
 #Import annotated localization files as one dataframe
 #NOTE: do we need to add extra info from Raven to localization tables at this point
-#or can it be loaded back into Raven later and added? (check this)
+#or can it be loaded back into Raven later and added? (check this) ANSWER: I checked and could add
+#new sound data to a selection table with extra columns appended in R and reexported. 
 
 #Filter to keep only localizations marked as fish call (FC)
 
