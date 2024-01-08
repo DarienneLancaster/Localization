@@ -7,6 +7,7 @@ lp("readr")
 lp("hms")
 lp("readbulk")
 lp("readxl")
+lp("plotly")
 
 #######import buzzer times from logs######
 
@@ -52,7 +53,7 @@ buzzdrift<-read.csv("odata/logtimes_20240104_final.csv", header = TRUE)
 
 #remove additional columns from .csv
 buzzdrift<-buzzdrift%>%
-  select(-c(8:14))%>%
+  #select(-c(8:14))%>%
   drop_na(Drift)
 #convert Drift to time
 buzzdrift$Drift<-as.POSIXct(buzzdrift$Drift, format= "%H:%M:%OS")
@@ -78,12 +79,12 @@ write.csv(driftmean2,"wdata/driftmean.csv", row.names = FALSE)
 ######add buzzerdrift times to localization files (use files that have been annotated for Fish Sounds)#####
 
 #import localization files annotated for Fish Sounds
-filtlocs<-"TestFSLocs" #change folder name here
+filtlocs<-"Taylor_Islet_LA_2022_filtered_2_1_FS" #change folder name here
 
 FSlocs<-imp_raven(path = paste0("wdata/", filtlocs), all.data =  TRUE)
 FSlocs<-FSlocs%>%
-  select(-c(37))%>% #a weird additional column was added at the end so needed to remove (may not always need this
-  filter(f=="FS")%>%#filter to only keep files labelled as fish sound (FS)
+  select(-c(49))%>% #a weird additional column was added at the end so needed to remove (may not always need this
+  filter(f=="f")%>%#filter to only keep files labelled as fish sound (FS)
   rename("Time" = "Begin Clock Time")
 
 str(FSlocs)
@@ -95,7 +96,7 @@ str(driftedit)
 #change date column to match format of localization raven tables.
 driftedit2<- driftedit%>%
   mutate(across("Date", str_replace, "2022-08-", "2022/8/"))%>%
-  mutate(across("Date", str_replace, "2022-09-", "2022/8/"))%>%
+  mutate(across("Date", str_replace, "2022-09-", "2022/9/"))%>%
   rename("Begin Date" = "Date")
   
 
@@ -105,6 +106,8 @@ str(driftedit2)
 #join fish sound localization files to buzzerdrift times (this will throw a many to many error, this is good and because of
 #the different values for each of the 3 cameras.  There should be a line for each localization tied to each camera)
 locswdrift<-left_join(FSlocs, driftedit2, by = "Begin Date")
+#NOTE:Environment window will only show a max of 50 columns so depending on how many
+#columns you have in table you may need to scroll using Cols: tab
 
 #convert meanDrift and Time columns to time
 locswdrift$meanDrift<- as.POSIXct(locswdrift$meanDrift, format= "%H:%M:%OS")
@@ -112,6 +115,66 @@ locswdrift$Time<- as.POSIXct(locswdrift$Time, format= "%H:%M:%OS")
 #subtract drift time from localization to get adjusted time of fish calls.
 locswdrift$locadjust<-as_hms(locswdrift$Time - locswdrift$meanDrift)
 
+####pull time stamps off video filenames and add to dataframe####
+
+#Creating column with video file names and pulling out dates from filenames (e.g. 2557_FishCam03_20220823T204721.521716Z_1600x1200_awb-auto_exp-night_fr-10_q-20_sh-0_b-50_c-0_i-400_sat-0)
+
+# create dataframe with list of all video files in folder
+data_files<- data.frame(vidnames=list.files("odata/Taylor_Islet_LA_2022_FC3_Videos"))
+
+#pull time stamp out of video file names
+data_files2<- data_files %>%
+  #separate file number from file name and put in column "filenum" (e.g. 2557) and remove _FishCam text completely 
+  separate(vidnames, into = c("filenum","fileend"), sep = "_FishCam0", remove = FALSE)%>% 
+  #chop up fileend into camera number (e.g. 03), underscore, and then pull apart Year, Month,Day, Hour, Min, Sec, Millisec (sep = pulls apart at # from start of fileend string)
+  separate(fileend, into = c("Cam", "ext", "y", "m", "d", "T","hr", "mn", "sc", "remaining"), sep = c(1,2,6,8,10,11,13,15,23) )%>%
+  #remove unnecessary columns (underscore, T between Date/Time, rest of file name)
+  select(-ext,-T,-remaining)%>%
+  #format date/time columns into same format as buzzerdrift times
+  mutate(vidstarttime = as.POSIXct(paste(y, m, d,hr, mn, sc), format="%Y %m %d %H %M %OS"))
+str(data_files2)
+#add five minutes to start time to create start and end video times columns
+data_files2$videndtime<-data_files2$vidstarttime+minutes(5)
+#pull date from POSIX vidstarttime column
+data_files2$'Begin Date'<- as_date(data_files2$vidstarttime)
+#turn vidstarttime column into only time without date
+data_files2$vidstarttime<- as_hms(data_files2$vidstarttime)
+data_files2$videndtime<- as_hms(data_files2$videndtime)
+#remove unnecessary date/time single columns and change date format to match other dataframes
+data_files3<-data_files2%>%
+  select(-c(4:9))%>%
+  mutate(across("Begin Date", str_replace, "2022-08-", "2022/8/"))%>%
+  mutate(across("Begin Date", str_replace, "2022-09-", "2022/9/"))%>%
+  mutate_at(c("Cam"),as.integer)#change Cam to integer to match locsdrift dataframe
+
+####Check if adjusted localization times fall between video times and paste video filenames/times in new matching column####
+
+#join locswdrift dataframe to data_files3 matching at Begin Date and Cam
+locswdrift2<-left_join(locswdrift, data_files3, by = c("Begin Date", "Cam"))
+
+#check if localization time falls between video start and end times (if yes put video file name, if no it will say check manually)
+#some adjusted localization times don't seem to fit in any video file, inspect why this is. 
+locswdrift2$videofile<- ifelse(locswdrift2$locadjust>=locswdrift2$vidstarttime & 
+                             locswdrift2$locadjust<=locswdrift2$videndtime,  locswdrift2$vidnames, NA)
+locswdrift2$videotime<-as_hms(locswdrift2$locadjust-locswdrift2$vidstarttime)
+
+#*****######remove any columns that don't match to a particular video file 
+#*NOTE:  may need to double check this once full datasets are in
+locswdrift2<- locswdrift2%>%
+  filter(!is.na(videofile))
+
+
+####Create plots of localization coordinates####
+
+sound<- plot_ly(locswdrift, x=~x_m, y=~y_m, z=~z_m, colors = colors,
+                marker = list(symbol = 'circle', sizemode = 'diameter'), sizes = c(5, 150))
+ # layout(yaxis = list(range = c(-2,2)), xaxis = list (range = c(-2,2)), zaxis = list(range = c(-2,2)))
+
+sound <- sound %>% layout(title = 'Fish Sound Coordinate',
+                   scene = list(domain=list(x=c(-2,2),y=c(-2,2),
+                   # select the type of aspectmode
+                    aspectmode='cube')))
+sound
   
 
 
