@@ -9,6 +9,7 @@ lp("readbulk")
 lp("readxl")
 lp("plotly")
 lp("withr")
+######
 
 #######import buzzer times from logs######
 
@@ -45,6 +46,7 @@ logtimes<-logtimes%>%
 
 #export to wdata
 write.csv(logtimes, "wdata/logtimes.csv", row.names = FALSE)
+######
 
 #######Calculating Mean Drift per day per camera#####
 
@@ -76,6 +78,7 @@ write.csv(driftmean2,"wdata/driftmean.csv", row.names = FALSE)
 #NOTE - manually added in missing dates for fishcam 2 Ohiat Island  using
 #mean of day before and after (saved in odata as driftmean_missingFC2added.csv)
 #mean per day inspected for large/supsicious variations (one change made, now all looks good.)
+######
 
 ######add buzzerdrift times to localization files (use files that have been annotated for Fish Sounds)#####
 
@@ -118,6 +121,7 @@ locswdrift$meanDrift<- as.POSIXct(locswdrift$meanDrift, format= "%H:%M:%OS")
 locswdrift$Time<- as.POSIXct(locswdrift$Time, format= "%H:%M:%OS")
 #subtract drift time from localization to get adjusted time of fish calls.
 locswdrift$locadjust<-as_hms(locswdrift$Time - locswdrift$meanDrift)
+#####
 
 ####pull time stamps off video filenames and add to dataframe####
 
@@ -150,6 +154,7 @@ data_files3<-data_files2%>%
   mutate(across("Begin Date", str_replace, "2022-08-", "2022/8/"))%>%
   mutate(across("Begin Date", str_replace, "2022-09-", "2022/9/"))%>%
   mutate_at(c("Cam"),as.integer)#change Cam to integer to match locsdrift dataframe
+#####
 
 ####Check if adjusted localization times fall between video times and paste video filenames/times in new matching column####
 
@@ -166,8 +171,9 @@ locswdrift2$videotime<-as_hms(locswdrift2$locadjust-locswdrift2$vidstarttime)
 #*NOTE:  may need to double check this once full datasets are in
 locswdrift2<- locswdrift2%>%
   filter(!is.na(videofile))
+#####
 
-####arrange data in order by date, videofile, and video time####
+####arrange data in order by date, filenum, and video time####
 #add zeros in front of filenum column so that they will order correctly
 locswdrift2$filenum<-with_options(
   c(scipen = 999), 
@@ -180,6 +186,7 @@ locsarr<-locswdrift2%>%
   group_by(`Begin Date`, filenum)%>%
   arrange(videotime, .by_group = TRUE)
 
+#####
 
 ####Create plots of localization coordinates####
 
