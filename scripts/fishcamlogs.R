@@ -8,6 +8,7 @@ lp("hms")
 lp("readbulk")
 lp("readxl")
 lp("plotly")
+lp("withr")
 
 #######import buzzer times from logs######
 
@@ -79,13 +80,13 @@ write.csv(driftmean2,"wdata/driftmean.csv", row.names = FALSE)
 ######add buzzerdrift times to localization files (use files that have been annotated for Fish Sounds)#####
 
 #import localization files annotated for Fish Sounds
-filtlocs<-"Taylor_Islet_LA_2022_14_filtered_2_10_FS"#change folder name here
+filtlocs<-"Taylor_Islet_LA_2022_14_filtered_2_10_FS_filtered_2_1"#change folder name here
 
 FSlocs<-imp_raven(path = paste0("wdata/", filtlocs), all.data =  TRUE, only.spectro.view = FALSE) #need to set only.spectro.view to false to see columns from waveform.
 FSlocs<-FSlocs%>%
   select(-c(110))%>% #a weird additional column was added at the end so needed to remove (may not always need this
   filter(grepl("Spectrogram", View))%>% #currently filtering out Waveform view, see *** below for more on what still need to be done.
-  filter(grepl("f|u|F|U", s))%>%#filter to only keep files labelled as fish sound (FS)
+  filter(grepl("f|u|F|U|e", s))%>%#filter to only keep files labelled as fish sound (FS)
   rename("Time" = "Begin Clock Time")
 
 #***** NEED TO FIGURE OUT HOW TO MERGE WAVEFORM DATA INTO SPECTROGRAM COLUMNS
@@ -122,8 +123,8 @@ locswdrift$locadjust<-as_hms(locswdrift$Time - locswdrift$meanDrift)
 
 #Creating column with video file names and pulling out dates from filenames (e.g. 2557_FishCam03_20220823T204721.521716Z_1600x1200_awb-auto_exp-night_fr-10_q-20_sh-0_b-50_c-0_i-400_sat-0)
 
-# create dataframe with list of all video files in folder
-data_files<- data.frame(vidnames=list.files("odata/Taylor_Islet_LA_2022_FC3_Videos"))
+#load file name csv from odata (created in script MP4 filenames)
+data_files<-read.csv("odata/MP4filenames.csv",header = TRUE)
 
 #pull time stamp out of video file names
 data_files2<- data_files %>%
@@ -165,6 +166,19 @@ locswdrift2$videotime<-as_hms(locswdrift2$locadjust-locswdrift2$vidstarttime)
 #*NOTE:  may need to double check this once full datasets are in
 locswdrift2<- locswdrift2%>%
   filter(!is.na(videofile))
+
+####arrange data in order by date, videofile, and video time####
+#add zeros in front of filenum column so that they will order correctly
+locswdrift2$filenum<-with_options(
+  c(scipen = 999), 
+  str_pad(locswdrift2$filenum, 5, pad = "0")
+)
+
+#arrange however you like
+locsarr<-locswdrift2%>%
+  filter(Cam==3)%>% #can change this to filter for whatever camera you're working on
+  group_by(`Begin Date`, filenum)%>%
+  arrange(videotime, .by_group = TRUE)
 
 
 ####Create plots of localization coordinates####
