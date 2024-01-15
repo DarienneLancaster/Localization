@@ -9,6 +9,7 @@ lp("readbulk")
 lp("readxl")
 lp("plotly")
 lp("withr")
+lp("ggplot2")
 ######
 
 #######import buzzer times from logs######
@@ -182,7 +183,7 @@ locswdrift2$filenum<-with_options(
 
 #arrange however you like
 locsarr<-locswdrift2%>%
- # filter(Cam!=2)%>% #can change this to filter for whatever camera you're working on
+  filter(Cam==3)%>% #can change this to filter for whatever camera you're working on
   group_by(`Begin Date`, filenum)%>%
   arrange(videotime, .by_group = TRUE)
 
@@ -272,8 +273,39 @@ out_dir<-paste0("wdata/locplots/")
 png(paste0(out_dir, Selection[i],"_" videofile[i],".png"))
 
 
-test<-ggplot(minilocsarr, aes(x="x_m" , y="y_m"))+
-  geom_point()
-test
+## create for loop to make plot for each row (localization) and save plot with selectino # and video file as name##
+test<-minilocsarr
+
+for( i in 1:nrow(test)){
+print(ggplot(test, aes(x=x_m[i] , y=y_m[i]))+
+  geom_point())+
+    expand_limits(x=c(-1,1), y=c(-1, 1))
+     
+ggsave(filename = paste0("plot",test$Selection[i],"_", test$videofile[i],".png"), path="wdata/Localization_Plots")
+}
 
 
+for( i in 1:nrow(test)){
+  print(ggplot(test, aes(x=x_m[i] , y=y_m[i]))+
+          geom_point())+
+    expand_limits(x=c(-1,1), y=c(-1, 1))
+  
+  ggsave(filename = paste0("plot",test$Selection[i],"_", test$videofile[i],".png"), path="wdata/Localization_Plots")
+}
+
+plot1<-ggplot(test, aes(x=x_m , y=y_m))+
+  geom_point()+
+  expand_limits(x=c(-1,2), y=c(-1, 2))
+print(plot1)
+
+
+
+
+#write data
+write.table(locfilter,# the object you want to export as a selection table 
+            file = paste0(out_dir, data_files[i]),# the path and file name using the file extension .txt
+            sep = "\t", #how to delineate data
+            row.names = FALSE, #row names will mess things up
+            quote = FALSE)#putting things in quotes will mess things up.
+
+}}
