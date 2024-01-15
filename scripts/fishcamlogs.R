@@ -83,7 +83,7 @@ write.csv(driftmean2,"wdata/driftmean.csv", row.names = FALSE)
 ######add buzzerdrift times to localization files (use files that have been annotated for Fish Sounds)#####
 
 #import localization files annotated for Fish Sounds
-filtlocs<-"Taylor_Islet_LA_2022_14_filtered_2_10_FS_filtered_2_1"#change folder name here
+filtlocs<-"All_Localizations_Daylight_LA_filtered_2_1_FS"#change folder name here
 
 FSlocs<-imp_raven(path = paste0("wdata/", filtlocs), all.data =  TRUE, only.spectro.view = FALSE) #need to set only.spectro.view to false to see columns from waveform.
 FSlocs<-FSlocs%>%
@@ -182,9 +182,14 @@ locswdrift2$filenum<-with_options(
 
 #arrange however you like
 locsarr<-locswdrift2%>%
-  filter(Cam==3)%>% #can change this to filter for whatever camera you're working on
+ # filter(Cam!=2)%>% #can change this to filter for whatever camera you're working on
   group_by(`Begin Date`, filenum)%>%
   arrange(videotime, .by_group = TRUE)
+
+#truncated dataframe that's easier to look at when doing video annotation
+minilocsarr<-locsarr%>%
+  select(c(1,19,90:92,107:110,117,119,122,123))%>% 
+  relocate(1, .after = last_col())
 
 #####
 
@@ -199,7 +204,7 @@ filt<-function(loc,
                box_width=10 #specifies distance either side of array center filter limit (e.g. 1m any direction. If you want higher limit for vertical(y) axis you can adjust within function (e.g. box_width*3 = 3m))
 ){
   
-  localizations<- list.files(locswdrift2)# create object with list of all files in loc folder
+  localizations<- list.files(minilocsarr)# create object with list of all files in loc folder
   data_files
   out_dir<-paste0("wdata/",loc,"_filtered_",err_span,"_",box_width,"/") # creates out directory in working data(wdata) folder with
   dir.create(out_dir, showWarnings = FALSE) #create new folder for filtered data that specifies filter parameters (e.g. Taylor_Islet_LA_2022_filtered_2_1)
@@ -267,6 +272,8 @@ out_dir<-paste0("wdata/locplots/")
 png(paste0(out_dir, Selection[i],"_" videofile[i],".png"))
 
 
-
+test<-ggplot(minilocsarr, aes(x="x_m" , y="y_m"))+
+  geom_point()
+test
 
 
