@@ -10,6 +10,8 @@ lp("readxl")
 lp("plotly")
 lp("withr")
 lp("ggplot2")
+lp("processx")
+#the package orca must be downloaded using miniconda to export static images from plotly
 ######
 
 #######import buzzer times from logs######
@@ -196,32 +198,42 @@ minilocsarr<-locsarr%>%
 
 ####Create plots of localization coordinates####
 
-## Using ggplot2 package
-## create for loop to make plot for each row (localization) and save plot with selectino # and video file as name##
+## create for loop to make plot for each row (localization) and save plot with selection # and video file as name##
 write.csv(minilocsarr,"wdata/minilocsarr.csv", row.names = FALSE)
 test<-minilocsarr
 
-for( i in 1:nrow(test)){
-  print(ggplot(test, aes(x=x_m[i] , y=y_m[i]))+ #create scatterplot for x and y coordinates
-  geom_point())+
-    expand_limits(x=c(-1,1), y=c(-1, 1))+
-    ggtitle(paste0("Selection#=",test$Selection[i],"\n",test$videofile[i],"\n",test$videotime[i], "\n","y_coord=",test$y_m[i]))+
-    theme(plot.title = element_text(size=4), aspect.ratio = 5/5)
-     
-ggsave(filename = paste0("plot",test$Selection[i],"_", test$videofile[i],".png"), path="wdata/Localization_Plots") #save plot with appropriate filename in new folder
-plotname<-paste0("plot",test$Selection[i],"_", test$videofile[i],".png") #create name for each plot and paste it into dataframe under new column plot
-test$plot[i]<-plotname
+#loop to create 3D plot of each localization
+sound<- plot_ly(test, x=~x_m[i], y=~y_m[i], z=~z_m[i], mode= 'markers')
+sound<-layout(sound, scene = list(xaxis = list(title = "Bottom", range = c(1,-1)), 
+                                  yaxis = list(title = "Side", range = c(1,-1)), 
+                                  zaxis = list(title = "Vertical", range = c(-2,2))))
+sound<-layout(sound, title= paste0(test$videofile[i],"\n","Selection = ",test$Selection[i],"\n","Time = ",test$videotime[i],"  z_coord =",test$z_m[i]) )
+orca(p=sound, file = paste0("wdata/3DPlots/","plot",test$Selection[i],"_", test$videofile[i],".png"), )   #save plot with appropriate filename in new folder
+  plotname<-paste0("plot",test$Selection[i],"_", test$videofile[i],".png") #create name for each plot and paste it into dataframe under new column plot
+  test$plot[i]<-plotname
 }
 
+####Code to plot all points together (used for testing code)####
+# sound<- plot_ly(test, x=~x_m, y=~y_m, z=~z_m, mode= 'markers')
+# sound<-layout(sound, scene = list(xaxis = list(title = "Bottom", range = c(1,-1)), 
+#                                    yaxis = list(title = "Side", range = c(1,-1)), 
+#                                    zaxis = list(title = "Vertical", range = c(-2,2))))
+# sound<-layout(sound, title= "boo" )
+# sound  
+# orca(p=sound, file = "wdata/3DPlots/soundtest.png")                           
 
-#this code works in plotly to map all coordinates at once, need to create loop to go through row by row and set fixed axes limits for each plot
-sound<- plot_ly(minilocsarr, x=~x_m, y=~y_m, z=~z_m, colors = colors,
-                marker = list(symbol = 'circle', sizemode = 'diameter'), sizes = c(5, 150))
-# layout(yaxis = list(range = c(-2,2)), xaxis = list (range = c(-2,2)), zaxis = list(range = c(-2,2)))
+####2D loop for plotting coordinates with ggplot####
+# for( i in 1:nrow(test)){
+#   print(ggplot(test, aes(x=x_m[i] , y=y_m[i]))+ #create scatterplot for x and y coordinates
+#           geom_point())+
+#     expand_limits(x=c(-1,1), y=c(-1, 1))+
+#     ggtitle(paste0("Selection#=",test$Selection[i],"\n",test$videofile[i],"\n",test$videotime[i], "\n","y_coord=",test$y_m[i]))+
+#     theme(plot.title = element_text(size=4), aspect.ratio = 5/5)
+#   
+#   ggsave(filename = paste0("plot",test$Selection[i],"_", test$videofile[i],".png"), path="wdata/Localization_Plots") #save plot with appropriate filename in new folder
+#   plotname<-paste0("plot",test$Selection[i],"_", test$videofile[i],".png") #create name for each plot and paste it into dataframe under new column plot
+#   test$plot[i]<-plotname
+# }
 
-sound <- sound %>% layout(title = 'Fish Sound Coordinate',
-                          scene = list(domain=list(x=c(-2,2),y=c(-2,2),
-                                                   # select the type of aspectmode
-                                                   aspectmode='cube')))
-sound 
+
 
