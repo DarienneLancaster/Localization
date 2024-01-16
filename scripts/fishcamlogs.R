@@ -196,116 +196,32 @@ minilocsarr<-locsarr%>%
 
 ####Create plots of localization coordinates####
 
-#change folder name here for other study sites
-coord<-"Taylor_Islet_LA_2022_14"
-
-#start of import/filter/export function
-filt<-function(loc, 
-               err_span=2,#specifies error span filter limit
-               box_width=10 #specifies distance either side of array center filter limit (e.g. 1m any direction. If you want higher limit for vertical(y) axis you can adjust within function (e.g. box_width*3 = 3m))
-){
-  
-  localizations<- list.files(minilocsarr)# create object with list of all files in loc folder
-  data_files
-  out_dir<-paste0("wdata/",loc,"_filtered_",err_span,"_",box_width,"/") # creates out directory in working data(wdata) folder with
-  dir.create(out_dir, showWarnings = FALSE) #create new folder for filtered data that specifies filter parameters (e.g. Taylor_Islet_LA_2022_filtered_2_1)
-  
-  rows_along <- function(locswdrift2) seq(nrow(locswdrift2))
-  for (i in rows_along(locswdrift2))
-    print(i)
-  
-  
-  
-  {
-    
-    sound<- plot_ly(i, x=~x_m, y=~y_m, z=~z_m, colors = colors,
-                    marker = list(symbol = 'circle', sizemode = 'diameter'), sizes = c(5, 150))
-    # layout(yaxis = list(range = c(-2,2)), xaxis = list (range = c(-2,2)), zaxis = list(range = c(-2,2)))
-    
-    sound <- sound %>% layout(title = 'Fish Sound Coordinate',
-                              scene = list(domain=list(x=c(-2,2),y=c(-2,2),
-                                                       # select the type of aspectmode
-                                                       aspectmode='cube')))
-    sound 
-    
-    #create plot for each row
-    #export plot to folder with file name ??
-    #create column in locswdrift2 named plot with name of .png file for each row
-    
-    #importing data
-    yourobject<-imp_raven(path=paste0("odata/", loc),# the path to the FOLDER where your selection table is
-                          files=data_files[i],# a vector of files to import or the name of a single file
-                          all.data = TRUE)#if FALSE only a portion of the columns are imported
-    
-    #filter data
-    locfilter<- yourobject %>%
-      # select(-Class, -Sound.type, -Software)%>% # can use this format to remove unnecessary columns if you want
-      filter(x_err_span_m <err_span, y_err_span_m <err_span, z_err_span_m <err_span, 
-             x_m <=box_width,x_m >=-box_width, y_m <=box_width,y_m >=-box_width,  z_m <=box_width,z_m >=-box_width*3)
-    
-    #write data
-    write.table(locfilter,# the object you want to export as a selection table 
-                file = paste0(out_dir, data_files[i]),# the path and file name using the file extension .txt
-                sep = "\t", #how to delineate data
-                row.names = FALSE, #row names will mess things up
-                quote = FALSE)#putting things in quotes will mess things up.
-    
-  }}
-
-filt(loc)
-
-#create plot for each row
-sound<- plot_ly(locswdrift, x=~x_m, y=~y_m, z=~z_m, colors = colors,
-                marker = list(symbol = 'circle', sizemode = 'diameter'), sizes = c(5, 150))
- # layout(yaxis = list(range = c(-2,2)), xaxis = list (range = c(-2,2)), zaxis = list(range = c(-2,2)))
-
-sound <- sound %>% layout(title = 'Fish Sound Coordinate',
-                   scene = list(domain=list(x=c(-2,2),y=c(-2,2),
-                   # select the type of aspectmode
-                    aspectmode='cube')))
-sound
-png("wdata/sound.png")
-  
-
-#export plot to folder with file name ??
-out_dir<-paste0("wdata/locplots/")
-#create column in locswdrift2 named plot with name of .png file for each row
-png(paste0(out_dir, Selection[i],"_" videofile[i],".png"))
-
-
+## Using ggplot2 package
 ## create for loop to make plot for each row (localization) and save plot with selectino # and video file as name##
+write.csv(minilocsarr,"wdata/minilocsarr.csv", row.names = FALSE)
 test<-minilocsarr
 
 for( i in 1:nrow(test)){
-print(ggplot(test, aes(x=x_m[i] , y=y_m[i]))+
+  print(ggplot(test, aes(x=x_m[i] , y=y_m[i]))+ #create scatterplot for x and y coordinates
   geom_point())+
-    expand_limits(x=c(-1,1), y=c(-1, 1))
+    expand_limits(x=c(-1,1), y=c(-1, 1))+
+    ggtitle(paste0("Selection#=",test$Selection[i],"\n",test$videofile[i],"\n",test$videotime[i], "\n","y_coord=",test$y_m[i]))+
+    theme(plot.title = element_text(size=4), aspect.ratio = 5/5)
      
-ggsave(filename = paste0("plot",test$Selection[i],"_", test$videofile[i],".png"), path="wdata/Localization_Plots")
+ggsave(filename = paste0("plot",test$Selection[i],"_", test$videofile[i],".png"), path="wdata/Localization_Plots") #save plot with appropriate filename in new folder
+plotname<-paste0("plot",test$Selection[i],"_", test$videofile[i],".png") #create name for each plot and paste it into dataframe under new column plot
+test$plot[i]<-plotname
 }
 
 
-for( i in 1:nrow(test)){
-  print(ggplot(test, aes(x=x_m[i] , y=y_m[i]))+
-          geom_point())+
-    expand_limits(x=c(-1,1), y=c(-1, 1))
-  
-  ggsave(filename = paste0("plot",test$Selection[i],"_", test$videofile[i],".png"), path="wdata/Localization_Plots")
-}
+#this code works in plotly to map all coordinates at once, need to create loop to go through row by row and set fixed axes limits for each plot
+sound<- plot_ly(minilocsarr, x=~x_m, y=~y_m, z=~z_m, colors = colors,
+                marker = list(symbol = 'circle', sizemode = 'diameter'), sizes = c(5, 150))
+# layout(yaxis = list(range = c(-2,2)), xaxis = list (range = c(-2,2)), zaxis = list(range = c(-2,2)))
 
-plot1<-ggplot(test, aes(x=x_m , y=y_m))+
-  geom_point()+
-  expand_limits(x=c(-1,2), y=c(-1, 2))
-print(plot1)
+sound <- sound %>% layout(title = 'Fish Sound Coordinate',
+                          scene = list(domain=list(x=c(-2,2),y=c(-2,2),
+                                                   # select the type of aspectmode
+                                                   aspectmode='cube')))
+sound 
 
-
-
-
-#write data
-write.table(locfilter,# the object you want to export as a selection table 
-            file = paste0(out_dir, data_files[i]),# the path and file name using the file extension .txt
-            sep = "\t", #how to delineate data
-            row.names = FALSE, #row names will mess things up
-            quote = FALSE)#putting things in quotes will mess things up.
-
-}}
