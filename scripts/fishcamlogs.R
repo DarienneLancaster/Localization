@@ -176,6 +176,30 @@ locswdrift2<- locswdrift2%>%
   filter(!is.na(videofile))
 #####
 
+locstest<-locswdrift2
+
+locstest1<-locstest%>%
+  filter(Cam==1)
+
+locstest2<-locstest%>%
+  filter(Cam==2)%>%
+  select(Selection,'Begin Date Time',Site, vidnames, filenum, videotime,)
+
+locstest3<-locstest%>%
+  filter(Cam==3)%>%
+  select(Selection,'Begin Date Time',Site, vidnames, filenum, videotime,)
+
+locstest12<- left_join(locstest1,locstest3, by= c("Selection","Begin Date Time", "Site"))
+
+locstestall<-left_join(locstest12,locstest2, by= c("Selection","Begin Date Time", "Site"))
+locstestall<-locstestall%>%
+  rename("vidnames1"="vidnames.x", "filenum1"="filenum.x", "videotime1"="videotime.x","vidnames3"="vidnames.y", "filenum3"="filenum.y", "videotime3"="videotime.y","vidnames2"="vidnames", "filenum2"="filenum", "videotime2"="videotime")
+  
+  full_join(data2, data3, by = c("ID", "X2")) 
+
+$Cam2filename<-ifelse(locstest1$Cam==3,locstest1$)
+#if  Cam==3 create column named locswdrift2$Cam2filename and locswdrift2$Cam1filename
+
 ####arrange data in order by date, filenum, and video time####
 #add zeros in front of filenum column so that they will order correctly
 locswdrift2$filenum<-with_options(
@@ -203,6 +227,7 @@ write.csv(minilocsarr,"wdata/minilocsarr.csv", row.names = FALSE)
 test<-minilocsarr
 
 #loop to create 3D plot of each localization
+for( i in 1:nrow(test)){
 sound<- plot_ly(test, x=~x_m[i], y=~y_m[i], z=~z_m[i], mode= 'markers')
 sound<-layout(sound, scene = list(xaxis = list(title = "Bottom", range = c(1,-1)), 
                                   yaxis = list(title = "Side", range = c(1,-1)), 
@@ -223,17 +248,17 @@ orca(p=sound, file = paste0("wdata/3DPlots/","plot",test$Selection[i],"_", test$
 # orca(p=sound, file = "wdata/3DPlots/soundtest.png")                           
 
 ####2D loop for plotting coordinates with ggplot####
-# for( i in 1:nrow(test)){
-#   print(ggplot(test, aes(x=x_m[i] , y=y_m[i]))+ #create scatterplot for x and y coordinates
-#           geom_point())+
-#     expand_limits(x=c(-1,1), y=c(-1, 1))+
-#     ggtitle(paste0("Selection#=",test$Selection[i],"\n",test$videofile[i],"\n",test$videotime[i], "\n","y_coord=",test$y_m[i]))+
-#     theme(plot.title = element_text(size=4), aspect.ratio = 5/5)
-#   
-#   ggsave(filename = paste0("plot",test$Selection[i],"_", test$videofile[i],".png"), path="wdata/Localization_Plots") #save plot with appropriate filename in new folder
-#   plotname<-paste0("plot",test$Selection[i],"_", test$videofile[i],".png") #create name for each plot and paste it into dataframe under new column plot
-#   test$plot[i]<-plotname
-# }
+for( i in 1:nrow(test)){
+  print(ggplot(test, aes(x=x_m[i] , y=y_m[i]))+ #create scatterplot for x and y coordinates
+          geom_point())+
+    expand_limits(x=c(-1,1), y=c(-1, 1))+
+    ggtitle(paste0("Selection#=",test$Selection[i]," s = ",test$s,"\n",test$videofile[i],"\n",test$videotime[i], "\n","z_coord=",test$z_m[i]))+
+    theme(plot.title = element_text(size=4), aspect.ratio = 5/5)
+
+  ggsave(filename = paste0(test$Site[i],"_",test$videofile[i],"_",test$Selection[i], ".png"), path="wdata/Localization_Plots") #save plot with appropriate filename in new folder
+  plotname<-paste0("plot",test$Selection[i],"_", test$videofile[i],".png") #create name for each plot and paste it into dataframe under new column plot
+  test$plot[i]<-plotname
+}
 
 
 
