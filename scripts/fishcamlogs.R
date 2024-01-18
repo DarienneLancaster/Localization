@@ -176,46 +176,43 @@ locswdrift2<- locswdrift2%>%
   filter(!is.na(videofile))
 #####
 
+####add filenames for fc1,2,3 to the same row for each selection###
+
 locstest<-locswdrift2
 
 locstest1<-locstest%>%
-  filter(Cam==1)
+  filter(Cam==1)%>%
+  select(Selection,'Begin Date Time',Site, vidnames, filenum, videotime,)
 
 locstest2<-locstest%>%
   filter(Cam==2)%>%
   select(Selection,'Begin Date Time',Site, vidnames, filenum, videotime,)
 
 locstest3<-locstest%>%
-  filter(Cam==3)%>%
-  select(Selection,'Begin Date Time',Site, vidnames, filenum, videotime,)
+  filter(Cam==3)
+  
 
-locstest12<- left_join(locstest1,locstest3, by= c("Selection","Begin Date Time", "Site"))
+locstest12<- left_join(locstest3,locstest1, by= c("Selection","Begin Date Time", "Site"))
 
 locstestall<-left_join(locstest12,locstest2, by= c("Selection","Begin Date Time", "Site"))
 locstestall<-locstestall%>%
-  rename("vidnames1"="vidnames.x", "filenum1"="filenum.x", "videotime1"="videotime.x","vidnames3"="vidnames.y", "filenum3"="filenum.y", "videotime3"="videotime.y","vidnames2"="vidnames", "filenum2"="filenum", "videotime2"="videotime")
-  
-  full_join(data2, data3, by = c("ID", "X2")) 
-
-$Cam2filename<-ifelse(locstest1$Cam==3,locstest1$)
-#if  Cam==3 create column named locswdrift2$Cam2filename and locswdrift2$Cam1filename
+  rename("vidnames3"="vidnames.x", "filenum3"="filenum.x", "videotime3"="videotime.x","vidnames1"="vidnames.y", "filenum1"="filenum.y", "videotime1"="videotime.y","vidnames2"="vidnames", "filenum2"="filenum", "videotime2"="videotime")
 
 ####arrange data in order by date, filenum, and video time####
 #add zeros in front of filenum column so that they will order correctly
-locswdrift2$filenum<-with_options(
+locstestall$filenum3<-with_options(
   c(scipen = 999), 
-  str_pad(locswdrift2$filenum, 5, pad = "0")
+  str_pad(locstestall$filenum3, 5, pad = "0")
 )
 
 #arrange however you like
-locsarr<-locswdrift2%>%
-  filter(Cam==3)%>% #can change this to filter for whatever camera you're working on
-  group_by(`Begin Date`, filenum)%>%
-  arrange(videotime, .by_group = TRUE)
+locsarr<-locstestall%>%
+  group_by(`Begin Date`, filenum3)%>%
+  arrange(videotime3, .by_group = TRUE)
 
 #truncated dataframe that's easier to look at when doing video annotation
 minilocsarr<-locsarr%>%
-  select(c(1,19,90:92,107:110,117,119,122,123))%>% 
+  select(c(1,19,90:92,106:110,112,117:119,123:129))%>% 
   relocate(1, .after = last_col())
 
 #####
@@ -252,10 +249,12 @@ for( i in 1:nrow(test)){
   print(ggplot(test, aes(x=x_m[i] , y=y_m[i]))+ #create scatterplot for x and y coordinates
           geom_point())+
     expand_limits(x=c(-1,1), y=c(-1, 1))+
-    ggtitle(paste0("Selection#=",test$Selection[i]," s = ",test$s,"\n",test$videofile[i],"\n",test$videotime[i], "\n","z_coord=",test$z_m[i]))+
-    theme(plot.title = element_text(size=4), aspect.ratio = 5/5)
+    ggtitle(paste0("Selection#=",test$Selection[i]," s = ",test$s,"\n",test$vidnames3[i],"\n",test$videotime3[i], "\n","z_coord=",test$z_m[i], "\n",test$videotime2[i], " ", test$vidnames2[i], "\n", test$videotime1[i], " ", test$vidnames1[i]))+
+    theme(plot.title = element_text(size=4), aspect.ratio = 10/10,
+          axis.text = element_text(size=4),
+          axis.title = element_text(size = 4))
 
-  ggsave(filename = paste0(test$Site[i],"_",test$videofile[i],"_",test$Selection[i], ".png"), path="wdata/Localization_Plots") #save plot with appropriate filename in new folder
+  ggsave(filename = paste0(test$Site[i],"_",test$vidnames3[i],"_",test$Selection[i], ".png"), path="wdata/Localization_Plots", width = 8, height = 8, units = "cm") #save plot with appropriate filename in new folder
   plotname<-paste0("plot",test$Selection[i],"_", test$videofile[i],".png") #create name for each plot and paste it into dataframe under new column plot
   test$plot[i]<-plotname
 }
