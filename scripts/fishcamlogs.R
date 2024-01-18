@@ -259,5 +259,53 @@ for( i in 1:nrow(test)){
   test$plot[i]<-plotname
 }
 
+####
+
+####add in EventMeasure fish ID information and append to localization dataframe####
+
+fishTI<-read.csv("wdata/TI_locs_20240117.csv", header = TRUE, skip = 4 )
+fishDR<-read.csv("wdata/DR_locs_20240118.csv", header = TRUE, skip = 4 )
+fish<-rbind(fishTI,fishDR)#combine datasets from each site
+
+fish1<-fish%>%
+  select(-c(3:21))%>% #get rid of unnecessary columns
+  separate(Notes, into = c("fishnum", "ID_confidence","Comments"), sep = "_")%>%#separate out values in Notes column into separate columns
+  separate(Filename, into= c("FileStart","Date","FileEnd"), sep= c(15,23,24))%>%
+  select(-FileStart, -FileEnd)
+#add zeros to start of fish num so it will order correctly  
+fish1$fishnum<-with_options(
+  c(scipen = 999), 
+  str_pad(fish1$fishnum, 4, pad = "0")
+)
+#add zeros to start of Localization ID
+fish1$Localization_ID<-with_options(
+  c(scipen = 999), 
+  str_pad(fish1$Localization_ID, 5, pad = "0")
+)
+ #combine fishnum and localization ID (eventually combine with date as well)
+fish1<-fish1%>%
+unite(fishID, fishnum, Localization_ID, Date, sep = "_", remove = FALSE)
+
+#how to count number of calls per unique fish
+#create separate frames for enter exit
+
+fishE<-fish1%>%
+  filter(grepl("e", Enter.e._Exit.x.))
+
+fishX<-fish1%>%
+  filter(grepl("x", Enter.e._Exit.x.))
+#separate exit marker from framemultiplier value
+fishX1<-fishX%>%
+  separate(Enter.e._Exit.x., into = c("exit", "framemultiplier"), sep = "_")#separate out values in Notes column into separate columns
+#join enter and exit frames together by FishID
+fishEX<- left_join(fishE,fishX1, by= c("fishID"))
+fishEX$framemultiplier<-as.numeric(fishEX$framemultiplier)
+str(fishEX)
+#add ifelse to calculate number of frames total based on framemultipler(this values needs to be carefully annoted by counting number of videos from enter to exit time)
+fishEX$totframes<-ifelse(is.na(fishEX$framemultiplier),(fishEX$Frame.y-fishEX$Frame.x),
+                         ifelse(fishEX$framemultiplier!="NA",((2995-fishEX$Frame.x)+(fishEX$framemultiplier*2995)+(fishEX$Frame.y)),"check"))
+fishEX$totsecs<-as_hms(fishEX$totframes/9.983333333)#convert to time (there are 9.9833333 frames per second)
+##work on the math here
 
 
+#then count unique (may need to make it fishnum, date, localizationID)
