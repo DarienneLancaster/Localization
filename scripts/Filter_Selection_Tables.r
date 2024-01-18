@@ -12,7 +12,7 @@ loc<-"Taylor_Islet_LA_2022"
 #start of import/filter/export function
 filt<-function(loc, 
                err_span=2,#specifies error span filter limit
-               box_width=1 #specifies distance either side of array center filter limit (e.g. 1m any direction. If you want higher limit for vertical(y) axis you can adjust within function (e.g. box_width*3 = 3m))
+               box_width=1#specifies distance either side of array center filter limit (e.g. 1m any direction. If you want higher limit for vertical(y) axis you can adjust within function (e.g. box_width*3 = 3m))
                ){
 
 data_files<- list.files(paste0("odata/", loc))# create object with list of all files in loc folder
