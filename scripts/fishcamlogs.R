@@ -249,7 +249,7 @@ for( i in 1:nrow(test)){
   print(ggplot(test, aes(x=x_m[i] , y=y_m[i]))+ #create scatterplot for x and y coordinates
           geom_point())+
     expand_limits(x=c(-1,1), y=c(-1, 1))+
-    ggtitle(paste0("Selection#=",test$Selection[i]," s = ",test$s,"\n",test$vidnames3[i],"\n",test$videotime3[i], "\n","z_coord=",test$z_m[i], "\n",test$videotime2[i], " ", test$vidnames2[i], "\n", test$videotime1[i], " ", test$vidnames1[i]))+
+    ggtitle(paste0("Selection#=",test$Selection[i]," s = ",test$s[i],"\n",test$vidnames3[i],"\n",test$videotime3[i], "\n","z_coord=",test$z_m[i], "\n",test$videotime2[i], " ", test$vidnames2[i], "\n", test$videotime1[i], " ", test$vidnames1[i]))+
     theme(plot.title = element_text(size=4), aspect.ratio = 10/10,
           axis.text = element_text(size=4),
           axis.title = element_text(size = 4))
@@ -270,7 +270,7 @@ fish<-rbind(fishTI,fishDR)#combine datasets from each site
 fish1<-fish%>%
   select(-c(3:21))%>% #get rid of unnecessary columns
   separate(Notes, into = c("fishnum", "ID_confidence","Comments"), sep = "_")%>%#separate out values in Notes column into separate columns
-  separate(Filename, into= c("FileStart","Date","FileEnd"), sep= c(15,23,24))%>%
+  separate(Filename, into= c("FileStart","Date","FileEnd"), sep= c(15,23,24), remove = FALSE)%>%
   select(-FileStart, -FileEnd)
 #add zeros to start of fish num so it will order correctly  
 fish1$fishnum<-with_options(
@@ -284,7 +284,7 @@ fish1$Localization_ID<-with_options(
 )
  #combine fishnum and localization ID (eventually combine with date as well)
 fish1<-fish1%>%
-unite(fishID, fishnum, Localization_ID, Date, sep = "_", remove = FALSE)
+unite(fishID, fishnum, Date, sep = "_", remove = FALSE)
 
 #how to count number of calls per unique fish
 #create separate frames for enter exit
@@ -304,8 +304,39 @@ str(fishEX)
 #add ifelse to calculate number of frames total based on framemultipler(this values needs to be carefully annoted by counting number of videos from enter to exit time)
 fishEX$totframes<-ifelse(is.na(fishEX$framemultiplier),(fishEX$Frame.y-fishEX$Frame.x),
                          ifelse(fishEX$framemultiplier!="NA",((2995-fishEX$Frame.x)+(fishEX$framemultiplier*2995)+(fishEX$Frame.y)),"check"))
-fishEX$totsecs<-as_hms(fishEX$totframes/9.983333333)#convert to time (there are 9.9833333 frames per second)
-##work on the math here
+fishEX$tottime<-as_hms(fishEX$totframes/9.983333333)#convert to time (there are 9.9833333 frames per second)
+#keep only ID column and tottime column
+fishEX<-fishEX%>%
+  select(fishID, tottime)
+#bind fishEX to main fish1 table
+fish1<-left_join(fish1,fishEX,by="fishID")
+
+Ftotsounds<-fish1%>%
+  filter(!grepl("e|x", Enter.e._Exit.x.))%>%
+  count(fishID,Localization_ID)%>%
+  count(fishID)
+
+fish1<-fish1%>%
+  left_join(Ftotsounds, by="fishID")%>%
+  rename("soundsperfish"="n","videofile"="Filename","Selection"="Localization_ID")
+
+####join edited EM fish file to AMAR localization file####
+#add zeros to start of Selection so it will match EM format  
+locsarr$Selection<-with_options(
+  c(scipen = 999), 
+  str_pad(locsarr$Selection, 5, pad = "0")
+)
+
+#create dataframe of AMAR localizations/sound measurements/fish ID annotations
+SoundnVid<-locsarr%>%
+  left_join(fish1, by= c("videofile", "Selection"))%>%
+  relocate(1, .after = last_col())%>%
+  filter(!grepl("e|x|m", Enter.e._Exit.x.))%>% #removes columns with enter, exit, and missing (e.g. could not locate source of sound)
+  select(-c(Cam:vidnames3, vidstarttime:videndtime,videotime3:videotime2))%>%
+  filter(!is.na(fishnum)) #filters out an localizations that haven't been annotated yet
+ 
+
+#problem with how fishID is being calculated right now, check this
 
 
 #then count unique (may need to make it fishnum, date, localizationID)
