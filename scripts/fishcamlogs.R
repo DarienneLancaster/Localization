@@ -263,8 +263,8 @@ for( i in 1:nrow(test)){
 
 ####add in EventMeasure fish ID information and append to localization dataframe####
 
-fishTI<-read.csv("wdata/TI_locs_20240117.csv", header = TRUE, skip = 4 )
-fishDR<-read.csv("wdata/DR_locs_20240118.csv", header = TRUE, skip = 4 )
+fishTI<-read.csv("wdata/TI_locs_20240119.csv", header = TRUE, skip = 4 )
+fishDR<-read.csv("wdata/DR_locs_20240119.csv", header = TRUE, skip = 4 )
 fish<-rbind(fishTI,fishDR)#combine datasets from each site
 
 fish1<-fish%>%
@@ -278,11 +278,11 @@ fish1$fishnum<-with_options(
   str_pad(fish1$fishnum, 4, pad = "0")
 )
 #add zeros to start of Localization ID
-fish1$Localization_ID<-with_options(
+fish1$Selection<-with_options(
   c(scipen = 999), 
-  str_pad(fish1$Localization_ID, 5, pad = "0")
+  str_pad(fish1$Selection, 5, pad = "0")
 )
- #combine fishnum and localization ID (eventually combine with date as well)
+ #combine fishnum and Date
 fish1<-fish1%>%
 unite(fishID, fishnum, Date, sep = "_", remove = FALSE)%>%
   separate(Filename, into = c("vidnum"), sep = "_", remove = FALSE)#separate video file number from file name
@@ -292,13 +292,11 @@ fish1$vidnum<-as.numeric(fish1$vidnum)
 #create separate frames for enter exit
 
 fishE<-fish1%>%
-  filter(grepl("e", Enter.e._Exit.x.))
+  filter(grepl("e", Enter_Exit))
 
 fishX<-fish1%>%
-  filter(grepl("x", Enter.e._Exit.x.))
-#separate exit marker from framemultiplier value
-fishX1<-fishX%>%
-  separate(Enter.e._Exit.x., into = c("exit", "framemultiplier"), sep = "_")#separate out values in Notes column into separate columns
+  filter(grepl("x", Enter_Exit))
+
 #join enter and exit frames together by FishID
 fishEX<- left_join(fishE,fishX1, by= c("fishID"))
 
@@ -319,13 +317,13 @@ fishEX<-fishEX%>%
 fish1<-left_join(fish1,fishEX,by="fishID")
 
 Ftotsounds<-fish1%>%
-  filter(!grepl("e|x", Enter.e._Exit.x.))%>%
-  count(fishID,Localization_ID)%>%
+  filter(!grepl("e|x", Enter_Exit))%>%
+  count(fishID,Selection)%>%
   count(fishID)
 
 fish1<-fish1%>%
   left_join(Ftotsounds, by="fishID")%>%
-  rename("soundsperfish"="n","videofile"="Filename","Selection"="Localization_ID")
+  rename("soundsperfish"="n","videofile"="Filename")
 
 ####join edited EM fish file to AMAR localization file####
 #add zeros to start of Selection so it will match EM format  
@@ -337,14 +335,15 @@ locsarr$Selection<-with_options(
 #create dataframe of AMAR localizations/sound measurements/fish ID annotations
 SoundnVid<-locsarr%>%left_join(fish1, by= c("videofile", "Selection"))%>%
   relocate(1, .after = last_col())%>%
-  filter(!grepl("e|x|m", Enter.e._Exit.x.))%>% #removes columns with enter, exit, and missing (e.g. could not locate source of sound)
+  filter(!grepl("e|x|m", Enter_Exit))%>% #removes columns with enter, exit, and missing (e.g. could not locate source of sound)
   select(-c(Cam:vidnames3, vidstarttime:videndtime,videotime3:videotime2))%>%
   filter(!is.na(fishnum)) #filters out an localizations that haven't been annotated yet  (Need to figure out how to flag if there's an annotation issue from my EM annotations - like typo in selection  #)
 
 write.csv(SoundnVid,"wdata/SoundnVid.csv", row.names = FALSE)
  
 ####create test plots####
-SoundnVid$ID_confidence
+SoundnVid$`Center Freq (Hz)`
+str(SoundnVid)
 
 freq<-ggplot(SoundnVid, aes(x=`Dur 90% (s)` , y=`Center Freq (Hz)`))+
   geom_point(aes(color = factor(Species), shape=t))
