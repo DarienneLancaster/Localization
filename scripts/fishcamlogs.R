@@ -224,16 +224,16 @@ write.csv(minilocsarr,"wdata/minilocsarr.csv", row.names = FALSE)
 test<-minilocsarr
 
 #loop to create 3D plot of each localization
-for( i in 1:nrow(test)){
-sound<- plot_ly(test, x=~x_m[i], y=~y_m[i], z=~z_m[i], mode= 'markers')
-sound<-layout(sound, scene = list(xaxis = list(title = "Bottom", range = c(1,-1)), 
-                                  yaxis = list(title = "Side", range = c(1,-1)), 
-                                  zaxis = list(title = "Vertical", range = c(-2,2))))
-sound<-layout(sound, title= paste0(test$videofile[i],"\n","Selection = ",test$Selection[i],"\n","Time = ",test$videotime[i],"  z_coord =",test$z_m[i]) )
-orca(p=sound, file = paste0("wdata/3DPlots/","plot",test$Selection[i],"_", test$videofile[i],".png"), )   #save plot with appropriate filename in new folder
-  plotname<-paste0("plot",test$Selection[i],"_", test$videofile[i],".png") #create name for each plot and paste it into dataframe under new column plot
-  test$plot[i]<-plotname
-}
+# for( i in 1:nrow(test)){
+# sound<- plot_ly(test, x=~x_m[i], y=~y_m[i], z=~z_m[i], mode= 'markers')
+# sound<-layout(sound, scene = list(xaxis = list(title = "Bottom", range = c(1,-1)), 
+#                                   yaxis = list(title = "Side", range = c(1,-1)), 
+#                                   zaxis = list(title = "Vertical", range = c(-2,2))))
+# sound<-layout(sound, title= paste0(test$videofile[i],"\n","Selection = ",test$Selection[i],"\n","Time = ",test$videotime[i],"  z_coord =",test$z_m[i]) )
+# orca(p=sound, file = paste0("wdata/3DPlots/","plot",test$Selection[i],"_", test$videofile[i],".png"), )   #save plot with appropriate filename in new folder
+#   plotname<-paste0("plot",test$Selection[i],"_", test$videofile[i],".png") #create name for each plot and paste it into dataframe under new column plot
+#   test$plot[i]<-plotname
+# }
 
 ####Code to plot all points together (used for testing code)####
 # sound<- plot_ly(test, x=~x_m, y=~y_m, z=~z_m, mode= 'markers')
@@ -284,7 +284,9 @@ fish1$Localization_ID<-with_options(
 )
  #combine fishnum and localization ID (eventually combine with date as well)
 fish1<-fish1%>%
-unite(fishID, fishnum, Date, sep = "_", remove = FALSE)
+unite(fishID, fishnum, Date, sep = "_", remove = FALSE)%>%
+  separate(Filename, into = c("vidnum"), sep = "_", remove = FALSE)#separate video file number from file name
+fish1$vidnum<-as.numeric(fish1$vidnum)
 
 #how to count number of calls per unique fish
 #create separate frames for enter exit
@@ -299,12 +301,17 @@ fishX1<-fishX%>%
   separate(Enter.e._Exit.x., into = c("exit", "framemultiplier"), sep = "_")#separate out values in Notes column into separate columns
 #join enter and exit frames together by FishID
 fishEX<- left_join(fishE,fishX1, by= c("fishID"))
-fishEX$framemultiplier<-as.numeric(fishEX$framemultiplier)
+
+####calculate total time in FOV using vidnums and number of frames per 5min file.
+fishEX$totframes<-fishEX$vidnum.y-fishEX$vidnum.x
+fishEX$totframes<-replace(fishEX$totframes,fishEX$totframes==0, "NA")
 str(fishEX)
-#add ifelse to calculate number of frames total based on framemultipler(this values needs to be carefully annoted by counting number of videos from enter to exit time)
-fishEX$totframes<-ifelse(is.na(fishEX$framemultiplier),(fishEX$Frame.y-fishEX$Frame.x),
-                         ifelse(fishEX$framemultiplier!="NA",((2995-fishEX$Frame.x)+(fishEX$framemultiplier*2995)+(fishEX$Frame.y)),"check"))
+fishEX$totframes<-as.numeric(fishEX$totframes)
+
+fishEX$totframes<-ifelse(is.na(fishEX$totframes),(fishEX$Frame.y-fishEX$Frame.x),
+                         ifelse(fishEX$totframes!="NA",((2995-fishEX$Frame.x)+((fishEX$totframes-1)*2995)+(fishEX$Frame.y)),"check"))
 fishEX$tottime<-as_hms(fishEX$totframes/9.983333333)#convert to time (there are 9.9833333 frames per second)
+
 #keep only ID column and tottime column
 fishEX<-fishEX%>%
   select(fishID, tottime)
@@ -344,18 +351,4 @@ freq<-ggplot(SoundnVid, aes(x=`Dur 90% (s)` , y=`Center Freq (Hz)`))+
 
 print(freq)
 
-str(SoundnVid)
 
-for( i in 1:nrow(test)){
-  print(ggplot(test, aes(x=x_m[i] , y=y_m[i]))+ #create scatterplot for x and y coordinates
-          geom_point())+
-    expand_limits(x=c(-1,1), y=c(-1, 1))+
-    ggtitle(paste0("Selection#=",test$Selection[i]," s = ",test$s[i],"\n",test$vidnames3[i],"\n",test$videotime3[i], "\n","z_coord=",test$z_m[i], "\n",test$videotime2[i], " ", test$vidnames2[i], "\n", test$videotime1[i], " ", test$vidnames1[i]))+
-    theme(plot.title = element_text(size=4), aspect.ratio = 10/10,
-          axis.text = element_text(size=4),
-          axis.title = element_text(size = 4))
-  
-  ggsave(filename = paste0(test$Site[i],"_",test$vidnames3[i],"_",test$Selection[i], ".png"), path="wdata/Localization_Plots", width = 8, height = 8, units = "cm") #save plot with appropriate filename in new folder
-  plotname<-paste0("plot",test$Selection[i],"_", test$videofile[i],".png") #create name for each plot and paste it into dataframe under new column plot
-  test$plot[i]<-plotname
-}
