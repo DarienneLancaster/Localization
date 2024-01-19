@@ -328,15 +328,34 @@ locsarr$Selection<-with_options(
 )
 
 #create dataframe of AMAR localizations/sound measurements/fish ID annotations
-SoundnVid<-locsarr%>%
-  left_join(fish1, by= c("videofile", "Selection"))%>%
+SoundnVid<-locsarr%>%left_join(fish1, by= c("videofile", "Selection"))%>%
   relocate(1, .after = last_col())%>%
   filter(!grepl("e|x|m", Enter.e._Exit.x.))%>% #removes columns with enter, exit, and missing (e.g. could not locate source of sound)
   select(-c(Cam:vidnames3, vidstarttime:videndtime,videotime3:videotime2))%>%
-  filter(!is.na(fishnum)) #filters out an localizations that haven't been annotated yet
+  filter(!is.na(fishnum)) #filters out an localizations that haven't been annotated yet  (Need to figure out how to flag if there's an annotation issue from my EM annotations - like typo in selection  #)
+
+write.csv(SoundnVid,"wdata/SoundnVid.csv", row.names = FALSE)
  
+####create test plots####
+SoundnVid$ID_confidence
 
-#problem with how fishID is being calculated right now, check this
+freq<-ggplot(SoundnVid, aes(x=`Dur 90% (s)` , y=`Center Freq (Hz)`))+
+  geom_point(aes(color = factor(Species), shape=t))
 
+print(freq)
 
-#then count unique (may need to make it fishnum, date, localizationID)
+str(SoundnVid)
+
+for( i in 1:nrow(test)){
+  print(ggplot(test, aes(x=x_m[i] , y=y_m[i]))+ #create scatterplot for x and y coordinates
+          geom_point())+
+    expand_limits(x=c(-1,1), y=c(-1, 1))+
+    ggtitle(paste0("Selection#=",test$Selection[i]," s = ",test$s[i],"\n",test$vidnames3[i],"\n",test$videotime3[i], "\n","z_coord=",test$z_m[i], "\n",test$videotime2[i], " ", test$vidnames2[i], "\n", test$videotime1[i], " ", test$vidnames1[i]))+
+    theme(plot.title = element_text(size=4), aspect.ratio = 10/10,
+          axis.text = element_text(size=4),
+          axis.title = element_text(size = 4))
+  
+  ggsave(filename = paste0(test$Site[i],"_",test$vidnames3[i],"_",test$Selection[i], ".png"), path="wdata/Localization_Plots", width = 8, height = 8, units = "cm") #save plot with appropriate filename in new folder
+  plotname<-paste0("plot",test$Selection[i],"_", test$videofile[i],".png") #create name for each plot and paste it into dataframe under new column plot
+  test$plot[i]<-plotname
+}
