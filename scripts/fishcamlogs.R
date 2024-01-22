@@ -298,7 +298,7 @@ fishX<-fish1%>%
   filter(grepl("x", Enter_Exit))
 
 #join enter and exit frames together by FishID
-fishEX<- left_join(fishE,fishX1, by= c("fishID"))
+fishEX<- left_join(fishE,fishX, by= c("fishID"))
 
 ####calculate total time in FOV using vidnums and number of frames per 5min file.
 fishEX$totframes<-fishEX$vidnum.y-fishEX$vidnum.x
