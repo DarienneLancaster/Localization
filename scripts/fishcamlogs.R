@@ -88,7 +88,7 @@ write.csv(driftmean2,"wdata/driftmean.csv", row.names = FALSE)
 #import localization files annotated for Fish Sounds
 filtlocs<-"All_Localizations_Daylight_LA_filtered_2_1_FS"#change folder name here
 
-FSlocs<-imp_raven(path = paste0("wdata/", filtlocs), all.data =  TRUE, only.spectro.view = FALSE) #need to set only.spectro.view to false to see columns from waveform.
+FSlocs<-imp_raven(path = paste0("odata/", filtlocs), all.data =  TRUE, only.spectro.view = FALSE) #need to set only.spectro.view to false to see columns from waveform.
 FSlocs<-FSlocs%>%
   select(-c(110))%>% #a weird additional column was added at the end so needed to remove (may not always need this
   filter(grepl("Spectrogram", View))%>% #currently filtering out Waveform view, see *** below for more on what still need to be done.
@@ -263,8 +263,8 @@ for( i in 1:nrow(test)){
 
 ####add in EventMeasure fish ID information and append to localization dataframe####
 
-fishTI<-read.csv("wdata/TI_locs_20240119.csv", header = TRUE, skip = 4 )
-fishDR<-read.csv("wdata/DR_locs_20240119.csv", header = TRUE, skip = 4 )
+fishTI<-read.csv("odata/TI_locs_20240119.csv", header = TRUE, skip = 4 )
+fishDR<-read.csv("odata/DR_locs_20240119.csv", header = TRUE, skip = 4 )
 fish<-rbind(fishTI,fishDR)#combine datasets from each site
 
 fish1<-fish%>%
@@ -342,7 +342,7 @@ SoundnVid<-locsarr%>%left_join(fish1, by= c("videofile", "Selection"))%>%
 write.csv(SoundnVid,"wdata/SoundnVid.csv", row.names = FALSE)
  
 ####create test plots####
-SoundnVid$`Center Freq (Hz)`
+SoundnVid$`Dur 90% (s)`
 str(SoundnVid)
 
 freq<-ggplot(SoundnVid, aes(x=`Dur 90% (s)` , y=`Center Freq (Hz)`))+
@@ -350,4 +350,90 @@ freq<-ggplot(SoundnVid, aes(x=`Dur 90% (s)` , y=`Center Freq (Hz)`))+
 
 print(freq)
 
+#####
 
+
+#### try cluster analysis####
+
+#create test dataset with just a few variables
+clust<-SoundnVid%>%
+    select(16,23,29,36, 38:41,47,60,106:129)
+
+lp("klaR")
+lp("psych")
+lp("ggord")
+lp("devtools")
+
+#create pairs panel to look for covariance (can't get points to colour by genus or species)
+pairs.panels(clust[2:11],
+             gap = 0,
+             bg = c("red", "green", "blue")[clust$Genus],
+             pch = 25)
+
+
+
+
+
+clust$vidnum<-as.character(clust$vidnum)
+str(clust)
+#scale all numeric variables using scale function (this causes a lot of NA 
+#values where variance is equal to zero, need to check if this is a problem.
+#how did Xavier scale sound measurements?
+
+lp("liver")
+
+#tried with zscore, also gives NAs
+zscoretest<-clust%>%
+  mutate(across(where(is.numeric), zscore))
+
+ztest2<- clust %>% 
+  mutate(zscore = (`Freq 25% (Hz)` - mean(`Freq 25% (Hz)`))/sd(`Freq 25% (Hz)`))
+mean(clust$`Freq 25% (Hz)`)
+sd(clust$`Freq 25% (Hz)`)
+(148.438-118.6079)/112.69
+
+#tried with scale, gives nas
+clust$`Freq 25% (Hz)`
+clustscale<-clust%>%
+  mutate(across(where(is.numeric), scale))
+
+#convert NA values to 0
+clustscale[, 2:11][is.na(clustscale[, 2:11])] <- 0
+
+#once you have the MASS package loaded you'll need to use dplyr::select for all select commands
+# lp("MASS")
+# clustscale1<-clustscale%>%
+#   dplyr::select(-c(12:23,25:35))
+# 
+# # %>%
+# #   filter(t=="d")
+# 
+# #linear discriminant analysis
+# 
+# z <- lda(Species ~ ., clustscale1)
+# str(clustscale1)
+# clustscale1$`Begin Date`<-as.factor(clustscale1$`Begin Date`)
+# clustscale1$filenum3<-as.factor(clustscale1$filenum3)
+# clustscale1$Species<-as.factor(clustscale1$Species)
+# 
+# 
+# linDA<-lda(clustscale1[,-12],grouping= clustscale1[,-12])
+# 
+# #run some trial heirarchical clustering to see how data branches off
+# #how do we find out what variables are causing the main branches?
+# dist_mat<- dist(clustscale, method = 'euclidian')
+# 
+# hclust_avg<-hclust(dist_mat, method = 'average')
+# plot(hclust_avg)
+# 
+# cut_avg<-cutree(hclust_avg, k=7)
+# plot(hclust_avg)
+# rect.hclust(hclust_avg , k = 7, border = 2:6)
+# abline(h = 3, col = 'red')
+# 
+# lp("dendextend")
+# avg_dend_obj <- as.dendrogram(hclust_avg)
+# avg_col_dend <- color_branches(avg_dend_obj, h = 3)
+# plot(avg_col_dend)
+# 
+# 
