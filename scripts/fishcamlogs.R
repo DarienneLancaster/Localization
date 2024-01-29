@@ -30,21 +30,21 @@ buzztime$Site <- ifelse(buzztime$X1 >= '2022-08-12' & buzztime$X1 <= '2022-08-23
                                ifelse(buzztime$X1 >= '2022-09-08' & buzztime$X1 <= '2022-09-16', "Danger Rocks", 0)))
 
 #create dataframe for FC1 (Only run this when fold<-"FC1logs")
-#FC1buzz<-buzztime
+FC1buzz<-buzztime
 FC1buzz$Cam<-1
   
 #create dataframe for FC2 (Only run this when fold<-"FC2logs")
-#FC2buzz<-buzztime
+FC2buzz<-buzztime
 FC2buzz$Cam<-2
 
 #create dataframe for FC3 (Only run this when fold<-"FC3logs")
-#FC3buzz<-buzztime
+FC3buzz<-buzztime
 FC3buzz$Cam<-3
 
 #merge three dataframes together
 logtimes<-rbind(FC1buzz,FC2buzz,FC3buzz)
 logtimes<-logtimes%>%
-  select(-c(3:7))%>%
+  dplyr::select(-c(3:7))%>%
   rename("Date" = "X1", "LogTime" = "X2")
 
 #export to wdata
@@ -74,7 +74,7 @@ driftmean<- buzzdrift%>%
 #remove date from meanDrift  column
 driftmean2<- driftmean %>%
   separate(meanDrift, into = c("WrongDate","meanDrift"), sep = " ", remove = TRUE)%>%
-  select(-c(4)) #remove WrongDate column
+  dplyr::select(-c(4)) #remove WrongDate column
 
 write.csv(driftmean2,"wdata/driftmean.csv", row.names = FALSE)
 
@@ -90,7 +90,7 @@ filtlocs<-"All_Localizations_Daylight_LA_filtered_2_1_FS"#change folder name her
 
 FSlocs<-imp_raven(path = paste0("odata/", filtlocs), all.data =  TRUE, only.spectro.view = FALSE) #need to set only.spectro.view to false to see columns from waveform.
 FSlocs<-FSlocs%>%
-  select(-c(110))%>% #a weird additional column was added at the end so needed to remove (may not always need this
+  dplyr::select(-c(110))%>% #a weird additional column was added at the end so needed to remove (may not always need this
   filter(grepl("Spectrogram", View))%>% #currently filtering out Waveform view, see *** below for more on what still need to be done.
   filter(grepl("f|u|F|U|e", s))%>%#filter to only keep files labelled as fish sound (FS)
   rename("Time" = "Begin Clock Time")
@@ -140,7 +140,7 @@ data_files2<- data_files %>%
   #chop up fileend into camera number (e.g. 03), underscore, and then pull apart Year, Month,Day, Hour, Min, Sec, Millisec (sep = pulls apart at # from start of fileend string)
   separate(fileend, into = c("Cam", "ext", "y", "m", "d", "T","hr", "mn", "sc", "remaining"), sep = c(1,2,6,8,10,11,13,15,23) )%>%
   #remove unnecessary columns (underscore, T between Date/Time, rest of file name)
-  select(-ext,-T,-remaining)%>%
+  dplyr::select(-ext,-T,-remaining)%>%
   #format date/time columns into same format as buzzerdrift times
   mutate(vidstarttime = as.POSIXct(paste(y, m, d,hr, mn, sc), format="%Y %m %d %H %M %OS"))
 str(data_files2)
@@ -153,7 +153,7 @@ data_files2$vidstarttime<- as_hms(data_files2$vidstarttime)
 data_files2$videndtime<- as_hms(data_files2$videndtime)
 #remove unnecessary date/time single columns and change date format to match other dataframes
 data_files3<-data_files2%>%
-  select(-c(4:9))%>%
+  dplyr::select(-c(4:9))%>%
   mutate(across("Begin Date", str_replace, "2022-08-", "2022/8/"))%>%
   mutate(across("Begin Date", str_replace, "2022-09-", "2022/9/"))%>%
   mutate_at(c("Cam"),as.integer)#change Cam to integer to match locsdrift dataframe
@@ -176,17 +176,17 @@ locswdrift2<- locswdrift2%>%
   filter(!is.na(videofile))
 #####
 
-####add filenames for fc1,2,3 to the same row for each selection###
+####add filenames for fc1,2,3 to the same row for each selection####
 
 locstest<-locswdrift2
 
 locstest1<-locstest%>%
   filter(Cam==1)%>%
-  select(Selection,'Begin Date Time',Site, vidnames, filenum, videotime,)
+  dplyr::select(Selection,'Begin Date Time',Site, vidnames, filenum, videotime,)
 
 locstest2<-locstest%>%
   filter(Cam==2)%>%
-  select(Selection,'Begin Date Time',Site, vidnames, filenum, videotime,)
+  dplyr::select(Selection,'Begin Date Time',Site, vidnames, filenum, videotime,)
 
 locstest3<-locstest%>%
   filter(Cam==3)
@@ -197,6 +197,7 @@ locstest12<- left_join(locstest3,locstest1, by= c("Selection","Begin Date Time",
 locstestall<-left_join(locstest12,locstest2, by= c("Selection","Begin Date Time", "Site"))
 locstestall<-locstestall%>%
   rename("vidnames3"="vidnames.x", "filenum3"="filenum.x", "videotime3"="videotime.x","vidnames1"="vidnames.y", "filenum1"="filenum.y", "videotime1"="videotime.y","vidnames2"="vidnames", "filenum2"="filenum", "videotime2"="videotime")
+#####
 
 ####arrange data in order by date, filenum, and video time####
 #add zeros in front of filenum column so that they will order correctly
@@ -212,7 +213,7 @@ locsarr<-locstestall%>%
 
 #truncated dataframe that's easier to look at when doing video annotation
 minilocsarr<-locsarr%>%
-  select(c(1,19,90:92,106:110,112,117:119,123:129))%>% 
+  dplyr::select(c(1,19,90:92,106:110,112,117:119,123:129))%>% 
   relocate(1, .after = last_col())
 
 #####
@@ -234,6 +235,7 @@ test<-minilocsarr
 #   plotname<-paste0("plot",test$Selection[i],"_", test$videofile[i],".png") #create name for each plot and paste it into dataframe under new column plot
 #   test$plot[i]<-plotname
 # }
+#####
 
 ####Code to plot all points together (used for testing code)####
 # sound<- plot_ly(test, x=~x_m, y=~y_m, z=~z_m, mode= 'markers')
@@ -243,6 +245,7 @@ test<-minilocsarr
 # sound<-layout(sound, title= "boo" )
 # sound  
 # orca(p=sound, file = "wdata/3DPlots/soundtest.png")                           
+########
 
 ####2D loop for plotting coordinates with ggplot####
 for( i in 1:nrow(test)){
@@ -259,7 +262,7 @@ for( i in 1:nrow(test)){
   test$plot[i]<-plotname
 }
 
-####
+#####
 
 ####add in EventMeasure fish ID information and append to localization dataframe####
 
@@ -268,10 +271,10 @@ fishDR<-read.csv("odata/DR_locs_20240119.csv", header = TRUE, skip = 4 )
 fish<-rbind(fishTI,fishDR)#combine datasets from each site
 
 fish1<-fish%>%
-  select(-c(3:21))%>% #get rid of unnecessary columns
+  dplyr::select(-c(3:21))%>% #get rid of unnecessary columns
   separate(Notes, into = c("fishnum", "ID_confidence","Comments"), sep = "_")%>%#separate out values in Notes column into separate columns
   separate(Filename, into= c("FileStart","Date","FileEnd"), sep= c(15,23,24), remove = FALSE)%>%
-  select(-FileStart, -FileEnd)
+  dplyr::select(-FileStart, -FileEnd)
 #add zeros to start of fish num so it will order correctly  
 fish1$fishnum<-with_options(
   c(scipen = 999), 
@@ -299,8 +302,9 @@ fishX<-fish1%>%
 
 #join enter and exit frames together by FishID
 fishEX<- left_join(fishE,fishX, by= c("fishID"))
+#####
 
-####calculate total time in FOV using vidnums and number of frames per 5min file.
+####calculate total time in FOV using vidnums and number of frames per 5min file.####
 fishEX$totframes<-fishEX$vidnum.y-fishEX$vidnum.x
 fishEX$totframes<-replace(fishEX$totframes,fishEX$totframes==0, "NA")
 str(fishEX)
@@ -312,7 +316,7 @@ fishEX$tottime<-as_hms(fishEX$totframes/9.983333333)#convert to time (there are 
 
 #keep only ID column and tottime column
 fishEX<-fishEX%>%
-  select(fishID, tottime)
+  dplyr::select(fishID, tottime)
 #bind fishEX to main fish1 table
 fish1<-left_join(fish1,fishEX,by="fishID")
 
@@ -324,6 +328,7 @@ Ftotsounds<-fish1%>%
 fish1<-fish1%>%
   left_join(Ftotsounds, by="fishID")%>%
   rename("soundsperfish"="n","videofile"="Filename")
+#####
 
 ####join edited EM fish file to AMAR localization file####
 #add zeros to start of Selection so it will match EM format  
@@ -336,11 +341,12 @@ locsarr$Selection<-with_options(
 SoundnVid<-locsarr%>%left_join(fish1, by= c("videofile", "Selection"))%>%
   relocate(1, .after = last_col())%>%
   filter(!grepl("e|x|m", Enter_Exit))%>% #removes columns with enter, exit, and missing (e.g. could not locate source of sound)
-  select(-c(Cam:vidnames3, vidstarttime:videndtime,videotime3:videotime2))%>%
+  dplyr::select(-c(Cam:vidnames3, vidstarttime:videndtime,videotime3:videotime2))%>%
   filter(!is.na(fishnum)) #filters out an localizations that haven't been annotated yet  (Need to figure out how to flag if there's an annotation issue from my EM annotations - like typo in selection  #)
 
 write.csv(SoundnVid,"wdata/SoundnVid.csv", row.names = FALSE)
- 
+#####
+
 ####create test plots####
 SoundnVid$`Dur 90% (s)`
 str(SoundnVid)
@@ -357,7 +363,7 @@ print(freq)
 
 #create test dataset with just a few variables
 clust<-SoundnVid%>%
-    select(16,23,29,36, 38:41,47,60,106:129)
+    dplyr::select(16,23,29,36, 38:41,47,60,106:129)
 
 lp("klaR")
 lp("psych")
