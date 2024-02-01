@@ -16,39 +16,39 @@ lp("processx")
 
 #######import buzzer times from logs######
 
-fold<-"FC3logs"
-
-#bulk read from folder specified, use read_log to read log files.
-logs<-read_bulk(directory = paste0("odata/", fold), extension = ".log", fun = read_log)
-
-#filter only rows with buzzer time
-buzztime<-logs%>%
-  filter(X5=="Buzzer")
-
-buzztime$Site <- ifelse(buzztime$X1 >= '2022-08-12' & buzztime$X1 <= '2022-08-23', "Taylor Islet", 
-                        ifelse(buzztime$X1 >= '2022-08-25' & buzztime$X1 <= '2022-09-06', "Ohiat Island", 
-                               ifelse(buzztime$X1 >= '2022-09-08' & buzztime$X1 <= '2022-09-16', "Danger Rocks", 0)))
-
-#create dataframe for FC1 (Only run this when fold<-"FC1logs")
-FC1buzz<-buzztime
-FC1buzz$Cam<-1
-  
-#create dataframe for FC2 (Only run this when fold<-"FC2logs")
-FC2buzz<-buzztime
-FC2buzz$Cam<-2
-
-#create dataframe for FC3 (Only run this when fold<-"FC3logs")
-FC3buzz<-buzztime
-FC3buzz$Cam<-3
-
-#merge three dataframes together
-logtimes<-rbind(FC1buzz,FC2buzz,FC3buzz)
-logtimes<-logtimes%>%
-  dplyr::select(-c(3:7))%>%
-  rename("Date" = "X1", "LogTime" = "X2")
-
-#export to wdata
-write.csv(logtimes, "wdata/logtimes.csv", row.names = FALSE)
+# fold<-"FC3logs"
+# 
+# #bulk read from folder specified, use read_log to read log files.
+# logs<-read_bulk(directory = paste0("odata/", fold), extension = ".log", fun = read_log)
+# 
+# #filter only rows with buzzer time
+# buzztime<-logs%>%
+#   filter(X5=="Buzzer")
+# 
+# buzztime$Site <- ifelse(buzztime$X1 >= '2022-08-12' & buzztime$X1 <= '2022-08-23', "Taylor Islet", 
+#                         ifelse(buzztime$X1 >= '2022-08-25' & buzztime$X1 <= '2022-09-06', "Ohiat Island", 
+#                                ifelse(buzztime$X1 >= '2022-09-08' & buzztime$X1 <= '2022-09-16', "Danger Rocks", 0)))
+# 
+# #create dataframe for FC1 (Only run this when fold<-"FC1logs")
+# FC1buzz<-buzztime
+# FC1buzz$Cam<-1
+#   
+# #create dataframe for FC2 (Only run this when fold<-"FC2logs")
+# FC2buzz<-buzztime
+# FC2buzz$Cam<-2
+# 
+# #create dataframe for FC3 (Only run this when fold<-"FC3logs")
+# FC3buzz<-buzztime
+# FC3buzz$Cam<-3
+# 
+# #merge three dataframes together
+# logtimes<-rbind(FC1buzz,FC2buzz,FC3buzz)
+# logtimes<-logtimes%>%
+#   dplyr::select(-c(3:7))%>%
+#   rename("Date" = "X1", "LogTime" = "X2")
+# 
+# #export to wdata
+# write.csv(logtimes, "wdata/logtimes.csv", row.names = FALSE)
 ######
 
 #######Calculating Mean Drift per day per camera#####
@@ -95,8 +95,6 @@ FSlocs<-FSlocs%>%
   filter(grepl("f|u|F|U|e", s))%>%#filter to only keep files labelled as fish sound (FS)
   rename("Time" = "Begin Clock Time")
 
-#***** NEED TO FIGURE OUT HOW TO MERGE WAVEFORM DATA INTO SPECTROGRAM COLUMNS
-
 str(FSlocs)
 
 #import edited driftmean csv
@@ -105,13 +103,14 @@ str(driftedit)
 
 #change date column to match format of localization raven tables.
 driftedit2<- driftedit%>%
-  mutate(across("Date", str_replace, "2022-08-", "2022/8/"))%>%
-  mutate(across("Date", str_replace, "2022-09-", "2022/9/"))%>%
+  #mutate(across("Date", str_replace, "2022-08-", "2022/8/"))%>%
+ # mutate(across("Date", str_replace, "2022-09-", "2022/9/"))%>%
   rename("Begin Date" = "Date")
   
 
 
 str(driftedit2)
+str(FSlocs)
 
 #join fish sound localization files to buzzerdrift times (this will throw a many to many error, this is good and because of
 #the different values for each of the 3 cameras.  There should be a line for each localization tied to each camera)
@@ -154,7 +153,9 @@ data_files2$videndtime<- as_hms(data_files2$videndtime)
 #remove unnecessary date/time single columns and change date format to match other dataframes
 data_files3<-data_files2%>%
   dplyr::select(-c(4:9))%>%
+  mutate(across("Begin Date", str_replace, "2022-08-0", "2022/8/"))%>%
   mutate(across("Begin Date", str_replace, "2022-08-", "2022/8/"))%>%
+  mutate(across("Begin Date", str_replace, "2022-09-0", "2022/9/"))%>%
   mutate(across("Begin Date", str_replace, "2022-09-", "2022/9/"))%>%
   mutate_at(c("Cam"),as.integer)#change Cam to integer to match locsdrift dataframe
 #####
@@ -266,8 +267,8 @@ for( i in 1:nrow(test)){
 
 ####add in EventMeasure fish ID information and append to localization dataframe####
 
-fishTI<-read.csv("odata/TI_locs_20240119.csv", header = TRUE, skip = 4 )
-fishDR<-read.csv("odata/DR_locs_20240119.csv", header = TRUE, skip = 4 )
+fishTI<-read.csv("odata/TI_locs_20240131.csv", header = TRUE, skip = 4 )
+fishDR<-read.csv("odata/DR_locs_20240201.csv", header = TRUE, skip = 4 )
 fish<-rbind(fishTI,fishDR)#combine datasets from each site
 
 fish1<-fish%>%
@@ -342,17 +343,20 @@ SoundnVid<-locsarr%>%left_join(fish1, by= c("videofile", "Selection"))%>%
   relocate(1, .after = last_col())%>%
   filter(!grepl("e|x|m", Enter_Exit))%>% #removes columns with enter, exit, and missing (e.g. could not locate source of sound)
   dplyr::select(-c(Cam:vidnames3, vidstarttime:videndtime,videotime3:videotime2))%>%
-  filter(!is.na(fishnum)) #filters out an localizations that haven't been annotated yet  (Need to figure out how to flag if there's an annotation issue from my EM annotations - like typo in selection  #)
+  filter(!is.na(fishnum))%>% #filters out an localizations that haven't been annotated yet  (Need to figure out how to flag if there's an annotation issue from my EM annotations - like typo in selection  #)
+  separate(n, into = c("bs","notes"), sep = "_", remove = FALSE)
 
+SoundnVid["bs"][SoundnVid["bs"] == ''] <- "g" #convert blanks cells to g for good selection
+SoundnVid <- SoundnVid %>% mutate(bs = ifelse(is.na(bs), "g", bs)) #convert NA cells to g for good selection
 write.csv(SoundnVid,"wdata/SoundnVid.csv", row.names = FALSE)
 #####
 
 ####create test plots####
-SoundnVid$`Dur 90% (s)`
+SoundnVid$ID_confidence
 str(SoundnVid)
 
 freq<-ggplot(SoundnVid, aes(x=`Dur 90% (s)` , y=`Center Freq (Hz)`))+
-  geom_point(aes(color = factor(Species), shape=t))
+  geom_point(aes(color = factor(Species), shape=bs))
 
 print(freq)
 
@@ -401,7 +405,7 @@ sd(clust$`Freq 25% (Hz)`)
 #tried with scale, gives nas
 clust$`Freq 25% (Hz)`
 clustscale<-clust%>%
-  mutate(across(where(is.numeric), scale))
+  mutate(across(where(is.numeric), scale, na.rm=TRUE))# need this to get rid of NAs
 
 #convert NA values to 0
 clustscale[, 2:11][is.na(clustscale[, 2:11])] <- 0
