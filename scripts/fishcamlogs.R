@@ -90,7 +90,7 @@ filtlocs<-"All_Localizations_Daylight_LA_filtered_2_1_FS"#change folder name her
 
 FSlocs<-imp_raven(path = paste0("odata/", filtlocs), all.data =  TRUE, only.spectro.view = FALSE) #need to set only.spectro.view to false to see columns from waveform.
 FSlocs<-FSlocs%>%
-  dplyr::select(-c(110))%>% #a weird additional column was added at the end so needed to remove (may not always need this
+  dplyr::select(-c(110:111))%>% #a weird additional column was added at the end so needed to remove (may not always need this
   filter(grepl("Spectrogram", View))%>% #currently filtering out Waveform view, see *** below for more on what still need to be done.
   filter(grepl("f|u|F|U|e", s))%>%#filter to only keep files labelled as fish sound (FS)
   rename("Time" = "Begin Clock Time")
@@ -223,7 +223,11 @@ minilocsarr<-locsarr%>%
 
 ## create for loop to make plot for each row (localization) and save plot with selection # and video file as name##
 write.csv(minilocsarr,"wdata/minilocsarr.csv", row.names = FALSE)
-test<-minilocsarr
+test<-minilocsarr%>%
+  #filter(Site=="Danger Rocks")%>%
+  mutate(across("videotime3", str_replace, ":", "."))%>%
+  mutate(across("videotime3", str_replace, ":", "."))
+  
 
 #loop to create 3D plot of each localization
 # for( i in 1:nrow(test)){
@@ -258,7 +262,7 @@ for( i in 1:nrow(test)){
           axis.text = element_text(size=4),
           axis.title = element_text(size = 4))
 
-  ggsave(filename = paste0(test$Site[i],"_",test$vidnames3[i],"_",test$Selection[i], ".png"), path="wdata/Localization_Plots", width = 8, height = 8, units = "cm") #save plot with appropriate filename in new folder
+  ggsave(filename = paste0(test$Site[i],"_",test$filenum3[i],"_",test$videotime3[i],"_",test$Selection[i], ".png"), path="wdata/Localization_Plots", width = 8, height = 8, units = "cm") #save plot with appropriate filename in new folder
   plotname<-paste0("plot",test$Selection[i],"_", test$videofile[i],".png") #create name for each plot and paste it into dataframe under new column plot
   test$plot[i]<-plotname
 }
@@ -267,8 +271,8 @@ for( i in 1:nrow(test)){
 
 ####add in EventMeasure fish ID information and append to localization dataframe####
 
-fishTI<-read.csv("odata/TI_locs_20240131.csv", header = TRUE, skip = 4 )
-fishDR<-read.csv("odata/DR_locs_20240201.csv", header = TRUE, skip = 4 )
+fishTI<-read.csv("odata/TI_locs_20240209.csv", header = TRUE, skip = 4 )
+fishDR<-read.csv("odata/DR_locs_20240208.csv", header = TRUE, skip = 4 )
 fish<-rbind(fishTI,fishDR)#combine datasets from each site
 
 fish1<-fish%>%
@@ -352,11 +356,11 @@ write.csv(SoundnVid,"wdata/SoundnVid.csv", row.names = FALSE)
 #####
 
 ####create test plots####
-SoundnVid$ID_confidence
+SoundnVid$`Center Freq (Hz)`
 str(SoundnVid)
 
-freq<-ggplot(SoundnVid, aes(x=`Dur 90% (s)` , y=`Center Freq (Hz)`))+
-  geom_point(aes(color = factor(Species), shape=bs))
+freq<-ggplot(SoundnVid, aes(x=`Freq 25% (Hz)` , y=`Center Freq (Hz)`))+
+  geom_point(aes(colour = factor(Species), shape=ID_confidence))
 
 print(freq)
 
