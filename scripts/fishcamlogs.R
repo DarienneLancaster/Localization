@@ -271,8 +271,9 @@ for( i in 1:nrow(test)){
 
 ####add in EventMeasure fish ID information and append to localization dataframe####
 
-fishTI<-read.csv("odata/TI_locs_20240209.csv", header = TRUE, skip = 4 )
+fishTI<-read.csv("odata/TI_locs_20240221.csv", header = TRUE, skip = 4 )
 fishDR<-read.csv("odata/DR_locs_20240208.csv", header = TRUE, skip = 4 )
+
 fish<-rbind(fishTI,fishDR)#combine datasets from each site
 
 fish1<-fish%>%
@@ -356,13 +357,37 @@ write.csv(SoundnVid,"wdata/SoundnVid.csv", row.names = FALSE)
 #####
 
 ####create test plots####
-SoundnVid$`Center Freq (Hz)`
+SoundnVid$`Inband Power (dB FS)`
 str(SoundnVid)
 
-freq<-ggplot(SoundnVid, aes(x=`Freq 25% (Hz)` , y=`Center Freq (Hz)`))+
-  geom_point(aes(colour = factor(Species), shape=ID_confidence))
+freq<-ggplot(SoundnVid, aes(x=`Inband Power (dB FS)` , y=`Peak Freq (Hz)`))+
+  geom_point(aes(colour = factor(Species), shape=t))
 
 print(freq)
+
+grunts<-SoundnVid%>%
+  filter(t=="g")
+
+gruntplot<-ggplot(grunts, aes(x=`Inband Power (dB FS)` , y=`Peak Freq (Hz)`))+
+  geom_point(aes(colour = factor(Species), shape=ID_confidence))
+
+print(gruntplot)
+
+drums<-SoundnVid%>%
+  filter(t=="d")
+
+drumplot<-ggplot(drums, aes(x=`Inband Power (dB FS)` , y=`Peak Freq (Hz)`))+
+  geom_point(aes(colour = factor(Species), shape=ID_confidence))
+
+print(drumplot)
+
+explore<-SoundnVid%>%
+  filter(t=="e")
+
+exploplot<-ggplot(explore, aes(x=`Inband Power (dB FS)` , y=`Peak Freq (Hz)`))+
+  geom_point(aes(colour = factor(Species), shape=ID_confidence))
+
+print(exploplot)
 
 #####
 
