@@ -86,7 +86,12 @@ write.csv(driftmean2,"wdata/driftmean.csv", row.names = FALSE)
 ######add buzzerdrift times to localization files (use files that have been annotated for Fish Sounds)#####
 
 #import localization files annotated for Fish Sounds
+
+#use this folder if you want to run all FS annotated localization data together
 filtlocs<-"All_Localizations_Daylight_LA_filtered_2_1_FS"#change folder name here
+
+# #use this code if you're just making localization plots of completed files
+# filtlocs<-"FS_for_locplots"#change folder name here
 
 FSlocs<-imp_raven(path = paste0("odata/", filtlocs), all.data =  TRUE, only.spectro.view = FALSE) #need to set only.spectro.view to false to see columns from waveform.
 FSlocs<-FSlocs%>%
@@ -278,9 +283,10 @@ fish<-rbind(fishTI,fishDR)#combine datasets from each site
 
 fish1<-fish%>%
   dplyr::select(-c(3:21))%>% #get rid of unnecessary columns
-  separate(Notes, into = c("fishnum", "ID_confidence","Comments"), sep = "_")%>%#separate out values in Notes column into separate columns
-  separate(Filename, into= c("FileStart","Date","FileEnd"), sep= c(15,23,24), remove = FALSE)%>%
-  dplyr::select(-FileStart, -FileEnd)
+  separate(Notes, into = c("fishnum", "ID_confidence","Comments"), sep = "_")%>% #separate out values in Notes column into separate columns
+  separate(Filename, into = c("vidnum","CamName", "Date"), sep = "_", remove = FALSE)%>%
+  separate(Date, into = c("Date"), sep = "T")
+
 #add zeros to start of fish num so it will order correctly  
 fish1$fishnum<-with_options(
   c(scipen = 999), 
@@ -291,10 +297,15 @@ fish1$Selection<-with_options(
   c(scipen = 999), 
   str_pad(fish1$Selection, 5, pad = "0")
 )
+
+# #add zeros to start of vidnum
+# fish1$vidnum<-with_options(
+#   c(scipen = 999), 
+#   str_pad(fish1$vidnum, 5, pad = "0")
+# )
  #combine fishnum and Date
 fish1<-fish1%>%
-unite(fishID, fishnum, Date, sep = "_", remove = FALSE)%>%
-  separate(Filename, into = c("vidnum"), sep = "_", remove = FALSE)#separate video file number from file name
+unite(fishID, fishnum, Date, sep = "_", remove = FALSE)
 fish1$vidnum<-as.numeric(fish1$vidnum)
 
 #how to count number of calls per unique fish
@@ -348,11 +359,32 @@ SoundnVid<-locsarr%>%left_join(fish1, by= c("videofile", "Selection"))%>%
   relocate(1, .after = last_col())%>%
   filter(!grepl("e|x|m", Enter_Exit))%>% #removes columns with enter, exit, and missing (e.g. could not locate source of sound)
   dplyr::select(-c(Cam:vidnames3, vidstarttime:videndtime,videotime3:videotime2))%>%
-  filter(!is.na(fishnum))%>% #filters out an localizations that haven't been annotated yet  (Need to figure out how to flag if there's an annotation issue from my EM annotations - like typo in selection  #)
+  filter(!is.na(fishnum))%>% #filters out any localizations that haven't been annotated yet  (Need to figure out how to flag if there's an annotation issue from my EM annotations - like typo in selection  #)
   separate(n, into = c("bs","notes"), sep = "_", remove = FALSE)
 
-SoundnVid["bs"][SoundnVid["bs"] == ''] <- "g" #convert blanks cells to g for good selection
+#check for errors in bs column and rename cells
+SoundnVid$bs<-as.factor(SoundnVid$bs) #double check there's nothing important in the bs Levels or misspellings of bs
+levels(SoundnVid$bs)
+SoundnVid$bs<-as.character(SoundnVid$bs)#change back to factor to rename NAs and other error comments.
+
+SoundnVid["bs"][SoundnVid["bs"] != 'bs'] <- "g" #convert any cell not labelled bs to g for good selection
 SoundnVid <- SoundnVid %>% mutate(bs = ifelse(is.na(bs), "g", bs)) #convert NA cells to g for good selection
+
+#check for errors in s and t columns and fix
+SoundnVid$s<-as.factor(SoundnVid$s) #double check there's nothing important in the bs Levels or misspellings of bs
+levels(SoundnVid$s)
+SoundnVid$s<-as.character(SoundnVid$s)#change back to factor to rename NAs and other error comments.
+#haven't found any errors yet
+
+SoundnVid$t<-as.factor(SoundnVid$t) #double check there's nothing important in the bs Levels or misspellings of bs
+levels(SoundnVid$t)
+SoundnVid$t<-as.character(SoundnVid$t)#change back to factor to rename NAs and other error comments.
+
+SoundnVid["t"][SoundnVid["t"] == ''] <- "check" #change all blank cells to check
+SoundnVid["t"][SoundnVid["t"] == 'k'] <- "d" #change any k annotations to d for drum instead of knock
+SoundnVid$t<-ifelse(SoundnVid$s=="e" & SoundnVid$t=="check", "e", SoundnVid$t) 
+
+
 write.csv(SoundnVid,"wdata/SoundnVid.csv", row.names = FALSE)
 #####
 
