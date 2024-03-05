@@ -162,44 +162,28 @@ ctactiveplot<-ggplot(ctbh, aes(x=t, y=n, fill=Activity))+
 print(ctactiveplot)
 ggsave("figures/CallTypesbyActivity.png", width = 20, height = 20, units = "cm")
 
-
-#mean sounds per fish while in FOV
-meansoundsperfish<-tapply(fishunique$soundsperfish, fishunique$Latin, mean)
-meansoundsperfish
-
-#mean time in FOV
-
-#remove NA rows
-fishunique1<-fishunique%>%
-  filter(!is.na(tottime))
-fishunique1$tottime<-as_hms(fishunique1$tottime)
-meantottime<-tapply(fishunique1$tottime, fishunique1$Latin, mean)
-meantottime
-
-
-meancallrate<-tapply(fishunique1$callrate, fishunique1$Latin, mean)
-meancallrate
-sdcallrate<-tapply(fishunique1$callrate, fishunique1$Latin, sd)
-sdcallrate
-
-#create summary dataframe with mean calls per fish and mean time in FOV
-svsummary<-as.data.frame(cbind(meansoundsperfish, meantottime, meancallrate,sdcallrate))
-svsummary$meantottime<-as_hms(svsummary$meantottime)
-svsummary$meancallrate<-as_hms(svsummary$meancallrate)
-svsummary$sdcallrate<-as_hms(svsummary$sdcallrate)
-
-svsummary$callspermin<-svsummary$meancallrate/00:01:00.00000
-
-callplot <- ggplot(svbasic, aes(x=Latin, y=callrate)) + 
-  geom_boxplot()+           # Changing the look of the line
+#call variables plot by species and call type
+#TO DO - filter out bad selection, filter out unknown sounds from fish sounds, plot only one sound type at a time
+sv$Center.Freq..Hz.
+sv$ID_confidence<-as.factor(sv$ID_confidence)
+callsplot<-ggplot(sv, aes(x=`Center.Freq..Hz.`, y=`Peak.Freq..Hz.`))+
+  geom_point(aes(colour = factor(Latin), shape=ID_confidence))+           # Changing the look of the line
   theme_bw() +                                                      # Changing the theme to get rid of the grey background
-  ylab("minutes per call") +                                                   # Changing the text of the y axis label
-  xlab("Species")  + 
-  theme(axis.text.x = element_text(size = 10, face = "plain", angle = 60, hjust=1))
+  ylab("Peak Frequency") +  
+  xlab("Frequency 25%")+              # Changing the text of the y axis label
+  labs(fill = "Call Type")+
+  facet_wrap(~t)+
+  theme(axis.text.x = element_text(size = 14, face = "plain", angle = 75, hjust=1))
+print(callsplot)
+ggsave("figures/callsvariablesbyspeciesandcalltype.png", width = 20, height = 20, units = "cm")
 
-callplot
+SoundnVid$`Inband Power (dB FS)`
+str(SoundnVid)
 
-ggsave("figures/Abundance_vocalizing_fish_bySite.png", width = 20, height = 20, units = "cm")
+freq<-ggplot(SoundnVid, aes(x=`Inband Power (dB FS)` , y=`Peak Freq (Hz)`))+
+  geom_point(aes(colour = factor(Species), shape=t))
+
+print(freq)
 
 
 #Analyses to Do
@@ -210,3 +194,31 @@ ggsave("figures/Abundance_vocalizing_fish_bySite.png", width = 20, height = 20, 
 # 4. mean time in frame by species (box plot)
 # 5. Mean number of calls by species
 # 5. behaviours by calls by species
+#6. plot call frequency by other variable for each species by call type
+
+#sample summary code using tapply
+# #mean sounds per fish while in FOV
+# meansoundsperfish<-tapply(fishunique$soundsperfish, fishunique$Latin, mean)
+# meansoundsperfish
+# 
+# #mean time in FOV
+# 
+# #remove NA rows
+# fishunique1<-fishunique%>%
+#   filter(!is.na(tottime))
+# fishunique1$tottime<-as_hms(fishunique1$tottime)
+# meantottime<-tapply(fishunique1$tottime, fishunique1$Latin, mean)
+# meantottime
+# 
+# 
+# meancallrate<-tapply(fishunique1$callrate, fishunique1$Latin, mean)
+# meancallrate
+# sdcallrate<-tapply(fishunique1$callrate, fishunique1$Latin, sd)
+# sdcallrate
+# 
+# #create summary dataframe with mean calls per fish and mean time in FOV
+# svsummary<-as.data.frame(cbind(meansoundsperfish, meantottime, meancallrate,sdcallrate))
+# svsummary$meantottime<-as_hms(svsummary$meantottime)
+# svsummary$meancallrate<-as_hms(svsummary$meancallrate)
+# svsummary$sdcallrate<-as_hms(svsummary$sdcallrate)
+
