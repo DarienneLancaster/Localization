@@ -20,6 +20,54 @@ sv<- sv%>%
   mutate(Latin = paste(Genus, Species, sep = " "))%>%
   filter(ID_confidence < 3)
 
+#rename codes to be more descriptive
+sv$t<-as.factor(sv$t)
+str(sv)
+levels(sv$t)
+sv$t <- recode_factor(sv$t, d = "Knock", 
+                        e = "Unknown", g = "Grunt")
+
+sv["Activity"][sv["Activity"] == ''] <- "Solo Fish/No Activity" #change all blank cells to check
+sv$Activity<-as.factor(sv$Activity)
+str(sv)
+levels(sv$Activity)
+sv$Activity <- recode_factor(sv$Activity, 
+                               'Attracted' = "Following", 'Chase conspecific' = "Chasing", 'Chase other' = "Chasing",
+                               'Feeding' = "Feeding", 'Guarding bait' = "Chasing", 'Passing' = "Other Fish Present")
+
+#calculate mean peak frequency by species for knocks
+sv1<-sv%>%
+  filter(t=="Knock", bs=="g", Peak.Freq..Hz.>=20, ID_confidence!="2|3",
+         Latin!=" ", Latin!="Scorpaenichthys ")
+sv1$Latin<-as.factor(sv1$Latin)
+levels(sv1$Latin)
+
+pfplot <- ggplot(sv1, aes(x=Latin, y=Peak.Freq..Hz., fill=Latin)) + 
+  geom_boxplot(varwidth = TRUE)+           # Changing the look of the line
+  theme_bw() +                                                      # Changing the theme to get rid of the grey background
+  ylab("Mean Knock Peak Frequency") +                                                   # Changing the text of the y axis label
+  xlab("Species")  + 
+  theme(axis.text.x = element_text(size = 10, face = "plain", angle = 60, hjust=1), legend.position="none")
+
+pfplot
+ggsave("figures/MeanKnockPeakFrequencybySpecies.png", width = 20, height = 20, units = "cm")
+
+#Mean peak frequency of grunts by species
+sv2<-sv%>%
+  filter(t=="Grunt", bs=="g", Peak.Freq..Hz.>=20, ID_confidence!="2|3",
+         Latin!=" ", Latin!="Scorpaenichthys ")
+
+sv2$Dur.90...s.
+pfgplot <- ggplot(sv2, aes(x=Latin, y=Peak.Freq..Hz., fill= Latin)) + 
+  geom_boxplot(varwidth = TRUE)+           # Changing the look of the line
+  theme_bw() +                                                      # Changing the theme to get rid of the grey background
+  ylab("Mean Grunt Peak Frequency") +                                                   # Changing the text of the y axis label
+  xlab("Species")  + 
+  theme(axis.text.x = element_text(size = 10, face = "plain", angle = 60, hjust=1), legend.position="none")
+
+pfgplot
+ggsave("figures/MeanGruntPeakFrequencybySpecies.png", width = 20, height = 20, units = "cm")
+
 #remove extra sound variables
 svbasic<-sv%>%
   select(-c(View:selec.file))
@@ -185,9 +233,43 @@ freq<-ggplot(SoundnVid, aes(x=`Inband Power (dB FS)` , y=`Peak Freq (Hz)`))+
 
 print(freq)
 
+#mean number of calls per idividual fish by species
+svbasic$t<-as.factor(svbasic$t)
+str(svbasic)
+svbasic$t <- recode_factor(svbasic$t, d = "Knock", 
+                        e = "Unknown", g = "Grunt")
+
+svbasic["Activity"][svbasic["Activity"] == ''] <- "Solo Fish/No Activity" #change all blank cells to check
+svbasic$Activity<-as.factor(svbasic$Activity)
+str(svbasic)
+levels(svbasic$Activity)
+svbasic$Activity <- recode_factor(svbasic$Activity, 
+                               'Attracted' = "Following", 'Chase conspecific' = "Chasing", 'Chase other' = "Chasing",
+                               'Feeding' = "Feeding", 'Guarding bait' = "Chasing", 'Passing' = "Other Fish Present")
+
+numuniquecalls<-svbasic%>%
+  filter(!is.na(t))%>%
+  count(Latin,fishID)
+
+numuniquecallsplot <- ggplot(numuniquecalls, aes(x=Latin, y=n)) + 
+  geom_boxplot(varwidth = TRUE)+           # Changing the look of the line
+  theme_bw() +                                                      # Changing the theme to get rid of the grey background
+  ylab("Mean calls per individual") +                                                   # Changing the text of the y axis label
+  xlab("Species")  + 
+  theme(axis.text.x = element_text(size = 10, face = "plain", angle = 60, hjust=1), 
+        panel.background = element_rect(fill = 'paleturquoise3', color = 'purple'))
+
+
+numuniquecallsplot
+ggsave("figures/MeanCallsPerUniqueFish.png", width = 20, height = 20, units = "cm")
+
+
+
+
 
 #Analyses to Do
-# 1. species richness
+# 1. mean number of calls per individual by species
+#species richness
 #     how much video has been annotated so far (daylight hours only)
 # 2. total unique fish identified
 # 3. grunts vs knocks total and by species
