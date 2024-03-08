@@ -11,7 +11,7 @@ lp("plotly")
 lp("withr")
 lp("ggplot2")
 lp("processx")
-
+#######Load in soundnvid csv#####
 sv<-read.csv("wdata/SoundnVid.csv", header = TRUE)
 
 # create a new column with species full name 
@@ -35,9 +35,9 @@ sv$Activity <- recode_factor(sv$Activity,
                                'Attracted' = "Following", 'Chase conspecific' = "Chasing", 'Chase other' = "Chasing",
                                'Feeding' = "Feeding", 'Guarding bait' = "Chasing", 'Passing' = "Other Fish Present")
 
-#calculate mean peak frequency by species for knocks
+#####calculate mean peak frequency by species for knocks#####
 sv1<-sv%>%
-  filter(t=="Knock", bs=="g", Peak.Freq..Hz.>=20, ID_confidence!="2|3",
+  filter(t=="Knock", bs=="g", Peak.Freq..Hz.>=20, ID_confidence!="2", ID_confidence!="3",
          Latin!=" ", Latin!="Scorpaenichthys ")
 sv1$Latin<-as.factor(sv1$Latin)
 levels(sv1$Latin)
@@ -45,36 +45,52 @@ levels(sv1$Latin)
 pfplot <- ggplot(sv1, aes(x=Latin, y=Peak.Freq..Hz., fill=Latin)) + 
   geom_boxplot(varwidth = TRUE)+           # Changing the look of the line
   theme_bw() +                                                      # Changing the theme to get rid of the grey background
-  ylab("Mean Knock Peak Frequency") +                                                   # Changing the text of the y axis label
+  ylab("Knock Peak Frequency") +                                                   # Changing the text of the y axis label
   xlab("Species")  + 
   theme(axis.text.x = element_text(size = 10, face = "plain", angle = 60, hjust=1), legend.position="none")
 
 pfplot
 ggsave("figures/MeanKnockPeakFrequencybySpecies.png", width = 20, height = 20, units = "cm")
 
-#Mean peak frequency of grunts by species
+#####Mean peak frequency of grunts by species#####
 sv2<-sv%>%
-  filter(t=="Grunt", bs=="g", Peak.Freq..Hz.>=20, ID_confidence!="2|3",
+  filter(t=="Grunt", bs=="g", Peak.Freq..Hz.>=20, ID_confidence!="2", ID_confidence!="3",
          Latin!=" ", Latin!="Scorpaenichthys ")
 
 sv2$Dur.90...s.
 pfgplot <- ggplot(sv2, aes(x=Latin, y=Peak.Freq..Hz., fill= Latin)) + 
   geom_boxplot(varwidth = TRUE)+           # Changing the look of the line
   theme_bw() +                                                      # Changing the theme to get rid of the grey background
-  ylab("Mean Grunt Peak Frequency") +                                                   # Changing the text of the y axis label
+  ylab("Grunt Peak Frequency") +                                                   # Changing the text of the y axis label
   xlab("Species")  + 
   theme(axis.text.x = element_text(size = 10, face = "plain", angle = 60, hjust=1), legend.position="none")
 
 pfgplot
 ggsave("figures/MeanGruntPeakFrequencybySpecies.png", width = 20, height = 20, units = "cm")
 
-#remove extra sound variables
+####Mean peak frequency of unknown calls by species####
+sv3<-sv%>%
+  filter(t=="Unknown", bs=="g", Peak.Freq..Hz.>=20, ID_confidence!="2", ID_confidence!="3",
+         Latin!=" ", Latin!="Scorpaenichthys ")
+
+sv2$Dur.90...s.
+pfuplot <- ggplot(sv3, aes(x=Latin, y=Peak.Freq..Hz., fill= Latin)) + 
+  geom_boxplot(varwidth = TRUE)+           # Changing the look of the line
+  theme_bw() +                                                      # Changing the theme to get rid of the grey background
+  ylab("Grunt Peak Frequency") +                                                   # Changing the text of the y axis label
+  xlab("Species")  + 
+  theme(axis.text.x = element_text(size = 10, face = "plain", angle = 60, hjust=1), legend.position="none")
+
+pfuplot
+ggsave("figures/MeanUnknownPeakFrequencybySpecies.png", width = 20, height = 20, units = "cm")
+
+####remove extra sound variables to create svbasic####
 svbasic<-sv%>%
   select(-c(View:selec.file))
 
 str(svbasic)
 
-#calculate calling rate per fish
+#####calculate calling rate per fish#####
 svbasic$tottime<-as_hms(svbasic$tottime)
 str(svbasic)
 
@@ -86,131 +102,131 @@ svbasic$totsec<-period_to_seconds(svbasic$totsec)
 svbasic$callspermin<-(svbasic$soundsperfish/svbasic$totsec)*60
 
 
-#calculate species richness by site
+######calculate species richness by site#####
 sr<-svbasic%>%
   count(Site,Latin,fishID)%>%
   count(Site, Latin)
 
+#filter out unwanted unknown species
+
+sr1<-sr%>%
+  filter(Latin!=" ", Latin!="Scorpaenichthys ")
+
 #plot species richness and # calling fish coloured by site
-srplot<-ggplot(sr, aes(x=Latin, y=n, fill= Site))+
-  geom_bar(position="stack", stat="identity")+           # Changing the look of the line
-  theme_bw() +                                                      # Changing the theme to get rid of the grey background
-  ylab("Count (vocalizing fish)") +                                                   # Changing the text of the y axis label
+srplot<-ggplot(sr1, aes(x=Latin, y=n, fill= Site))+
+  geom_bar(position="stack", stat="identity")+  
+  scale_fill_manual("Site", values = c("Danger Rocks" = "cyan4", "Taylor Islet" = "goldenrod2"))+ 
+  theme_bw()+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +                                                      # Changing the theme to get rid of the grey background
+  ylab("Calling Fish (count)") +                                                   # Changing the text of the y axis label
   xlab("Species")  + 
-  theme(axis.text.x = element_text(size = 14, face = "plain", angle = 60, hjust=1))
+  theme(axis.text.x = element_text(size = 14, face = "plain", angle = 60, hjust=1, colour = "black")) 
 print(srplot)
 ggsave("figures/Abundance_vocalizing_fish_bySite.png", width = 20, height = 20, units = "cm")
 
+#####Calculate calls per minute#####
 #keep one row for each unique fish ID
-
 fishunique<-svbasic%>%
   distinct(fishID, .keep_all = TRUE)
 
 #remove NA rows
 fishunique1<-fishunique%>%
   filter(!is.na(callspermin))%>%
-  filter(ID_confidence < 3) #keep only confidence above 3
+  filter(ID_confidence < 3)%>% #keep only confidence above 3
+  filter(Latin!=" ", Latin!="Scorpaenichthys ")
+
 
 #calls per minute boxplot
-callplot <- ggplot(fishunique1, aes(x=Latin, y=callspermin)) + 
+callplot <- ggplot(fishunique1, aes(x=Latin, y=callspermin, fill=Latin)) + 
   geom_boxplot(varwidth = TRUE)+           # make boxes variable width based on sample size
-  theme_bw() +                                                      # Changing the theme to get rid of the grey background
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +# Changing the theme to get rid of the grey background
   ylab("calls per minute") +                                                   # Changing the text of the y axis label
   xlab("Species")  + 
-  theme(axis.text.x = element_text(size = 10, face = "plain", angle = 60, hjust=1))
+  theme(axis.text.x = element_text(size = 10, face = "plain", angle = 60, hjust=1, colour = "black"),legend.position="none")
 
 callplot
 ggsave("figures/CallsPerMinute.png", width = 20, height = 20, units = "cm")
 
-#Mean time in FOV
-FOVplot <- ggplot(fishunique1, aes(x=Latin, y=tottime)) + 
-  geom_boxplot(varwidth = TRUE)+           # Changing the look of the line
-  theme_bw() +                                                      # Changing the theme to get rid of the grey background
+####Mean time in FOV####
+FOVplot <- ggplot(fishunique1, aes(x=Latin, y=tottime, fill=Latin)) + 
+  geom_boxplot(varwidth = TRUE)+           # make boxes variable width based on sample size
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +# Changing the theme to get rid of the grey background
   ylab("Minutes on Camera") +                                                   # Changing the text of the y axis label
   xlab("Species")  + 
-  theme(axis.text.x = element_text(size = 10, face = "plain", angle = 60, hjust=1))
-
+  theme(axis.text.x = element_text(size = 10, face = "plain", angle = 60, hjust=1, colour = "black"),legend.position="none")
 FOVplot
 ggsave("figures/MinutesOnCamera.png", width = 20, height = 20, units = "cm")
 
-#Number of grunts/knocks/other by species
+####Number of grunts/knocks/other by species####
 
 ct<-svbasic%>%
+  filter(Latin!=" ", Latin!="Scorpaenichthys ")%>%
   filter(!is.na(t))%>%
   count(Latin,t)
 
-ct$t<-as.factor(ct$t)
-str(ct)
-ct$t <- recode_factor(ct$t, d = "Knock", 
-                                e = "Unknown", g = "Grunt")
+# Rearrange factor levels in the order you want in the legend
+ct$t <- factor(ct$t, levels = c("Knock", "Grunt", "Unknown"))
 
 calltypeplot<-ggplot(ct, aes(x=Latin, y=n, fill= t))+
   geom_bar(position="dodge", stat="identity")+           # Changing the look of the line
-  theme_bw() +                                                      # Changing the theme to get rid of the grey background
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + 
+  scale_fill_manual("Call Type", values = c("Knock" = "cyan4", "Unknown" = "goldenrod2", "Grunt" = "royalblue4"))+ # Changing the theme to get rid of the grey background
   ylab("Number of Calls") +                                                   # Changing the text of the y axis label
   xlab("Species")  + 
   labs(fill = "Call Type")+
-  theme(axis.text.x = element_text(size = 14, face = "plain", angle = 60, hjust=1))
+  theme(axis.text.x = element_text(size = 14, face = "plain", angle = 60, hjust=1, colour = "black"))
 print(calltypeplot)
 ggsave("figures/CallTypes.png", width = 20, height = 20, units = "cm")
 
-#behaviour during calling
+#####behaviour during calling####
 beha<-svbasic%>%
+  filter(Latin!=" ", Latin!="Scorpaenichthys ")%>%
   filter(!is.na(t))%>%
   count(Latin,Activity)
-
-#rename activity labels
-beha["Activity"][beha["Activity"] == ''] <- "Solo Fish/No Activity" #change all blank cells to check
-beha$Activity<-as.factor(beha$Activity)
-str(beha)
-levels(beha$Activity)
-beha$Activity <- recode_factor(beha$Activity, 
-                      'Attracted' = "Following", 'Chase conspecific' = "Chasing", 'Chase other' = "Chasing",
-                      'Feeding' = "Feeding", 'Guarding bait' = "Chasing", 'Passing' = "Other Fish Present")
-
 
 #activity by species
 activityplot<-ggplot(beha, aes(x=Activity, y=n, fill= Activity))+
   geom_bar(position="dodge", stat="identity")+           # Changing the look of the line
+  scale_fill_manual("Behaviour", values = c("Following" = "cyan4", "Chasing" = "goldenrod2", "Feeding" = "royalblue4", "Other Fish Present" = "tomato1", "Solo Fish/No Activity" = "mediumturquoise"))+
   theme_bw() +                                                      # Changing the theme to get rid of the grey background
   ylab("Number of Calls") +                                                   # Changing the text of the y axis label
   xlab("Species")  + 
   labs(fill = "Activity")+ 
   facet_wrap(~Latin)+
-  theme(axis.title.x=element_blank(),axis.text.x = element_blank())
+  theme(axis.title.x=element_blank(),axis.text.x = element_blank(), strip.text.x = element_text(
+    size = 12), panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 print(activityplot)
 ggsave("figures/CallTypes.png", width = 20, height = 20, units = "cm")
 
-#activity grouped by call type
+#####activity grouped by call type#####
 ctbh<-svbasic%>%
   filter(!is.na(t))%>%
   count(Latin,t,Activity)
 
-ctbh$t<-as.factor(ctbh$t)
-str(ctbh)
-ctbh$t <- recode_factor(ctbh$t, d = "Knock", 
-                      e = "Unknown", g = "Grunt")
-
-ctbh["Activity"][ctbh["Activity"] == ''] <- "Solo Fish/No Activity" #change all blank cells to check
-ctbh$Activity<-as.factor(ctbh$Activity)
-str(ctbh)
-levels(ctbh$Activity)
-ctbh$Activity <- recode_factor(ctbh$Activity, 
-                               'Attracted' = "Following", 'Chase conspecific' = "Chasing", 'Chase other' = "Chasing",
-                               'Feeding' = "Feeding", 'Guarding bait' = "Chasing", 'Passing' = "Other Fish Present")
-
+ctactiveplot<-ggplot(ctbh, aes(x=t, y=n, fill= Activity))+
+  geom_bar(position="dodge", stat="identity")+           # Changing the look of the line
+  scale_fill_manual("Behaviour", values = c("Following" = "cyan4", "Chasing" = "goldenrod2", "Feeding" = "royalblue4", "Other Fish Present" = "tomato1", "Solo Fish/No Activity" = "mediumturquoise"))+
+  theme_bw() +                                                      # Changing the theme to get rid of the grey background
+  ylab("Number of Calls") +                                                   # Changing the text of the y axis label
+  xlab("Species")  + 
+  labs(fill = "Activity")+ 
+  facet_wrap(~Latin)+
+  theme(axis.title.x=element_text(size = 14, face = "plain", angle = 75, hjust=1),axis.text.x = element_blank(), strip.text.x = element_text(
+    size = 12), panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
 ctactiveplot<-ggplot(ctbh, aes(x=t, y=n, fill=Activity))+
   geom_bar(position="dodge", stat="identity")+           # Changing the look of the line
   theme_bw() +                                                      # Changing the theme to get rid of the grey background
   ylab("Number of Calls") +                                                   # Changing the text of the y axis label
-  labs(fill = "Call Type")+
   facet_wrap(~Latin)+
   theme(axis.text.x = element_text(size = 14, face = "plain", angle = 75, hjust=1))
 print(ctactiveplot)
 ggsave("figures/CallTypesbyActivity.png", width = 20, height = 20, units = "cm")
 
-#call variables plot by species and call type
+#####call variables plot by species and call type#####
 #TO DO - filter out bad selection, filter out unknown sounds from fish sounds, plot only one sound type at a time
 sv$Center.Freq..Hz.
 sv$ID_confidence<-as.factor(sv$ID_confidence)
@@ -233,7 +249,7 @@ freq<-ggplot(SoundnVid, aes(x=`Inband Power (dB FS)` , y=`Peak Freq (Hz)`))+
 
 print(freq)
 
-#mean number of calls per idividual fish by species
+#####mean number of calls per idividual fish by species####
 svbasic$t<-as.factor(svbasic$t)
 str(svbasic)
 svbasic$t <- recode_factor(svbasic$t, d = "Knock", 
