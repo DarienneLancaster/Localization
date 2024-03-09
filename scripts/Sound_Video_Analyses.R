@@ -45,6 +45,7 @@ levels(sv1$Latin)
 pfplot <- ggplot(sv1, aes(x=Latin, y=Peak.Freq..Hz., fill=Latin)) + 
   geom_boxplot(varwidth = TRUE)+           # Changing the look of the line
   theme_bw() +  
+  scale_x_discrete(labels = label_wrap_gen(10)) + #stacks long latin name at line break
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +# Changing the theme to get rid of the grey background
   ylab("Knock Peak Frequency (Hz)") +                                                   # Changing the text of the y axis label
   xlab("Species")  + 
