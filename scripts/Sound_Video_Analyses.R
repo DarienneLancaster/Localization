@@ -63,7 +63,8 @@ sv2<-sv%>%
 sv2$Dur.90...s.
 pfgplot <- ggplot(sv2, aes(x=Latin, y=Peak.Freq..Hz., fill= Latin)) + 
   geom_boxplot(varwidth = TRUE)+           # Changing the look of the line
-  theme_bw() +                                                      # Changing the theme to get rid of the grey background
+  theme_bw() + 
+  scale_x_discrete(labels = label_wrap_gen(10)) +# Changing the theme to get rid of the grey background
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
   ylab("Grunt Peak Frequency (Hz)") +                                                   # Changing the text of the y axis label
   xlab("Species")  + 
@@ -80,7 +81,8 @@ sv3<-sv%>%
 sv2$Dur.90...s.
 pfuplot <- ggplot(sv3, aes(x=Latin, y=Peak.Freq..Hz., fill= Latin)) + 
   geom_boxplot(varwidth = TRUE)+           # Changing the look of the line
-  theme_bw() +                                                      # Changing the theme to get rid of the grey background
+  theme_bw() +  
+  scale_x_discrete(labels = label_wrap_gen(10)) +# Changing the theme to get rid of the grey background
   ylab("Grunt Peak Frequency") +                                                   # Changing the text of the y axis label
   xlab("Species")  + 
   theme(axis.text.x = element_text(size = 10, face = "plain", angle = 60, hjust=1), legend.position="none")
@@ -128,9 +130,10 @@ sr1<-sr%>%
 
 #plot species richness and # calling fish coloured by site
 srplot<-ggplot(sr1, aes(x=Latin, y=n, fill= Site))+
-  geom_bar(position="stack", stat="identity")+  
+  geom_bar(position="stack", stat="identity", colour = "black")+  
   scale_fill_manual("Site", values = c("Danger Rocks" = "cyan4", "Taylor Islet" = "goldenrod2"))+ 
   theme_bw()+
+  scale_x_discrete(labels = label_wrap_gen(10)) +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +                                                      # Changing the theme to get rid of the grey background
   ylab("Calling Fish (count)") +                                                   # Changing the text of the y axis label
   xlab("Species")  + 
@@ -154,6 +157,7 @@ fishunique1<-fishunique%>%
 callplot <- ggplot(fishunique1, aes(x=Latin, y=callspermin, fill=Latin)) + 
   geom_boxplot(varwidth = TRUE)+           # make boxes variable width based on sample size
   theme_bw() +
+  scale_x_discrete(labels = label_wrap_gen(10)) +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +# Changing the theme to get rid of the grey background
   ylab("calls per minute") +                                                   # Changing the text of the y axis label
   xlab("Species")  + 
@@ -166,6 +170,7 @@ ggsave("figures/CallsPerMinute.png", width = 20, height = 20, units = "cm")
 FOVplot <- ggplot(fishunique1, aes(x=Latin, y=tottime, fill=Latin)) + 
   geom_boxplot(varwidth = TRUE)+           # make boxes variable width based on sample size
   theme_bw() +
+  scale_x_discrete(labels = label_wrap_gen(10)) +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +# Changing the theme to get rid of the grey background
   ylab("Minutes on Camera") +                                                   # Changing the text of the y axis label
   xlab("Species")  + 
@@ -184,8 +189,9 @@ ct<-svbasic%>%
 ct$t <- factor(ct$t, levels = c("Knock", "Grunt", "Unknown"))
 
 calltypeplot<-ggplot(ct, aes(x=Latin, y=n, fill= t))+
-  geom_bar(position="dodge", stat="identity")+           # Changing the look of the line
+  geom_bar(position="dodge", stat="identity", colour = "black")+           # Changing the look of the line
   theme_bw() +
+  scale_x_discrete(labels = label_wrap_gen(10)) +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + 
   scale_fill_manual("Call Type", values = c("Knock" = "cyan4", "Unknown" = "goldenrod2", "Grunt" = "royalblue4"))+ # Changing the theme to get rid of the grey background
   ylab("Number of Calls") +                                                   # Changing the text of the y axis label
@@ -196,16 +202,16 @@ print(calltypeplot)
 ggsave("figures/CallTypes.png", width = 20, height = 20, units = "cm")
 
 #####behaviour during calling####
-beha<-svbasic%>%
+beha<-fishunique1%>%
   filter(Latin!=" ", Latin!="Scorpaenichthys ")%>%
   filter(!is.na(t))%>%
   count(Latin,Activity)
 
-#activity by species
+#activity by species (individual fish only, not all calls)
 activityplot<-ggplot(beha, aes(x=Activity, y=n, fill= Activity))+
-  geom_bar(position="dodge", stat="identity")+           # Changing the look of the line
+  geom_bar(position="dodge", stat="identity", colour = "black")+           # Changing the look of the line
   scale_fill_manual("Behaviour", values = c("Following" = "cyan4", "Chasing" = "goldenrod2", "Feeding" = "royalblue4", "Other Fish Present" = "tomato1", "Solo Fish/No Activity" = "mediumturquoise"))+
-  theme_bw() +                                                      # Changing the theme to get rid of the grey background
+  theme_bw() +  
   ylab("Number of Calls") +                                                   # Changing the text of the y axis label
   xlab("Species")  + 
   labs(fill = "Activity")+ 
@@ -222,9 +228,9 @@ ctbh<-svbasic%>%
   count(Latin,t,Activity)
 
 ctactiveplot<-ggplot(ctbh, aes(x=t, y=n, fill= Activity))+
-  geom_bar(position="dodge", stat="identity")+           # Changing the look of the line
+  geom_bar(position="dodge", stat="identity", colour = "black")+           # Changing the look of the line
   scale_fill_manual("Behaviour", values = c("Following" = "cyan4", "Chasing" = "goldenrod2", "Feeding" = "royalblue4", "Other Fish Present" = "tomato1", "Solo Fish/No Activity" = "mediumturquoise"))+
-  theme_bw() +                                                      # Changing the theme to get rid of the grey background
+  theme_bw() +  
   ylab("Number of Calls") +                                                   # Changing the text of the y axis label
   xlab("Species")  + 
   labs(fill = "Activity")+ 
@@ -241,7 +247,8 @@ sv$Center.Freq..Hz.
 sv$ID_confidence<-as.factor(sv$ID_confidence)
 callsplot<-ggplot(sv, aes(x=`Center.Freq..Hz.`, y=`Peak.Freq..Hz.`))+
   geom_point(aes(colour = factor(Latin), shape=ID_confidence))+           # Changing the look of the line
-  theme_bw() +                                                      # Changing the theme to get rid of the grey background
+  theme_bw() +   
+  scale_x_discrete(labels = label_wrap_gen(10)) +# Changing the theme to get rid of the grey background
   ylab("Peak Frequency") +  
   xlab("Frequency 25%")+              # Changing the text of the y axis label
   labs(fill = "Call Type")+
@@ -267,7 +274,8 @@ numuniquecalls<-svbasic%>%
 
 numuniquecallsplot <- ggplot(numuniquecalls, aes(x=Latin, y=n)) + 
   geom_boxplot(varwidth = TRUE)+           # Changing the look of the line
-  theme_bw() +                                                      # Changing the theme to get rid of the grey background
+  theme_bw() + 
+  scale_x_discrete(labels = label_wrap_gen(10)) +# Changing the theme to get rid of the grey background
   ylab("Mean calls per individual") +                                                   # Changing the text of the y axis label
   xlab("Species")  + 
   theme(axis.text.x = element_text(size = 10, face = "plain", angle = 60, hjust=1), 
@@ -276,6 +284,7 @@ numuniquecallsplot <- ggplot(numuniquecalls, aes(x=Latin, y=n)) +
 numuniquecallsplot <- ggplot(numuniquecalls, aes(x=Latin, y=n, fill=Latin)) + 
   geom_boxplot(varwidth = TRUE)+           # make boxes variable width based on sample size
   theme_bw() +
+  scale_x_discrete(labels = label_wrap_gen(10)) +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +# Changing the theme to get rid of the grey background
   ylab("Calls per individual") +                                                   # Changing the text of the y axis label
   xlab("Species")  + 
