@@ -90,12 +90,15 @@ write.csv(driftmean2,"wdata/driftmean.csv", row.names = FALSE)
 #use this folder if you want to run all FS annotated localization data together
 filtlocs<-"All_Localizations_Daylight_LA_filtered_2_1_FS"#change folder name here
 
+# #use this folder if you want to run summary of how many sounds were localized at TI
+# filtlocs<-"TI_AllLocalizations_filtered_2_1"#change folder name here
+
 # #use this code if you're just making localization plots of completed files
 # filtlocs<-"FS_for_locplots"#change folder name here
 
 FSlocs<-imp_raven(path = paste0("odata/", filtlocs), all.data =  TRUE, only.spectro.view = FALSE) #need to set only.spectro.view to false to see columns from waveform.
 FSlocs<-FSlocs%>%
-  dplyr::select(-c(110:111))%>% #a weird additional column was added at the end so needed to remove (may not always need this
+ # dplyr::select(-c(110:111))%>% #a weird additional column was added at the end so needed to remove (may not always need this
   filter(grepl("Spectrogram", View))%>% #currently filtering out Waveform view, see *** below for more on what still need to be done.
   filter(grepl("f|u|F|U|e", s))%>%#filter to only keep files labelled as fish sound (FS)
   rename("Time" = "Begin Clock Time")
@@ -247,15 +250,15 @@ test<-minilocsarr%>%
 # }
 #####
 
-####Code to plot all points together (used for testing code)####
-# sound<- plot_ly(test, x=~x_m, y=~y_m, z=~z_m, mode= 'markers')
-# sound<-layout(sound, scene = list(xaxis = list(title = "Bottom", range = c(1,-1)), 
-#                                    yaxis = list(title = "Side", range = c(1,-1)), 
+# ####Code to plot all points together (used for testing code)####
+# sound<- plot_ly(FSlocs, x=~x_m, y=~y_m, z=~z_m, mode= 'markers', marker = list(size=1, color="black"))
+# sound<-layout(sound, scene = list(xaxis = list(title = "Sea Floor", range = c(1,-1)),
+#                                    yaxis = list(title = "Sea Floor", range = c(1,-1)),
 #                                    zaxis = list(title = "Vertical", range = c(-2,2))))
-# sound<-layout(sound, title= "boo" )
-# sound  
-# orca(p=sound, file = "wdata/3DPlots/soundtest.png")                           
-########
+# sound<-layout(sound, title= "localization errors <20cm" )
+# sound
+# orca(p=sound, file = "wdata/3DPlots/TIAllLocalizations_filtered_2_1.png")
+# ########
 
 ####2D loop for plotting coordinates with ggplot####
 for( i in 1:nrow(test)){
