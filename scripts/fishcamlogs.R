@@ -98,7 +98,7 @@ filtlocs<-"All_Localizations_Daylight_LA_filtered_2_1_FS"#change folder name her
 
 FSlocs<-imp_raven(path = paste0("odata/", filtlocs), all.data =  TRUE, only.spectro.view = FALSE) #need to set only.spectro.view to false to see columns from waveform.
 FSlocs<-FSlocs%>%
- # dplyr::select(-c(110:111))%>% #a weird additional column was added at the end so needed to remove (may not always need this
+  dplyr::select(-c(110:111))%>% #a weird additional column was added at the end so needed to remove (may not always need this
   filter(grepl("Spectrogram", View))%>% #currently filtering out Waveform view, see *** below for more on what still need to be done.
   filter(grepl("f|u|F|U|e", s))%>%#filter to only keep files labelled as fish sound (FS)
   rename("Time" = "Begin Clock Time")
@@ -279,10 +279,11 @@ for( i in 1:nrow(test)){
 
 ####add in EventMeasure fish ID information and append to localization dataframe####
 
-fishTI<-read.csv("odata/TI_locs_20240221.csv", header = TRUE, skip = 4 )
+fishTIstart<-read.csv("odata/TI_locs_20220815end_annotated20240321.csv", header = TRUE, skip = 4 )
+fishTI16<-read.csv("odata/TI_locs_20220816_annotated20240322.csv", header = TRUE, skip = 4 )
 fishDR<-read.csv("odata/DR_locs_20240208.csv", header = TRUE, skip = 4 )
 
-fish<-rbind(fishTI,fishDR)#combine datasets from each site
+fish<-rbind(fishTIstart, fishTI16,fishDR)#combine datasets from each site
 
 fish1<-fish%>%
   dplyr::select(-c(3:21))%>% #get rid of unnecessary columns
@@ -310,6 +311,11 @@ fish1$Selection<-with_options(
 fish1<-fish1%>%
 unite(fishID, fishnum, Date, sep = "_", remove = FALSE)
 fish1$vidnum<-as.numeric(fish1$vidnum)
+
+#fix fish ID for across date annot
+str(fish1)
+
+fish1$fishID[fish1$fishID == "0001_20220815" & fish1$Selection == "01212"] <- "0001_20220816"
 
 #how to count number of calls per unique fish
 #create separate frames for enter exit
@@ -388,7 +394,7 @@ SoundnVid["t"][SoundnVid["t"] == 'k'] <- "d" #change any k annotations to d for 
 SoundnVid$t<-ifelse(SoundnVid$s=="e" & SoundnVid$t=="check", "e", SoundnVid$t) 
 
 
-write.csv(SoundnVid,"wdata/SoundnVid.csv", row.names = FALSE)
+write.csv(SoundnVid,"wdata/SoundnVid_20240325.csv", row.names = FALSE)
 #####
 
 ####create test plots####
