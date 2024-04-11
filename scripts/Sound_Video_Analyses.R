@@ -15,7 +15,7 @@ lp("RColorBrewer")
 
 display.brewer.all()
 #######Load in soundnvid csv#####
-sv<-read.csv("wdata/SoundnVid_20240325.csv", header = TRUE)
+sv<-read.csv("wdata/SoundnVid_20240408.csv", header = TRUE)
 
 # create a new column with species full name 
 sv<- sv%>%
@@ -235,7 +235,7 @@ activityplot<-ggplot(beha, aes(x=Activity, y=n, fill= Activity))+
   # scale_fill_manual("Behaviour", values = c("Following" = "cyan4", "Chasing" = "goldenrod2", "Feeding" = "royalblue4", "Other Fish Present" = "tomato1", "Solo Fish/No Activity" = "mediumturquoise"))+
   theme_bw() + 
   scale_fill_brewer(palette = "Set2")+
-  ylab("Number of Calls") +                                                   # Changing the text of the y axis label
+  ylab("Number of Individuals") +                                                   # Changing the text of the y axis label
   xlab("Species")  + 
   labs(fill = "Activity")+ 
   facet_wrap(~Common)+
@@ -243,6 +243,30 @@ activityplot<-ggplot(beha, aes(x=Activity, y=n, fill= Activity))+
     size = 9), panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 print(activityplot)
 ggsave("figures/CallTypes.png", width = 20, height = 20, units = "cm")
+
+
+#remove NA rows
+allcallsbeha<-svbasic%>%
+  filter(!is.na(callspermin))%>%
+  filter(ID_confidence < 3)%>% #keep only confidence above 3
+  filter(Latin!=" ", Latin!="Scorpaenichthys ")%>%
+  filter(!is.na(t))%>%
+  count(Latin,Common,Activity)
+
+#activity by species (all calls)
+activityplotallcalls<-ggplot(allcallsbeha, aes(x=Activity, y=n, fill= Activity))+
+  geom_bar(position="dodge", stat="identity", colour = "black")+           # Changing the look of the line
+  # scale_fill_manual("Behaviour", values = c("Following" = "cyan4", "Chasing" = "goldenrod2", "Feeding" = "royalblue4", "Other Fish Present" = "tomato1", "Solo Fish/No Activity" = "mediumturquoise"))+
+  theme_bw() + 
+  scale_fill_brewer(palette = "Set2")+
+  ylab("Number of Calls") +                                                   # Changing the text of the y axis label
+  xlab("Species")  + 
+  labs(fill = "Activity")+ 
+  facet_wrap(~Common)+
+  theme(axis.title.x=element_blank(),axis.text.x = element_blank(), strip.text.x = element_text(
+    size = 9), panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+print(activityplotallcalls)
+ggsave("figures/behaviourduringcalling.png", width = 20, height = 20, units = "cm")
 
 #####activity grouped by call type#####  
 ctbh<-svbasic%>%
@@ -255,7 +279,7 @@ ctactiveplot<-ggplot(ctbh, aes(x=t, y=n, fill= Activity))+
   # scale_fill_manual("Behaviour", values = c("Following" = "cyan4", "Chasing" = "goldenrod2", "Feeding" = "royalblue4", "Other Fish Present" = "tomato1", "Solo Fish/No Activity" = "mediumturquoise"))+
   theme_bw() +
   scale_fill_brewer(palette = "Set2")+
-  ylab("Number of Calls") +                                                   # Changing the text of the y axis label
+  ylab("Number of Individuals") +                                                   # Changing the text of the y axis label
   xlab("Species")  + 
   labs(fill = "Activity")+ 
   facet_wrap(~Common)+
