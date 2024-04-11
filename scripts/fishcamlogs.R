@@ -304,7 +304,7 @@ test<-minilocsarr%>%
 ####add in EventMeasure fish ID information and append to localization dataframe####
 
 fishTIstart<-read.csv("odata/TI_locs_20220815end_annotated20240321.csv", header = TRUE, skip = 4 )
-fishTI16<-read.csv("odata/TI_locs_20220816_annotated20240404.csv", header = TRUE, skip = 4 )
+fishTI16<-read.csv("odata/TI_locs_20220816_annotated20240408.csv", header = TRUE, skip = 4 )
 fishDR<-read.csv("odata/DR_locs_20240208.csv", header = TRUE, skip = 4 )
 
 fish<-rbind(fishTIstart, fishTI16,fishDR)#combine datasets from each site
@@ -418,7 +418,7 @@ SoundnVid["t"][SoundnVid["t"] == 'k'] <- "d" #change any k annotations to d for 
 SoundnVid$t<-ifelse(SoundnVid$s=="e" & SoundnVid$t=="check", "e", SoundnVid$t) 
 
 
-write.csv(SoundnVid,"wdata/SoundnVid_20240404.csv", row.names = FALSE)
+write.csv(SoundnVid,"wdata/SoundnVid_20240408.csv", row.names = FALSE)
 #####
 # 
 # ####create test plots####
