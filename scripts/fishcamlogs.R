@@ -305,7 +305,7 @@ test<-minilocsarr%>%
 
 fishTIstart<-read.csv("odata/TI_locs_20220815end_annotated20240321.csv", header = TRUE, skip = 4 )
 fishTI16<-read.csv("odata/TI_locs_20220816_annotated20240408.csv", header = TRUE, skip = 4 )
-fishDR<-read.csv("odata/DR_locs_20240208.csv", header = TRUE, skip = 4 )
+fishDR<-read.csv("odata/DR_locs_20240422.csv", header = TRUE, skip = 4 )
 
 fish<-rbind(fishTIstart, fishTI16,fishDR)#combine datasets from each site
 
