@@ -293,7 +293,7 @@ test<-minilocsarr%>%
            axis.text = element_text(size=4),
            axis.title = element_text(size = 4))
 
-   ggsave(filename = paste0(test$Site[i],"_",test$filenum3[i],"_",test$videotime3[i],"_",test$Selection[i], ".png"), path="wdata/Localization_Plots2", width = 8, height = 8, units = "cm") #save plot with appropriate filename in new folder
+   ggsave(filename = paste0(test$Site[i],"_",test$filenum3[i],"_",test$videotime3[i],"_",test$Selection[i], ".png"), path="wdata/Localization_Plots_wError", width = 8, height = 8, units = "cm") #save plot with appropriate filename in new folder
    plotname<-paste0("plot",test$Selection[i],"_", test$videofile[i],".png") #create name for each plot and paste it into dataframe under new column plot
    test$plot[i]<-plotname
  }
