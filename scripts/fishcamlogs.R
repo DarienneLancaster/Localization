@@ -95,12 +95,12 @@ filtlocs<-"All_Localizations_Daylight_LA_filtered_2_1_FS"#change folder name her
 # filtlocs<-"TI_AllLocalizations_filtered_2_1"#change folder name here
 
 # #use this code if you're just making localization plots of completed files
-# filtlocs<-"FS_for_locplots"#change folder name here
+ #filtlocs<-"FS_for_locplots"#change folder name here
 
 FSlocs<-imp_raven(path = paste0("odata/", filtlocs), all.data =  TRUE, only.spectro.view = FALSE) #need to set only.spectro.view to false to see columns from waveform.
 FSlocs<-FSlocs%>%
-  dplyr::select(-c(110:111))%>% #a weird additional column was added at the end so needed to remove (may not always need this
-  #dplyr::select(-c(110))%>% 
+  #dplyr::select(-c(110:111))%>% #a weird additional column was added at the end so needed to remove (may not always need this
+  dplyr::select(-c(110))%>% 
   filter(grepl("Spectrogram", View))%>% #currently filtering out Waveform view, see *** below for more on what still need to be done.
   filter(grepl("f|u|F|U|e", s))%>%#filter to only keep files labelled as fish sound (FS)
   rename("Time" = "Begin Clock Time")
