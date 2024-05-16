@@ -56,6 +56,8 @@ sv1<-sv%>%
 sv1$Latin<-as.factor(sv1$Latin)
 levels(sv1$Latin)
 
+sv1$Center.Freq..Hz.
+
 pfplot <- ggplot(sv1, aes(x=Common, y=Peak.Freq..Hz., fill=Latin)) + 
   geom_boxplot(varwidth = TRUE)+           # Changing the look of the line
   theme_bw() +  
@@ -169,9 +171,10 @@ fishunique<-svbasic%>%
 fishunique1<-fishunique%>%
   filter(!is.na(callspermin))%>%
   filter(ID_confidence < 3)%>% #keep only confidence above 3
-  filter(Latin!=" ", Latin!="Scorpaenichthys ")
+  filter(Latin!=" ", Latin!="Scorpaenichthys ")%>%
+  filter(fishID!= "0001_20220816")#removed one massive black rockfish time on camera outlier
 
-
+str(fishunique1)
 #calls per minute boxplot
 callplot <- ggplot(fishunique1, aes(x=Common, y=callspermin, fill=Common)) + 
   geom_boxplot(varwidth = TRUE)+           # make boxes variable width based on sample size
@@ -223,7 +226,29 @@ calltypeplot<-ggplot(ct, aes(x=Common, y=n, fill= t))+
 print(calltypeplot)
 ggsave("figures/CallTypes.png", width = 20, height = 20, units = "cm")
 
-#####behaviour during calling####
+#####behaviour during calling (all calls - e.g. same fish can make multiple calls)####
+beALL<-svbasic%>%
+  filter(Latin!=" ", Latin!="Scorpaenichthys ")%>%
+  filter(!is.na(t))%>%
+  count(Latin,Common,Activity)
+
+#activity by species (all calls - e.g. same fish can make multiple calls)
+activityplot<-ggplot(beALL, aes(x=Activity, y=n, fill= Activity))+
+  geom_bar(position="dodge", stat="identity", colour = "black")+           # Changing the look of the line
+  # scale_fill_manual("Behaviour", values = c("Following" = "cyan4", "Chasing" = "goldenrod2", "Feeding" = "royalblue4", "Other Fish Present" = "tomato1", "Solo Fish/No Activity" = "mediumturquoise"))+
+  theme_bw() + 
+  scale_fill_brewer(palette = "Set2")+
+  ylab("All Vocalizations") +                                                   # Changing the text of the y axis label
+  xlab("Species")  + 
+  labs(fill = "Activity")+ 
+  facet_wrap(~Common)+
+  theme(axis.title.x=element_blank(),axis.text.x = element_blank(), strip.text.x = element_text(
+    size = 9), panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+print(activityplot)
+ggsave("figures/CallBehaviourAllCalls.png", width = 20, height = 20, units = "cm")
+
+
+#####behaviour during calling (individual fish calling events)####
 beha<-fishunique1%>%
   filter(Latin!=" ", Latin!="Scorpaenichthys ")%>%
   filter(!is.na(t))%>%
@@ -235,7 +260,7 @@ activityplot<-ggplot(beha, aes(x=Activity, y=n, fill= Activity))+
   # scale_fill_manual("Behaviour", values = c("Following" = "cyan4", "Chasing" = "goldenrod2", "Feeding" = "royalblue4", "Other Fish Present" = "tomato1", "Solo Fish/No Activity" = "mediumturquoise"))+
   theme_bw() + 
   scale_fill_brewer(palette = "Set2")+
-  ylab("Number of Individuals") +                                                   # Changing the text of the y axis label
+  ylab("Vocalizing Individuals (count)") +                                                   # Changing the text of the y axis label
   xlab("Species")  + 
   labs(fill = "Activity")+ 
   facet_wrap(~Common)+
