@@ -99,8 +99,8 @@ filtlocs<-"All_Localizations_Daylight_LA_filtered_2_1_FS"#change folder name her
 
 FSlocs<-imp_raven(path = paste0("odata/", filtlocs), all.data =  TRUE, only.spectro.view = FALSE) #need to set only.spectro.view to false to see columns from waveform.
 FSlocs<-FSlocs%>%
-  #dplyr::select(-c(110:111))%>% #a weird additional column was added at the end so needed to remove (may not always need this
-  dplyr::select(-c(110))%>% 
+  dplyr::select(-c(110:111))%>% #a weird additional column was added at the end so needed to remove (may not always need this
+ # dplyr::select(-c(110))%>% 
   filter(grepl("Spectrogram", View))%>% #currently filtering out Waveform view, see *** below for more on what still need to be done.
   filter(grepl("f|u|F|U|e", s))%>%#filter to only keep files labelled as fish sound (FS)
   rename("Time" = "Begin Clock Time")
@@ -304,8 +304,8 @@ test<-minilocsarr%>%
 ####add in EventMeasure fish ID information and append to localization dataframe####
 
 fishTIstart<-read.csv("odata/TI_locs_20220815end_annotated20240321.csv", header = TRUE, skip = 4 )
-fishTI16<-read.csv("odata/TI_locs_20220816_annotated20240408.csv", header = TRUE, skip = 4 )
-fishDR<-read.csv("odata/DR_locs_20240422.csv", header = TRUE, skip = 4 )
+fishTI16<-read.csv("odata/TI_locs_20220816_annotated20241108.csv", header = TRUE, skip = 4 )
+fishDR<-read.csv("odata/DR_locs_20241010.csv", header = TRUE, skip = 4 )
 
 fish<-rbind(fishTIstart, fishTI16,fishDR)#combine datasets from each site
 
@@ -391,7 +391,7 @@ locsarr$Selection<-with_options(
 SoundnVid<-locsarr%>%left_join(fish1, by= c("videofile", "Selection"))%>%
   relocate(1, .after = last_col())%>%
   filter(!grepl("e|x|m", Enter_Exit))%>% #removes columns with enter, exit, and missing (e.g. could not locate source of sound)
-  dplyr::select(-c(Cam:vidnames3, vidstarttime:videndtime,videotime3:videotime2))%>%
+  #dplyr::select(-c(Cam:vidnames3, vidstarttime:videndtime,videotime3:videotime2))%>%
   filter(!is.na(fishnum))%>% #filters out any localizations that haven't been annotated yet  (Need to figure out how to flag if there's an annotation issue from my EM annotations - like typo in selection  #)
   separate(n, into = c("bs","notes"), sep = "_", remove = FALSE)
 
@@ -418,9 +418,73 @@ SoundnVid["t"][SoundnVid["t"] == 'k'] <- "d" #change any k annotations to d for 
 SoundnVid$t<-ifelse(SoundnVid$s=="e" & SoundnVid$t=="check", "e", SoundnVid$t) 
 
 
-write.csv(SoundnVid,"wdata/SoundnVid_20240408.csv", row.names = FALSE)
+write.csv(SoundnVid,"wdata/SoundnVid_20241108.csv", row.names = FALSE)
 #####
-# 
+####create new localization plots for fish measurements in EventMeasure####
+
+FishM<-SoundnVid%>%
+  filter(!Enter_Exit %in% c("m", "e", "x"))%>%
+  filter(ID_confidence != 3)%>%
+  group_by(fishID) %>%
+  slice_head(n = 1) %>%
+  ungroup() 
+  
+
+levels(as.factor(FishM$ID_confidence))
+
+####Create localization plots for measuring fish with extra info like species and comments in plot details####
+
+FishM<-FishM%>%
+  #filter(Site=="Danger Rocks")%>%
+  mutate(across("videotime3", str_replace, ":", "."))%>%
+  mutate(across("videotime3", str_replace, ":", "."))
+
+for( i in 1:nrow(FishM)){
+  print(ggplot(FishM, aes(x=x_m[i] , y=y_m[i]))+ #create scatterplot for x and y coordinates
+          geom_point(size=0.5))+
+    geom_errorbar(aes(ymin= y_err_low_m[i], ymax= y_err_high_m[i]), width=.05, size = 0.1, colour = "orange")+
+    geom_errorbarh(aes(xmin= x_err_low_m[i], xmax= x_err_high_m[i]), height=.05, size = 0.1, colour = "orange")+
+    expand_limits(x=c(-1,1), y=c(-1, 1))+
+    ggtitle(paste0("Selection#=",FishM$Selection[i], " fishID =", FishM$fishID[i], " Note=", FishM$Comments[i],"\n",FishM$vidnames3[i],"\n",
+                   FishM$videotime3[i], "\n",FishM$Genus[i]," ",FishM$Species[i], " " ,"z_coord=",FishM$z_m[i], "\n",FishM$videotime2[i], " ", 
+                   FishM$vidnames2[i], "\n", FishM$videotime1[i], " ", FishM$vidnames1[i], 
+                   "\n", FishM$selec.file[i]))+
+    theme(plot.title = element_text(size=4), aspect.ratio = 10/10,
+          axis.text = element_text(size=4),
+          axis.title = element_text(size = 4))
+  
+  ggsave(filename = paste0(FishM$Site[i],"_",FishM$filenum3[i],"_",FishM$videotime3[i],"_",FishM$Selection[i],"_", FishM$fishID[i], ".png"), path="wdata/Loc_Plots_forMeasurements", width = 8, height = 8, units = "cm") #save plot with appropriate filename in new folder
+  plotname<-paste0("plot",FishM$Selection[i],"_", FishM$videofile[i],".png") #create name for each plot and paste it into dataframe under new column plot
+  FishM$plot[i]<-plotname
+}
+
+##########match fish measurements to existing soundnvid data##########
+
+fish_length<-read.csv("odata/fish_measurements_20241108.csv", header = TRUE, skip = 4 )
+
+fish_length1<-fish_length%>%
+  dplyr::select(-c(3:5,7:28, 33:34))%>% #get rid of unnecessary columns
+  separate(Filename, into = c("vidnum","CamName", "Date"), sep = "_", remove = FALSE)%>%
+  separate(Date, into = c("Date"), sep = "T")%>%
+  rename(Length =Length..mm.)
+
+#add zeros to start of Localization ID
+fish_length1$Selection<-with_options(
+  c(scipen = 999), 
+  str_pad(fish_length1$Selection, 4, pad = "0")
+)
+
+#combine fishnum (Selection) and Date
+fish_length1<-fish_length1%>%
+  unite(fishID, Selection, Date, sep = "_", remove = FALSE)%>%
+  group_by(fishID) %>%
+  summarize(mean_length = mean(Length, na.rm = TRUE),
+            sd_length = sd(Length, na.rm = TRUE)) %>%
+  ungroup()
+
+SoundnVid1<-left_join(SoundnVid, fish_length1, by = "fishID")
+
+
 # ####create test plots####
 # SoundnVid$`Inband Power (dB FS)`
 # str(SoundnVid)
