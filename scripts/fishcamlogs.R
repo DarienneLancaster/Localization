@@ -11,6 +11,7 @@ lp("plotly")
 lp("withr")
 lp("ggplot2")
 lp("processx")
+lp("smplot2")  #package that allows you to add correlation stats to graphs
 #the package orca must be downloaded using miniconda to export static images from plotly
 ######
 
@@ -523,8 +524,6 @@ print(measure_cor)
 #  .60-.79 “strong”
 #  .80-1.0 “very strong”
 
-lp("smplot2")  #package that allows you to add correlation stats to graphs
-
 # Create ggplot plots of rugosity metrics
 measurements <- ggplot(dup_meas, aes(x = mean_lengthEM, y = mean_lengthIJ)) +
   geom_point(color = "deepskyblue") +
@@ -572,6 +571,8 @@ duplicated(measures$fishID)
 
 #link measures to sound dataframe
 SoundnVid1<-left_join(SoundnVid, measures, by = "fishID")
+
+write.csv(SoundnVid1, "wdata/Sound_Species_Behaviour_Length.csv", row.names = FALSE)
 
 ### look at fish length histogram by species
 
