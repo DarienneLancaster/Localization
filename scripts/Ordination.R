@@ -13,16 +13,57 @@ lp("ggplot2")
 lp("processx")
 lp("smplot2")  #package that allows you to add correlation stats to graphs
 lp("vegan")
+lp("gridExtra")
 
 fishdata<-read.csv("wdata/Sound_Species_Behaviour_Length.csv", header = TRUE)
 
+##################################################################
+###look at length vs sound characteristics by fish species############
 fishdata00<-fishdata%>%
-  group_by(fishID)%>%
-  count()
+  filter(!is.na(mean_length)) %>%
+  filter(t == "d", bs == "g", ID_confidence == 1,  Selection != 3030 )
 
+fishdata00$Center.Freq..Hz.
+
+# Get the unique species from the 'Species' column of the fishdata00 dataframe
+species_list <- unique(fishdata00$Species)
+
+# Print the species list
+print(species_list)
+
+# Create an empty list to store the plots
+plot_list <- list()
+
+# Loop through each species and create a plot
+for(species_name in species_list) {
+  # Subset the data for the current species
+  species_data <- fishdata00 %>%
+    filter(Species == species_name)
+  
+  # Create the scatter plot
+  p <- ggplot(species_data, aes(x = mean_length, y =Center.Freq..Hz. )) +
+    geom_point() +  # Scatter plot with points colored by 'Species'
+    geom_smooth(method = "lm", se = FALSE, color = "blue") +
+    labs(title = paste(species_name),
+         x = "Mean Length",
+         y = "Center Frequency") + 
+    theme_bw()
+  
+  # Add the plot to the plot list
+  plot_list[[species_name]] <- p
+}
+
+# Use grid.arrange() to print all the plots together in one window
+grid.arrange(grobs = plot_list, ncol = 2)  # ncol specifies the number of columns for arrangement
+
+#################################################################
+####try PCA########################
+
+
+#bs == "g"
 
 fishdata0<-fishdata%>%
-  filter(t == "g", ID_confidence != 3, bs == "g", Selection != 3030, str_detect(Species, "maliger|caurinus|melanops")) #selection 3030 is a major outlier
+  filter(t == "d", ID_confidence != 3,  Selection != 3030, str_detect(Species, "decagrammus|caurinus|pinniger") ) #selection 3030 is a major outlier #str_detect(Species, "maliger|caurinus|melanops")
 
 ##create simplified dataframe to experiment with PCoA and NMDS
 fishdata1<-fishdata0%>%
@@ -82,8 +123,11 @@ pca_all<-left_join(fishdata1, pca1, by = "PCA_ID")
 
 # Plot PCA using ggplot2 and add the most important variables
 copper_knocks_pca <- ggplot(pca_all, aes(x = PC1, y = PC2)) +
-  geom_point(aes(color = mean_length)) +  # Color by Species (shape = Activity)
+  geom_point(aes(color = Species)) +  # Color by Species (shape = Activity)
   #geom_text(aes(label = PCA_ID), vjust = -0.5, hjust = 0.5, size = 3) +  # Add PCA_ID labels
+  stat_ellipse(aes(color = Species), 
+               level = 0.95,  # Set the confidence level for the ellipse, default is 0.95
+               linetype = "solid", size = 1)+
   geom_segment(data = variable_loadings, 
                aes(x = 0, y = 0, xend = PC1_loading, yend = PC2_loading),
                arrow = arrow(type = "closed", length = unit(0.2, "inches")), 
