@@ -20,7 +20,7 @@ lp("smplot2")  #package that allows you to add correlation stats to graphs
 
 ###load original localization data
 
-O<-read.csv("wdata/SoundnVid_20241114.csv", header = TRUE)
+O<-read.csv("wdata/SoundnVid_20250114.csv", header = TRUE)
 
 ###################################################################
 #create list of AMAR files that will actually need to be edited
@@ -135,6 +135,9 @@ O_E1 <- O_E %>%
 
 OEfinal<-rbind(O_E1, O_Ea)
 
+OEfinal1<-OEfinal%>%
+  filter(grepl("AMAR173.4.20220813T023710Z", Begin.Path))
+
 levels(as.factor(OEfinal$Edit))
 
 #######NOTE - too many localizations tied to fish IDs - might be something to do with
@@ -142,36 +145,153 @@ levels(as.factor(OEfinal$Edit))
 
 #join new selections to video data using Being Path (AMAR filename) and Selection_N (this is tied to the original selection that was replaced or had addition calls attached to it)
 C<-left_join(OEfinal, O1, by = c("Begin.Path", "Selection_N"))
-#remove unnecessary columns
-N3<-N2%>%
-  dplyr::select(-Begin.Clock.Time, -Edits)
 
-#check if column names are matching 
-#(FALSE just means there is different data in each column which is fine, 
-#you don't want it to say Columns don't exist - 
-#although these are fine and will be added in during bind_rows operation)
-N3 %>%
-  select(names(O)) %>%
-  map2(O, ~ all(.x == .y))
-
-O %>%
-  select(names(N3)) %>%
-  map2(N3, ~ all(.x == .y))
-
-#create new dataframe joining new selections to original SoundnVid data (there should now be more selections than before)
-ExtraSelections<-bind_rows(O, N3)
+C1<-C%>%
+  filter(!is.na(fishID)) #remove any sound localization rows where no fish was able to be identified
 
 #recalculate sounds per fish with additional selections (this is added in as new column)
-N4<-ExtraSelections%>%
+C2<-C1%>%
   count(fishID,Selection)%>%
   count(fishID)%>%
   rename(soundsperfish_E=n)
 
-ExtraSelections1<-left_join(ExtraSelections, N4, by="fishID")
+C3<-left_join(C1, C2, by="fishID")
+
+write.csv(C3,"wdata/EditedFishSoundswVideoID_20250114.csv", row.names = FALSE)
 
 
-###NOTE####
-#once all files are fixed for bad selections remove all rows marked bs (they should be replaced by rows marked n from new selection tables)
+############################################################################
+#add fish length data to edited sound/video data
+
+##########match fish measurements to existing soundnvid data##########
+
+fish_length<-read.csv("odata/fish_measurements_20241125.csv", header = TRUE, skip = 4 )
+
+fish_lengthIJ<-read.csv("odata/TI_ImageJ_screenshots/TI_fishmeasurements_nonstereo.csv", header = TRUE)
+
+#############################################################################
+#check relationship between EventMeasure and ImageJ fish length measurements
+
+#add zeros to start of Localization ID
+fish_lengthIJ$fishID<-with_options(
+  c(scipen = 999), 
+  str_pad(fish_lengthIJ$fishID, 4, pad = "0")
+)
+
+#create fishID column and average 2 length measurements
+fish_lengthIJD<-fish_lengthIJ%>%
+  filter(grepl("D", Notes))%>%  #remove any rows with D in notes column (D for Duplicate measurement)
+  unite(fishID, fishID, Date, sep = "_", remove = FALSE)%>%
+  group_by(fishID) %>%
+  summarize(mean_lengthIJ = mean(Length, na.rm = TRUE),
+            sd_lengthIJ = sd(Length, na.rm = TRUE)) %>%
+  ungroup()
+
+#add zeros to start of Localization ID
+fish_length$Selection<-with_options(
+  c(scipen = 999), 
+  str_pad(fish_length$Selection, 4, pad = "0")
+)
+
+###do the same for EventMeasure data###
+fish_lengthEMD<-fish_length%>%
+  dplyr::select(-c(3:5,7:28, 33))%>% #get rid of unnecessary columns
+  filter(grepl("D", Notes))%>%  #remove any rows with D in notes column (D for Duplicate measurement)
+  separate(Filename, into = c("vidnum","CamName", "Date"), sep = "_", remove = FALSE)%>%
+  separate(Date, into = c("Date"), sep = "T")%>%
+  rename(Length =Length..mm.)%>%
+  unite(fishID, Selection, Date, sep = "_", remove = FALSE)%>%
+  group_by(fishID) %>%
+  summarize(mean_lengthEM = mean(Length, na.rm = TRUE),
+            sd_lengthEM = sd(Length, na.rm = TRUE)) %>%
+  ungroup()
+
+#join EM and IJ duplicate measure dataframes
+dup_meas<-left_join(fish_lengthEMD, fish_lengthIJD, by = "fishID")
+
+#subract EM lengths from IJ lengths and calculate mean and SD difference
+dup_meas$difference<- dup_meas$mean_lengthEM-dup_meas$mean_lengthIJ
+
+mean(dup_meas$difference)
+sd(dup_meas$difference)
+#EventMeasure lengths are an average of 17mm longer than ImageJ measurements with a standard deviation of 48mm. 
+#Strong siginificant positive correlation between measurements (rho =0.7, p=0.02)
+
+#Pearsons correlation between measurements
+measure_cor<-cor.test(dup_meas$mean_lengthEM, dup_meas$mean_lengthIJ,  method="pearson") #exact = FALSE gets rid of impact of tied values on ranking
+print(measure_cor)
+#rho = 0.52, p = 0.102 (weak significant positive relationship)
+#interpret results - looking for rho value between - 1 and +1 with significant p value
+# .00-.19 “very weak”
+#  .20-.39 “weak”
+#  .40-.59 “moderate”
+#  .60-.79 “strong”
+#  .80-1.0 “very strong”
+
+# Create ggplot plots of rugosity metrics
+measurements <- ggplot(dup_meas, aes(x = mean_lengthEM, y = mean_lengthIJ)) +
+  geom_point(color = "deepskyblue") +
+  labs(title = "a)") +
+  sm_statCorr(corr_method="pearsons", color = "deepskyblue3", linetype = "dashed")+
+  labs(x = "EM", y = "IJ")+
+  theme_bw()+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+measurements 
+
+#############################################################################################
+###create new dataframe with fish measurements joined to sound data
+
+#create fishID column and average 2 length measurements
+fish_lengthIJ1<-fish_lengthIJ%>%
+  filter(!grepl("D", Notes))%>%  #remove any rows with D in notes column (D for Duplicate measurement)
+  unite(fishID, fishID, Date, sep = "_", remove = FALSE)%>%
+  group_by(fishID) %>%
+  summarize(mean_length = mean(Length, na.rm = TRUE),
+            sd_length = sd(Length, na.rm = TRUE)) %>%
+  ungroup()
+
+duplicated(fish_lengthIJ1$fishID)
+
+###do the same for EventMeasure data###
+fish_length1<-fish_length%>%
+  dplyr::select(-c(3:5,7:28, 33:34))%>% #get rid of unnecessary columns
+  separate(Filename, into = c("vidnum","CamName", "Date"), sep = "_", remove = FALSE)%>%
+  separate(Date, into = c("Date"), sep = "T")%>%
+  rename(Length =Length..mm.)
+
+#combine fishnum (Selection) and Date
+fish_length1<-fish_length1%>%
+  unite(fishID, Selection, Date, sep = "_", remove = FALSE)%>%
+  group_by(fishID) %>%
+  summarize(mean_length = mean(Length, na.rm = TRUE),
+            sd_length = sd(Length, na.rm = TRUE)) %>%
+  ungroup()
+
+duplicated(fish_length1$fishID)
+
+#join EM and ImageJ measurements
+measures<- rbind(fish_length1, fish_lengthIJ1)
+duplicated(measures$fishID)
+
+#link measures to edited sound dataframe (C3 from above)
+EditSoundVidMeas<-left_join(C3, measures, by = "fishID")
+
+write.csv(EditSoundVidMeas, "wdata/Sound_Species_Behaviour_Length_20250114.csv", row.names = FALSE)
+
+### look at fish length histogram by species
+
+FishLength<-EditSoundVidMeas%>%
+  group_by(fishID) %>%
+  slice_head(n = 1) %>%
+  filter(!is.na(mean_length))%>% ## get rid of NAs in length (these fish haven't been annotated yet)
+  ungroup()
 
 
+#histogram of fish lengths by species (bins of 5)
+ggplot(FishLength, aes(x = mean_length)) +
+  geom_histogram(binwidth = 5, color = "black", fill = "darkturquoise") +
+  facet_wrap(~ Species, scales = "free_y") +
+  labs(title = "Histograms of Mean Length by Species", x = "Mean Length", y = "Count") +
+  coord_cartesian(ylim = c(0, 8)) +  # Fix y-axis range from 0 to 8
+  theme_classic()
 
