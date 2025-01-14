@@ -100,12 +100,11 @@ filtlocs<-"All_Localizations_Daylight_LA_filtered_2_1_FS"#change folder name her
 
 FSlocs<-imp_raven(path = paste0("odata/", filtlocs), all.data =  TRUE, only.spectro.view = FALSE) #need to set only.spectro.view to false to see columns from waveform.
 FSlocs<-FSlocs%>%
-  dplyr::select(-c(110:111))%>% #a weird additional column was added at the end so needed to remove (may not always need this
- # dplyr::select(-c(110))%>% 
+  #dplyr::select(-c(110:111))%>% #a weird additional column was added at the end so needed to remove (may not always need this
+  dplyr::select(-c(106))%>% 
   filter(grepl("Spectrogram", View))%>% #currently filtering out Waveform view, see *** below for more on what still need to be done.
   filter(grepl("f|u|F|U|e", s))%>%#filter to only keep files labelled as fish sound (FS)
   rename("Time" = "Begin Clock Time")
-
 str(FSlocs)
 
 #import edited driftmean csv
@@ -280,24 +279,24 @@ test<-minilocsarr%>%
 
 ####Updated localization plot code with error bars, call type and AMAR file name####
 
- for( i in 1:nrow(test)){
-   print(ggplot(test, aes(x=x_m[i] , y=y_m[i]))+ #create scatterplot for x and y coordinates
-         geom_point(size=0.5))+
-          geom_errorbar(aes(ymin= y_err_low_m[i], ymax= y_err_high_m[i]), width=.05, size = 0.1, colour = "orange")+
-          geom_errorbarh(aes(xmin= x_err_low_m[i], xmax= x_err_high_m[i]), height=.05, size = 0.1, colour = "orange")+
-     expand_limits(x=c(-1,1), y=c(-1, 1))+
-     ggtitle(paste0("Selection#=",test$Selection[i]," s=",test$s[i],"  t=",test$t[i],"\n",test$vidnames3[i],"\n",
-                    test$videotime3[i], "\n","z_coord=",test$z_m[i], "\n",test$videotime2[i], " ", 
-                    test$vidnames2[i], "\n", test$videotime1[i], " ", test$vidnames1[i], 
-                    "\n", test$selec.file[i]))+
-     theme(plot.title = element_text(size=4), aspect.ratio = 10/10,
-           axis.text = element_text(size=4),
-           axis.title = element_text(size = 4))
-
-   ggsave(filename = paste0(test$Site[i],"_",test$filenum3[i],"_",test$videotime3[i],"_",test$Selection[i], ".png"), path="wdata/Localization_Plots_wError", width = 8, height = 8, units = "cm") #save plot with appropriate filename in new folder
-   plotname<-paste0("plot",test$Selection[i],"_", test$videofile[i],".png") #create name for each plot and paste it into dataframe under new column plot
-   test$plot[i]<-plotname
- }
+ # for( i in 1:nrow(test)){
+ #   print(ggplot(test, aes(x=x_m[i] , y=y_m[i]))+ #create scatterplot for x and y coordinates
+ #         geom_point(size=0.5))+
+ #          geom_errorbar(aes(ymin= y_err_low_m[i], ymax= y_err_high_m[i]), width=.05, size = 0.1, colour = "orange")+
+ #          geom_errorbarh(aes(xmin= x_err_low_m[i], xmax= x_err_high_m[i]), height=.05, size = 0.1, colour = "orange")+
+ #     expand_limits(x=c(-1,1), y=c(-1, 1))+
+ #     ggtitle(paste0("Selection#=",test$Selection[i]," s=",test$s[i],"  t=",test$t[i],"\n",test$vidnames3[i],"\n",
+ #                    test$videotime3[i], "\n","z_coord=",test$z_m[i], "\n",test$videotime2[i], " ", 
+ #                    test$vidnames2[i], "\n", test$videotime1[i], " ", test$vidnames1[i], 
+ #                    "\n", test$selec.file[i]))+
+ #     theme(plot.title = element_text(size=4), aspect.ratio = 10/10,
+ #           axis.text = element_text(size=4),
+ #           axis.title = element_text(size = 4))
+ # 
+ #   ggsave(filename = paste0(test$Site[i],"_",test$filenum3[i],"_",test$videotime3[i],"_",test$Selection[i], ".png"), path="wdata/Localization_Plots_wError", width = 8, height = 8, units = "cm") #save plot with appropriate filename in new folder
+ #   plotname<-paste0("plot",test$Selection[i],"_", test$videofile[i],".png") #create name for each plot and paste it into dataframe under new column plot
+ #   test$plot[i]<-plotname
+ # }
 
 
 #####
@@ -419,7 +418,7 @@ SoundnVid["t"][SoundnVid["t"] == 'k'] <- "d" #change any k annotations to d for 
 SoundnVid$t<-ifelse(SoundnVid$s=="e" & SoundnVid$t=="check", "e", SoundnVid$t) 
 
 
-write.csv(SoundnVid,"wdata/SoundnVid_20241114.csv", row.names = FALSE)
+write.csv(SoundnVid,"wdata/SoundnVid_20250114.csv", row.names = FALSE)
 #####
 ####create new localization plots for fish measurements in EventMeasure####
 
@@ -440,24 +439,24 @@ FishM<-FishM%>%
   mutate(across("videotime3", str_replace, ":", "."))%>%
   mutate(across("videotime3", str_replace, ":", "."))
 
-for( i in 1:nrow(FishM)){
-  print(ggplot(FishM, aes(x=x_m[i] , y=y_m[i]))+ #create scatterplot for x and y coordinates
-          geom_point(size=0.5))+
-    geom_errorbar(aes(ymin= y_err_low_m[i], ymax= y_err_high_m[i]), width=.05, size = 0.1, colour = "orange")+
-    geom_errorbarh(aes(xmin= x_err_low_m[i], xmax= x_err_high_m[i]), height=.05, size = 0.1, colour = "orange")+
-    expand_limits(x=c(-1,1), y=c(-1, 1))+
-    ggtitle(paste0("Selection#=",FishM$Selection[i], " fishID =", FishM$fishID[i], " Note=", FishM$Comments[i],"\n",FishM$vidnames3[i],"\n",
-                   FishM$videotime3[i], "\n",FishM$Genus[i]," ",FishM$Species[i], " " ,"z_coord=",FishM$z_m[i], "\n",FishM$videotime2[i], " ", 
-                   FishM$vidnames2[i], "\n", FishM$videotime1[i], " ", FishM$vidnames1[i], 
-                   "\n", FishM$selec.file[i]))+
-    theme(plot.title = element_text(size=4), aspect.ratio = 10/10,
-          axis.text = element_text(size=4),
-          axis.title = element_text(size = 4))
-  
-  ggsave(filename = paste0(FishM$Site[i],"_",FishM$filenum3[i],"_",FishM$videotime3[i],"_",FishM$Selection[i],"_", FishM$fishID[i], ".png"), path="wdata/Loc_Plots_forMeasurements", width = 8, height = 8, units = "cm") #save plot with appropriate filename in new folder
-  plotname<-paste0("plot",FishM$Selection[i],"_", FishM$videofile[i],".png") #create name for each plot and paste it into dataframe under new column plot
-  FishM$plot[i]<-plotname
-}
+# for( i in 1:nrow(FishM)){
+#   print(ggplot(FishM, aes(x=x_m[i] , y=y_m[i]))+ #create scatterplot for x and y coordinates
+#           geom_point(size=0.5))+
+#     geom_errorbar(aes(ymin= y_err_low_m[i], ymax= y_err_high_m[i]), width=.05, size = 0.1, colour = "orange")+
+#     geom_errorbarh(aes(xmin= x_err_low_m[i], xmax= x_err_high_m[i]), height=.05, size = 0.1, colour = "orange")+
+#     expand_limits(x=c(-1,1), y=c(-1, 1))+
+#     ggtitle(paste0("Selection#=",FishM$Selection[i], " fishID =", FishM$fishID[i], " Note=", FishM$Comments[i],"\n",FishM$vidnames3[i],"\n",
+#                    FishM$videotime3[i], "\n",FishM$Genus[i]," ",FishM$Species[i], " " ,"z_coord=",FishM$z_m[i], "\n",FishM$videotime2[i], " ", 
+#                    FishM$vidnames2[i], "\n", FishM$videotime1[i], " ", FishM$vidnames1[i], 
+#                    "\n", FishM$selec.file[i]))+
+#     theme(plot.title = element_text(size=4), aspect.ratio = 10/10,
+#           axis.text = element_text(size=4),
+#           axis.title = element_text(size = 4))
+#   
+#   ggsave(filename = paste0(FishM$Site[i],"_",FishM$filenum3[i],"_",FishM$videotime3[i],"_",FishM$Selection[i],"_", FishM$fishID[i], ".png"), path="wdata/Loc_Plots_forMeasurements", width = 8, height = 8, units = "cm") #save plot with appropriate filename in new folder
+#   plotname<-paste0("plot",FishM$Selection[i],"_", FishM$videofile[i],".png") #create name for each plot and paste it into dataframe under new column plot
+#   FishM$plot[i]<-plotname
+# }
 
 ##########match fish measurements to existing soundnvid data##########
 
@@ -592,124 +591,3 @@ ggplot(FishLength, aes(x = mean_length)) +
   theme_classic()
 
 
-
-# ####create test plots####
-# SoundnVid$`Inband Power (dB FS)`
-# str(SoundnVid)
-# 
-# freq<-ggplot(SoundnVid, aes(x=`Inband Power (dB FS)` , y=`Peak Freq (Hz)`))+
-#   geom_point(aes(colour = factor(Species), shape=t))
-# 
-# print(freq)
-# 
-# grunts<-SoundnVid%>%
-#   filter(t=="g")
-# 
-# gruntplot<-ggplot(grunts, aes(x=`Inband Power (dB FS)` , y=`Peak Freq (Hz)`))+
-#   geom_point(aes(colour = factor(Species), shape=ID_confidence))
-# 
-# print(gruntplot)
-# 
-# drums<-SoundnVid%>%
-#   filter(t=="d")
-# 
-# drumplot<-ggplot(drums, aes(x=`Inband Power (dB FS)` , y=`Peak Freq (Hz)`))+
-#   geom_point(aes(colour = factor(Species), shape=ID_confidence))
-# 
-# print(drumplot)
-# 
-# explore<-SoundnVid%>%
-#   filter(t=="e")
-# 
-# exploplot<-ggplot(explore, aes(x=`Inband Power (dB FS)` , y=`Peak Freq (Hz)`))+
-#   geom_point(aes(colour = factor(Species), shape=ID_confidence))
-# 
-# print(exploplot)
-# 
-# #####
-# 
-# 
-# #### try cluster analysis####
-# 
-# #create test dataset with just a few variables
-# clust<-SoundnVid%>%
-#     dplyr::select(16,23,29,36, 38:41,47,60,106:129)
-# 
-# lp("klaR")
-# lp("psych")
-# lp("ggord")
-# lp("devtools")
-# 
-# #create pairs panel to look for covariance (can't get points to colour by genus or species)
-# pairs.panels(clust[2:11],
-#              gap = 0,
-#              bg = c("red", "green", "blue")[clust$Genus],
-#              pch = 25)
-# 
-# 
-# 
-# 
-# 
-# clust$vidnum<-as.character(clust$vidnum)
-# str(clust)
-# #scale all numeric variables using scale function (this causes a lot of NA 
-# #values where variance is equal to zero, need to check if this is a problem.
-# #how did Xavier scale sound measurements?
-# 
-# lp("liver")
-# 
-# #tried with zscore, also gives NAs
-# zscoretest<-clust%>%
-#   mutate(across(where(is.numeric), zscore))
-# 
-# ztest2<- clust %>% 
-#   mutate(zscore = (`Freq 25% (Hz)` - mean(`Freq 25% (Hz)`))/sd(`Freq 25% (Hz)`))
-# mean(clust$`Freq 25% (Hz)`)
-# sd(clust$`Freq 25% (Hz)`)
-# (148.438-118.6079)/112.69
-# 
-# #tried with scale, gives nas
-# clust$`Freq 25% (Hz)`
-# clustscale<-clust%>%
-#   mutate(across(where(is.numeric), scale, na.rm=TRUE))# need this to get rid of NAs
-# 
-# #convert NA values to 0
-# clustscale[, 2:11][is.na(clustscale[, 2:11])] <- 0
-# 
-# #once you have the MASS package loaded you'll need to use dplyr::select for all select commands
-# # lp("MASS")
-# # clustscale1<-clustscale%>%
-# #   dplyr::select(-c(12:23,25:35))
-# # 
-# # # %>%
-# # #   filter(t=="d")
-# # 
-# # #linear discriminant analysis
-# # 
-# # z <- lda(Species ~ ., clustscale1)
-# # str(clustscale1)
-# # clustscale1$`Begin Date`<-as.factor(clustscale1$`Begin Date`)
-# # clustscale1$filenum3<-as.factor(clustscale1$filenum3)
-# # clustscale1$Species<-as.factor(clustscale1$Species)
-# # 
-# # 
-# # linDA<-lda(clustscale1[,-12],grouping= clustscale1[,-12])
-# # 
-# # #run some trial heirarchical clustering to see how data branches off
-# # #how do we find out what variables are causing the main branches?
-# # dist_mat<- dist(clustscale, method = 'euclidian')
-# # 
-# # hclust_avg<-hclust(dist_mat, method = 'average')
-# # plot(hclust_avg)
-# # 
-# # cut_avg<-cutree(hclust_avg, k=7)
-# # plot(hclust_avg)
-# # rect.hclust(hclust_avg , k = 7, border = 2:6)
-# # abline(h = 3, col = 'red')
-# # 
-# # lp("dendextend")
-# # avg_dend_obj <- as.dendrogram(hclust_avg)
-# # avg_col_dend <- color_branches(avg_dend_obj, h = 3)
-# # plot(avg_col_dend)
-# # 
-# # 
