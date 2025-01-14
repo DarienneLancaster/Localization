@@ -15,13 +15,17 @@ lp("smplot2")  #package that allows you to add correlation stats to graphs
 lp("vegan")
 lp("gridExtra")
 
-fishdata<-read.csv("wdata/Sound_Species_Behaviour_Length.csv", header = TRUE)
+fishdata<-read.csv("wdata/Sound_Species_Behaviour_Length_20250114.csv", header = TRUE)
+
+fishdataT<-fishdata%>%
+  filter(Selection == 4345)
+
 
 ##################################################################
 ###look at length vs sound characteristics by fish species############
 fishdata00<-fishdata%>%
   filter(!is.na(mean_length)) %>%
-  filter(t == "d", bs == "g", ID_confidence == 1,  Selection != 3030 )
+  filter(t == "g", ID_confidence == 1,  Selection != 3030 )
 
 fishdata00$Center.Freq..Hz.
 
@@ -63,7 +67,11 @@ grid.arrange(grobs = plot_list, ncol = 2)  # ncol specifies the number of column
 #bs == "g"
 
 fishdata0<-fishdata%>%
-  filter(t == "d", ID_confidence != 3,  Selection != 3030, str_detect(Species, "decagrammus|caurinus|pinniger") ) #selection 3030 is a major outlier #str_detect(Species, "maliger|caurinus|melanops")
+  filter(t == "d", ID_confidence != 3,  Selection != 3030, str_detect(Species, "melanops|flavidus") ) #selection 3030 is a major outlier #str_detect(Species, "maliger|caurinus|melanops")
+
+# fishdata0<-fishdata%>%
+#   filter(t == "d", ID_confidence != 3,  Selection != 3030) #selection 3030 is a major outlier #str_detect(Species, "maliger|caurinus|melanops")
+# 
 
 ##create simplified dataframe to experiment with PCoA and NMDS
 fishdata1<-fishdata0%>%
@@ -141,6 +149,8 @@ copper_knocks_pca <- ggplot(pca_all, aes(x = PC1, y = PC2)) +
   theme_bw() +
   theme(legend.position = "right")  # Show legend on the right
 copper_knocks_pca
+
+
 ggsave("figures/copQBblack_grunts_PCA_species_IDconf1n2.png", plot = copper_knocks_pca, width = 25, height = 25, units = "cm")
 
 
@@ -157,9 +167,9 @@ grunts_pca
 ggsave("figures/fish_grunts_PCA_length_IDconf1.png", plot = grunts_pca, width = 25, height = 25, units = "cm")
 
 
-pca_all$Delta.Time..s.
+pca_all$Peak.Freq..Hz.
 # Plot main variables from gruntss pca
-grunts_pca<-ggplot(pca_all, aes(x = Dur.50...s., y = Center.Freq..Hz.)) +
+grunts_pca<-ggplot(pca_all, aes(x = Dur.50...s., y = Peak.Freq..Hz.)) +
   geom_point(aes(color = Species)) +  # Color by Species
   #geom_text(aes(label = PCA_ID), vjust = -0.5, hjust = 0.5, size = 3) +  # Add PCA_ID labels
   labs(title = "PCA Plot of Fish grunts - ID Confidence = 1",
@@ -171,7 +181,7 @@ grunts_pca
 
 
 # Plot main variables from knocks pca
-knocks_pca<-ggplot(pca_all, aes(x = Delta.Time..s., y = Center.Freq..Hz.)) +
+knocks_pca<-ggplot(fishdata1, aes(x = Delta.Time..s., y = Center.Freq..Hz.)) +
   geom_point(aes(color = Species)) +  # Color by Species
   #geom_text(aes(label = PCA_ID), vjust = -0.5, hjust = 0.5, size = 3) +  # Add PCA_ID labels
   labs(title = "PCA Plot of Fish Knocks - ID Confidence = 1",
