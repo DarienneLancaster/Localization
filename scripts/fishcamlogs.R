@@ -304,8 +304,8 @@ test<-minilocsarr%>%
 ####add in EventMeasure fish ID information and append to localization dataframe####
 
 fishTIstart<-read.csv("odata/TI_locs_20220815end_annotated20240321.csv", header = TRUE, skip = 4 )
-fishTI16<-read.csv("odata/TI_locs_20220816_annotated20241108.csv", header = TRUE, skip = 4 )
-fishDR<-read.csv("odata/DR_locs_20241010.csv", header = TRUE, skip = 4 )
+fishTI16<-read.csv("odata/EM_annotations_Final/localizations_TI_Aug16to23_20250116.csv", header = TRUE, skip = 4 )
+fishDR<-read.csv("odata/DR_locs_20250116.csv", header = TRUE, skip = 4 )
 
 fish<-rbind(fishTIstart, fishTI16,fishDR)#combine datasets from each site
 
