@@ -157,7 +157,7 @@ C2<-C1%>%
 
 C3<-left_join(C1, C2, by="fishID")
 
-write.csv(C3,"wdata/EditedFishSoundswVideoID_20250114.csv", row.names = FALSE)
+write.csv(C3,"wdata/EditedFishSoundswVideoID_20250116.csv", row.names = FALSE)
 
 
 ############################################################################
@@ -276,7 +276,7 @@ duplicated(measures$fishID)
 #link measures to edited sound dataframe (C3 from above)
 EditSoundVidMeas<-left_join(C3, measures, by = "fishID")
 
-write.csv(EditSoundVidMeas, "wdata/Sound_Species_Behaviour_Length_20250114.csv", row.names = FALSE)
+write.csv(EditSoundVidMeas, "wdata/Sound_Species_Behaviour_Length_20250116.csv", row.names = FALSE)
 
 ### look at fish length histogram by species
 
