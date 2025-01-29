@@ -15,17 +15,29 @@ lp("smplot2")  #package that allows you to add correlation stats to graphs
 lp("vegan")
 lp("gridExtra")
 
-fishdata<-read.csv("wdata/Sound_Species_Behaviour_Length_20250114.csv", header = TRUE)
+fishdata<-read.csv("wdata/Sound_Species_Behaviour_Length_20250116.csv", header = TRUE)
+
+#change missing cells in t to e (for unknown sound)
+fishdata<-fishdata%>%
+  mutate(t = ifelse(is.na(t) & s == "e", "e", t))%>%
+  mutate(t = ifelse(t == "" & s == "e", "e", t))
+ 
 
 fishdataT<-fishdata%>%
-  filter(Selection == 4345)
+  filter(Species == "maliger", mean_length >200)
+
+
+# 
+# %>%
+  # filter(fishID == "0005_20220912")
 
 
 ##################################################################
 ###look at length vs sound characteristics by fish species############
+lp("dplyr")
 fishdata00<-fishdata%>%
   filter(!is.na(mean_length)) %>%
-  filter(t == "g", ID_confidence == 1,  Selection != 3030 )
+  filter(t == "d", ID_confidence == 1,  Selection != 3030 )
 
 fishdata00$Center.Freq..Hz.
 
@@ -65,9 +77,10 @@ grid.arrange(grobs = plot_list, ncol = 2)  # ncol specifies the number of column
 
 
 #bs == "g"
+# t == "d",
 
 fishdata0<-fishdata%>%
-  filter(t == "d", ID_confidence != 3,  Selection != 3030, str_detect(Species, "melanops|flavidus") ) #selection 3030 is a major outlier #str_detect(Species, "maliger|caurinus|melanops")
+  filter(t == "d", ID_confidence != 3,  Selection != 3030, str_detect(Species, "caurinus|maliger|pinniger") ) #selection 3030 is a major outlier 
 
 # fishdata0<-fishdata%>%
 #   filter(t == "d", ID_confidence != 3,  Selection != 3030) #selection 3030 is a major outlier #str_detect(Species, "maliger|caurinus|melanops")
@@ -167,14 +180,14 @@ grunts_pca
 ggsave("figures/fish_grunts_PCA_length_IDconf1.png", plot = grunts_pca, width = 25, height = 25, units = "cm")
 
 
-pca_all$Peak.Freq..Hz.
+pca_all$High.Freq..Hz.
 # Plot main variables from gruntss pca
-grunts_pca<-ggplot(pca_all, aes(x = Dur.50...s., y = Peak.Freq..Hz.)) +
+grunts_pca<-ggplot(pca_all, aes(x = High.Freq..Hz., y = Low.Freq..Hz.)) +
   geom_point(aes(color = Species)) +  # Color by Species
   #geom_text(aes(label = PCA_ID), vjust = -0.5, hjust = 0.5, size = 3) +  # Add PCA_ID labels
   labs(title = "PCA Plot of Fish grunts - ID Confidence = 1",
-       x = "Duration (seconds)",
-       y = "Center Frequency (Hz)") +
+       x = "High.Freq..Hz.",
+       y = "Low.Freq..Hz.") +
   theme_bw() +
   theme(legend.position = "right")  # Show legend on the right
 grunts_pca
