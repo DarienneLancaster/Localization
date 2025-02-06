@@ -303,8 +303,8 @@ test<-minilocsarr%>%
 
 ####add in EventMeasure fish ID information and append to localization dataframe####
 
-fishTIstart<-read.csv("odata/TI_locs_20220815end_annotated20240321.csv", header = TRUE, skip = 4 )
-fishTI16<-read.csv("odata/EM_annotations_Final/localizations_TI_Aug16to23_20250116.csv", header = TRUE, skip = 4 )
+fishTIstart<-read.csv("odata/EM_annotations_Final/Taylor_Islet/localizations_TI_Aug13to16_20250128.csv", header = TRUE, skip = 4 )
+fishTI16<-read.csv("odata/EM_annotations_Final/Taylor_Islet/localizations_TI_Aug16to23_20250116.csv", header = TRUE, skip = 4 )
 fishDR<-read.csv("odata/DR_locs_20250116.csv", header = TRUE, skip = 4 )
 
 fish<-rbind(fishTIstart, fishTI16,fishDR)#combine datasets from each site
@@ -380,6 +380,65 @@ fish1<-fish1%>%
   rename("soundsperfish"="n","videofile"="Filename")
 #####
 
+###############################
+#join video data to audio data (use files that have edited selection boxes)
+
+###load edited Raven selection tables
+N<-imp_raven(path = paste0("odata/FS_selection_tables_Edited_and_Original_combo"), all.data =  TRUE, only.spectro.view = FALSE) #need to set only.spectro.view to false to see columns from waveform.
+
+#fix error in Edits column name
+#create new dataframe with only tables with column named Edtis
+N22<-N%>%
+  dplyr::select(-106)%>% #remove duplicate column for selec.file
+  filter(!is.na(Edtis))%>%
+  dplyr::select(-Edits)%>%
+  rename(Edits = Edtis)
+
+#create new dataframe with bad Edtis column removed
+N33<-N%>%
+  dplyr::select(-106)%>% #remove duplicate column for selec.file
+  filter(is.na(Edtis))%>%
+  dplyr::select(-Edtis)
+
+#join fixed up dataframe N22 to N33
+N44<-rbind(N22, N33)
+
+N1<-N44%>%
+  separate(Edits, into = c("Edit","Selection_N"), sep = "_", remove = FALSE)%>% #separate Edits column into two columns
+  filter(Edit !="r")%>% #remove any column marked with an r for Remove (these are bad selections)
+  # filter(Edit =="a"| Edit == "n")%>% #keep only rows marked a (additional selection), or n (new selection - replaces bad selection boxes)
+  rename_all(~ gsub(" ", ".", gsub("\\(", ".", gsub("\\)", ".", gsub("/", ".", gsub("%", ".", gsub("-", ".", .))))))) #make column names match my subbing . in for all special symbols and spaces
+
+###Move Selection numbers for original localizations into new column Selection_N (only for rows where Selection_N is blank)
+N1$Selection<-as.character(N1$Selection)
+
+N11 <- N1 %>%
+  mutate(Selection_N = if_else(is.na(Selection_N), Selection, Selection_N))
+
+#Create dataframe with only additional selections (a)
+N_a<-N11%>%
+  filter(Edit == "a")
+
+#remove old localization data that has been replaced by new annotations (marked with n in Edits column)
+N12 <- N11 %>%
+  filter(Edit != "a")%>% #remove additional selections
+  group_by(Begin.Path, Selection_N) %>% # group by Begin.Path and Selection_N
+  filter(!(Edit == "" & n() > 1)) %>% #remove row were Begin.Path and Selection_N have same value and where Edit column is blank (n() >1 checks for duplicate rows with same Selection Number)
+  filter(s != "")%>% #remove unlabled localizations (e.g. not noise, FS or unknown sounds)
+  ungroup()
+
+#rejoin additional annotations to N12 dataframe
+N13<-rbind(N12, N_a)
+levels(as.factor(N13$Edit))
+
+N14<-N13%>%
+  mutate(Edit = if_else(Edit == "", "e", Edit))%>%
+  dplyr::select(-Edits)
+
+############################################################################
+#join original sound localization files to video to match videofilename to Amar file name.  
+#Then keep only needed columns to join to edited selection data
+
 ####join edited EM fish file to AMAR localization file####
 #add zeros to start of Selection so it will match EM format  
 locsarr$Selection<-with_options(
@@ -395,49 +454,56 @@ SoundnVid<-locsarr%>%left_join(fish1, by= c("videofile", "Selection"))%>%
   filter(!is.na(fishnum))%>% #filters out any localizations that haven't been annotated yet  (Need to figure out how to flag if there's an annotation issue from my EM annotations - like typo in selection  #)
   separate(n, into = c("bs","notes"), sep = "_", remove = FALSE)
 
-#check for errors in bs column and rename cells
-SoundnVid$bs<-as.factor(SoundnVid$bs) #double check there's nothing important in the bs Levels or misspellings of bs
-levels(SoundnVid$bs)
-SoundnVid$bs<-as.character(SoundnVid$bs)#change back to factor to rename NAs and other error comments.
+SnV<-SoundnVid%>%
+  rename_all(~ gsub(" ", ".", gsub("\\(", ".", gsub("\\)", ".", gsub("/", ".", gsub("%", ".", gsub("-", ".", .)))))))%>% #make column names match my subbing . in for all special symbols and spaces
+  # filter(Selection == 3621)%>%
+  #filter(Begin.Path =="AMAR173.4.20220911T020952Z.wav")
+  mutate(Selection_N = Selection)%>% 
+  dplyr::select(Begin.Path, Site:Selection_N)%>%
+  mutate(Selection_N = as.character(Selection_N))%>%
+  dplyr::select(-Selection)
 
-SoundnVid["bs"][SoundnVid["bs"] != 'bs'] <- "g" #convert any cell not labelled bs to g for good selection
-SoundnVid <- SoundnVid %>% mutate(bs = ifelse(is.na(bs), "g", bs)) #convert NA cells to g for good selection
+#add zeroes to edited selections in edited sound data so it will match original data
+N14$Selection_N<-with_options(
+  c(scipen = 999), 
+  str_pad(N14$Selection_N, 5, pad = "0")
+)
+
+#join edited selection tables to video data
+SnV_edit<-left_join(N14, SnV, by = c("Begin.Path", "Selection_N"))
+
+#remove any rows where selections were never matched to a fish in the video
+SnV_edit<-SnV_edit%>%
+  filter(!is.na(fishID))
 
 #check for errors in s and t columns and fix
-SoundnVid$s<-as.factor(SoundnVid$s) #double check there's nothing important in the bs Levels or misspellings of bs
-levels(SoundnVid$s)
-SoundnVid$s<-as.character(SoundnVid$s)#change back to factor to rename NAs and other error comments.
-#haven't found any errors yet
+levels(as.factor(SnV_edit$t))
 
-SoundnVid$t<-as.factor(SoundnVid$t) #double check there's nothing important in the bs Levels or misspellings of bs
-levels(SoundnVid$t)
-SoundnVid$t<-as.character(SoundnVid$t)#change back to factor to rename NAs and other error comments.
+SnV_edit1<-SnV_edit%>%
+  mutate(t = recode(t, "dg" = "g", "gdg" = "g", "ds" = "d"))%>%
+  mutate(t = ifelse(s == "e" & t == "", "e", t))
 
-SoundnVid["t"][SoundnVid["t"] == ''] <- "check" #change all blank cells to check
-SoundnVid["t"][SoundnVid["t"] == 'k'] <- "d" #change any k annotations to d for drum instead of knock
-SoundnVid$t<-ifelse(SoundnVid$s=="e" & SoundnVid$t=="check", "e", SoundnVid$t) 
-
-
-write.csv(SoundnVid,"wdata/SoundnVid_20250114.csv", row.names = FALSE)
+write.csv(SnV_edit1,"wdata/SoundnVid_20250205.csv", row.names = FALSE)
 #####
+
 ####create new localization plots for fish measurements in EventMeasure####
 
-FishM<-SoundnVid%>%
-  filter(!Enter_Exit %in% c("m", "e", "x"))%>%
-  filter(ID_confidence != 3)%>%
-  group_by(fishID) %>%
-  slice_head(n = 1) %>%
-  ungroup() 
-  
-
-levels(as.factor(FishM$ID_confidence))
-
-####Create localization plots for measuring fish with extra info like species and comments in plot details####
-
-FishM<-FishM%>%
-  #filter(Site=="Danger Rocks")%>%
-  mutate(across("videotime3", str_replace, ":", "."))%>%
-  mutate(across("videotime3", str_replace, ":", "."))
+# FishM<-SoundnVid%>%
+#   filter(!Enter_Exit %in% c("m", "e", "x"))%>%
+#   filter(ID_confidence != 3)%>%
+#   group_by(fishID) %>%
+#   slice_head(n = 1) %>%
+#   ungroup() 
+#   
+# 
+# levels(as.factor(FishM$ID_confidence))
+# 
+# ####Create localization plots for measuring fish with extra info like species and comments in plot details####
+# 
+# FishM<-FishM%>%
+#   #filter(Site=="Danger Rocks")%>%
+#   mutate(across("videotime3", str_replace, ":", "."))%>%
+#   mutate(across("videotime3", str_replace, ":", "."))
 
 # for( i in 1:nrow(FishM)){
 #   print(ggplot(FishM, aes(x=x_m[i] , y=y_m[i]))+ #create scatterplot for x and y coordinates
@@ -515,7 +581,6 @@ sd(dup_meas$difference)
 #Pearsons correlation between measurements
 measure_cor<-cor.test(dup_meas$mean_lengthEM, dup_meas$mean_lengthIJ,  method="pearson") #exact = FALSE gets rid of impact of tied values on ranking
 print(measure_cor)
-#rho = 0.52, p = 0.102 (weak significant positive relationship)
 #interpret results - looking for rho value between - 1 and +1 with significant p value
 # .00-.19 “very weak”
 #  .20-.39 “weak”
@@ -523,7 +588,7 @@ print(measure_cor)
 #  .60-.79 “strong”
 #  .80-1.0 “very strong”
 
-# Create ggplot plots of rugosity metrics
+# 
 measurements <- ggplot(dup_meas, aes(x = mean_lengthEM, y = mean_lengthIJ)) +
   geom_point(color = "deepskyblue") +
   labs(title = "a)") +
@@ -569,9 +634,9 @@ measures<- rbind(fish_length1, fish_lengthIJ1)
 duplicated(measures$fishID)
 
 #link measures to sound dataframe
-SoundnVid1<-left_join(SoundnVid, measures, by = "fishID")
+SoundnVid1<-left_join(SnV_edit1, measures, by = "fishID")
 
-write.csv(SoundnVid1, "wdata/Sound_Species_Behaviour_Length.csv", row.names = FALSE)
+write.csv(SoundnVid1, "wdata/Sound_Species_Behaviour_Length_20250205.csv", row.names = FALSE)
 
 ### look at fish length histogram by species
 
