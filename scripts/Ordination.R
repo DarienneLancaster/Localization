@@ -16,7 +16,7 @@ lp("vegan")
 lp("gridExtra")
 lp("stringr")
 
-fishdata<-read.csv("wdata/Sound_Species_Behaviour_Length_20250116.csv", header = TRUE)
+fishdata<-read.csv("wdata/Sound_Species_Behaviour_Length_20250205.csv", header = TRUE)
 
 ###############################
 #calculate call sequences (link together calls from the same fish <1 second apart as a call sequence)
@@ -28,7 +28,7 @@ str(fishdata1)
 #select rows with duplicate selection numbers and keep only the first occurence
 fishdata88<- fishdata1 %>%
   group_by(Begin.File) %>%
-  filter(duplicated(Selection) | duplicated(Selection, fromLast = TRUE)) %>%
+  filter(duplicated(Selection) | duplicated(Selection, fromLast = TRUE))%>%
   group_by(Selection)%>%
   slice(1)%>%
   ungroup()
@@ -50,12 +50,13 @@ fishdata00<- fishdata2 %>%
   group_by(Begin.File) %>%
   filter(duplicated(Selection) | duplicated(Selection, fromLast = TRUE))
 
+#deal with the same fish crossing over multiple AMAR files
 fishdata33 <- fishdata2 %>%
   group_by(fishID)%>%
   mutate(
     End = ifelse(
       Begin.File != lead(Begin.File),  # Check if Begin.File is different in next row
-      End.Time..s. - 1800,  # If true, subtract 1800 from End
+      End.Time..s. - 1800,  # If true, subtract 1800 from End (1800 is the number of seconds in 30 minute files)
       End.Time..s.)  # Otherwise, just copy the End value
     )
 
@@ -64,12 +65,12 @@ fishdata44<-fishdata33%>%
 
 #create unique identifier for call sequences (calls can be a maximum of 5 seconds apart to count towards the same call sequence)
 fishdata99 <- fishdata44 %>%
-  select(Selection, Begin.Time..s., End.Time..s., fishID, Species, Begin.File, End)%>%
+  select(Selection, Begin.Time..s., End.Time..s., fishID, Species, Begin.File, End, Selection_N, Edit)%>%
   group_by(fishID) %>%
   mutate(
     Sequence_ID = cumsum(
-      Begin.Time..s. > lag(End, default = first(End)) + 5 | is.na(lag(End))
-    ) + 5  # Incremental sequence for each group
+      Begin.Time..s. > lag(End, default = first(End)) + 2 | is.na(lag(End))
+    ) + 2  # Incremental sequence for each group
   ) %>%
   ungroup()
 
@@ -85,16 +86,39 @@ fishdata98 <- fishdata99 %>%
   ) %>%
   ungroup()
 
-#deal with some old bad selections not being removed
-#deal with duplicate selection 3030 for row 9 and 10 in fishdata2 (what's up with this, why do the overlap so much - check in raven)
-#load in new TI eventmeasure data (this will clean analysis issues up)
-#Is it okay to have pulse interval based on begin time of both calls?  Sometimes selection boxes overlap for close together calls. How will this impact black rockfish long calls? or Grunts?
-  #could just set mini negative values to zero or 0.0001 as representation of how close calls can be together.
+# #code to check if there are any overlapping selection boxes (should have 0 rows if all errors fixed)
+# fishdata111<-fishdata98%>%
+#   filter(Call_Interval < 0)
 
-#next calculate total number of calls within a call sequence
-#then calculate mean/SD of call_interval length by species (e.g. do coppers usually have <1 second between calls
-# but maliger always have >1 second - what a statistical method to look at this? ttest?)
+#calculate how many calls are repeated within a sequence
+fishdata998 <- fishdata98 %>%
+  group_by(fishID, Sequence_ID) %>%
+  tally(name = "count")
+
+fishdata999<-left_join(fishdata98, fishdata998, by = c("fishID", "Sequence_ID"))%>%
+  mutate(Sequence_Reps = count) %>%
+  select(-count)  # Remove the intermediate 'count' column, if not needed
+
+
+#histogram of calling interval (time between linked calls) by species 
+ggplot(fishdata999, aes(x = Call_Interval)) +
+  geom_histogram(binwidth = 0.01, color = "black", fill = "darkturquoise") +
+  facet_wrap(~ Species, scales = "free_y") +
+  labs(title = "Histograms of Call Interval by Species", x = "Call Interval", y = "Count") +
+  coord_cartesian(ylim = c(0, 20)) +  # Fix y-axis range from 0 to 8
+  theme_classic()
+
+#histogram of calling repetition (within a sequence) by species 
+ggplot(fishdata999, aes(x = Sequence_Reps)) +
+  geom_histogram(binwidth = 1, color = "black", fill = "darkturquoise") +
+  facet_wrap(~ Species, scales = "free_y") +
+  labs(title = "Histograms of Call Repetition by Species", x = "Call Repetition Rate", y = "Count") +
+  coord_cartesian(ylim = c(0, 75)) +  # Fix y-axis range from 0 to 8
+  theme_classic()
   
+#need to add back in the rest of the data (only a few column included right now)
+#play with different time increments between calls for linking call sequences
+#Examine grunts vs. knocks dynamics and behaviour dynamics (are calls repeated more when they're associated with fear/aggression?)
 
 #change missing cells in t to e (for unknown sound)
 fishdata<-fishdata%>%
