@@ -100,45 +100,45 @@ N14<-N13%>%
   mutate(Edit = if_else(Edit == "", "e", Edit))%>%
   dplyr::select(-Edits)
 
-##Join edited Raven Tables to Original Tables that didn't require any edits
-
-#Load original Raven Tables and add Edit column
-R<-imp_raven(path = paste0("odata/All_Localizations_Daylight_LA_filtered_2_1_FS"), all.data =  TRUE, only.spectro.view = FALSE) #need to set only.spectro.view to false to see columns from waveform.
-
-R1<-R%>%
-  dplyr::select(-106)%>% #remove duplicate column for selec.file
-  filter(s != "")%>% #get rid of unidentified localization sounds
-  dplyr::select(-a)%>% #get rid of extra column a
-  rename(Edit = Edits)%>% #rename column
-  mutate(Edit = if_else(Edit =="", "o", Edit))%>% 
-  mutate(Edit = if_else(is.na(Edit),"o", Edit))%>% #change all values of Edit to be NA
-  mutate(Selection_N = Selection)%>%
-  rename_all(~ gsub(" ", ".", gsub("\\(", ".", gsub("\\)", ".", gsub("/", ".", gsub("%", ".", gsub("-", ".", .))))))) #make column names match my subbing . in for all special symbols and spaces
-  
-#Join Edited and original together
-
-O_E<-rbind(N14, R1)
-
-O_Ea<-O_E%>%
-  filter(Edit == "a")
-
-#Remove Files original that were edited by removing duplicate Begin.Path and Selection Rows (remove row where those match but Edit is blank)
-O_E1 <- O_E %>%
-  filter(Edit != "a")%>%
-  mutate(Edit)%>%
-  group_by(Begin.Path, Selection_N) %>% # group by Begin.Path and Selection_N
-  filter(!(Edit == "o" & n() > 1))%>% #remove row were Begin.Path and Selection_N have same value and where Edit column equals o (original) (n() >1 checks for duplicate rows with same Selection Number)
-  filter(s != "")%>% #remove unlabled localizations (e.g. not noise, FS or unknown sounds)
-  ungroup()
-
-#add additional annotations back in to data
-
-OEfinal<-rbind(O_E1, O_Ea)
-
-OEfinal1<-OEfinal%>%
-  filter(grepl("AMAR173.4.20220813T023710Z", Begin.Path))
-
-levels(as.factor(OEfinal$Edit))
+# ##Join edited Raven Tables to Original Tables that didn't require any edits
+# 
+# #Load original Raven Tables and add Edit column
+# R<-imp_raven(path = paste0("odata/All_Localizations_Daylight_LA_filtered_2_1_FS"), all.data =  TRUE, only.spectro.view = FALSE) #need to set only.spectro.view to false to see columns from waveform.
+# 
+# R1<-R%>%
+#   dplyr::select(-106)%>% #remove duplicate column for selec.file
+#   filter(s != "")%>% #get rid of unidentified localization sounds
+#   dplyr::select(-a)%>% #get rid of extra column a
+#   rename(Edit = Edits)%>% #rename column
+#   mutate(Edit = if_else(Edit =="", "o", Edit))%>% 
+#   mutate(Edit = if_else(is.na(Edit),"o", Edit))%>% #change all values of Edit to be NA
+#   mutate(Selection_N = Selection)%>%
+#   rename_all(~ gsub(" ", ".", gsub("\\(", ".", gsub("\\)", ".", gsub("/", ".", gsub("%", ".", gsub("-", ".", .))))))) #make column names match my subbing . in for all special symbols and spaces
+#   
+# #Join Edited and original together
+# 
+# O_E<-rbind(N14, R1)
+# 
+# O_Ea<-O_E%>%
+#   filter(Edit == "a")
+# 
+# #Remove Files original that were edited by removing duplicate Begin.Path and Selection Rows (remove row where those match but Edit is blank)
+# O_E1 <- O_E %>%
+#   filter(Edit != "a")%>%
+#   mutate(Edit)%>%
+#   group_by(Begin.Path, Selection_N) %>% # group by Begin.Path and Selection_N
+#   filter(!(Edit == "o" & n() > 1))%>% #remove row were Begin.Path and Selection_N have same value and where Edit column equals o (original) (n() >1 checks for duplicate rows with same Selection Number)
+#   filter(s != "")%>% #remove unlabled localizations (e.g. not noise, FS or unknown sounds)
+#   ungroup()
+# 
+# #add additional annotations back in to data
+# 
+# OEfinal<-rbind(O_E1, O_Ea)
+# 
+# OEfinal1<-OEfinal%>%
+#   filter(grepl("AMAR173.4.20220813T023710Z", Begin.Path))
+# 
+# levels(as.factor(OEfinal$Edit))
 
 #######NOTE - too many localizations tied to fish IDs - might be something to do with
 #when I attach original data to edited data, probably duplicating here (check tomorrow)
