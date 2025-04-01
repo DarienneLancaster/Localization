@@ -305,7 +305,7 @@ test<-minilocsarr%>%
 
 fishTIstart<-read.csv("odata/EM_annotations_Final/Taylor_Islet/localizations_TI_Aug13to16_20250128.csv", header = TRUE, skip = 4 )
 fishTI16<-read.csv("odata/EM_annotations_Final/Taylor_Islet/localizations_TI_Aug16to23_20250116.csv", header = TRUE, skip = 4 )
-fishDR<-read.csv("odata/DR_locs_20250116.csv", header = TRUE, skip = 4 )
+fishDR<-read.csv("odata/EM_annotations_Final/Danger_Rocks/localizations_20250213DR.csv", header = TRUE, skip = 4 )
 
 fish<-rbind(fishTIstart, fishTI16,fishDR)#combine datasets from each site
 
@@ -483,7 +483,7 @@ SnV_edit1<-SnV_edit%>%
   mutate(t = recode(t, "dg" = "g", "gdg" = "g", "ds" = "d"))%>%
   mutate(t = ifelse(s == "e" & t == "", "e", t))
 
-write.csv(SnV_edit1,"wdata/SoundnVid_20250205.csv", row.names = FALSE)
+write.csv(SnV_edit1,"wdata/SoundnVid_20250213.csv", row.names = FALSE)
 #####
 
 ####create new localization plots for fish measurements in EventMeasure####
@@ -592,7 +592,7 @@ print(measure_cor)
 measurements <- ggplot(dup_meas, aes(x = mean_lengthEM, y = mean_lengthIJ)) +
   geom_point(color = "deepskyblue") +
   labs(title = "a)") +
-  sm_statCorr(corr_method="pearsons", color = "deepskyblue3", linetype = "dashed")+
+  sm_statCorr(corr_method="pearson", color = "deepskyblue3", linetype = "dashed")+
   labs(x = "EM", y = "IJ")+
   theme_bw()+
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
@@ -636,16 +636,19 @@ duplicated(measures$fishID)
 #link measures to sound dataframe
 SoundnVid1<-left_join(SnV_edit1, measures, by = "fishID")
 
-write.csv(SoundnVid1, "wdata/Sound_Species_Behaviour_Length_20250205.csv", row.names = FALSE)
+#remove caurinus outlier value (change large length (lingcod measurement) to na)
+SoundnVid2<-SoundnVid1%>%
+  mutate(mean_length = ifelse(Species == "caurinus" & mean_length > 500, NA, mean_length))
+
+write.csv(SoundnVid2, "wdata/Sound_Species_Behaviour_Length_20250213.csv", row.names = FALSE)
 
 ### look at fish length histogram by species
 
-FishLength<-SoundnVid1%>%
+FishLength<-SoundnVid2%>%
   group_by(fishID) %>%
   slice_head(n = 1) %>%
   filter(!is.na(mean_length))%>% ## get rid of NAs in length (these fish haven't been annotated yet)
   ungroup()
-
 
 #histogram of fish lengths by species (bins of 5)
 ggplot(FishLength, aes(x = mean_length)) +
