@@ -987,7 +987,7 @@ ggsave("figures/NMDS_gower_unscaled_knocks.png", plot = grunts_IDconf1_pca, widt
 ####################################
 #try Linear Discriminant Analysis
 
-#FISH KNOCKS - ID CONFIDENCE 1
+#FISH KNOCKS - ID CONFIDENCE 1 - colinear variables removed
 
 fishdata0<-fishdata%>%
   filter(t == "d", ID_confidence ==1,  Selection != 3030, str_detect(Species, "caurinus|maliger|pinniger|melanops|miniatus|vacca") ) #selection 3030 is a major outlier 
@@ -995,14 +995,68 @@ fishdata0<-fishdata%>%
 fishdata1<-fishdata0%>%
   dplyr::select(Species, fishID, Common, High.Freq..Hz., Low.Freq..Hz., freq_peak:time_centroid)
 
+# ##### create pair plot with correlation coefficients for all variables###################################################################
+# 
+#remove response variable
+install.packages("GGally")
+library(GGally)
+
+#check colinearity (can only run 15 variables at a time in ggpairs plot)
+fishdataCOL<-fishdata1%>%
+  dplyr::select(freq_asymmetry, freq_kurtosis, freq_skewness,
+                freq_centroid,  freq_entropy, freq_upsweep_mean, snr,
+                time_iqr, time_asymmetry, time_skewness, time_entropy, time_flatness, time_centroid, time_pct50)
+
+#create pairs plot with pearsons correlation coefficeint and smoother on dotplot
+ggpairs(fishdataCOL,
+        lower = list(continuous = "smooth"))
+
 #remove outlier canary point (fish ID 0001_20220910)
 fishdata1<-fishdata1%>%
   filter(fishID != "0001_20220910")
 
+# fishdata2<-fishdata1%>%
+#   dplyr::select(-Species, -fishID, -freq_flatness, -freq_entropy, -freq_skewness, -freq_roughness)%>% #removing length because too many NAs and can't have NA in bray curtis matrix (rerun later with only data with length available)
+#   mutate(Common = as.factor(Common))%>%
+#   mutate(across(where(is.numeric), scale))
+
+#try with only important variables from PCA (removed freq_kurtosis and time_iqr because not normally distributed)
 fishdata2<-fishdata1%>%
-  dplyr::select(-Species, -fishID, -freq_flatness, -freq_entropy, -freq_skewness, -freq_roughness)%>% #removing length because too many NAs and can't have NA in bray curtis matrix (rerun later with only data with length available)
+  dplyr::select(Common, freq_asymmetry, freq_skewness,
+                freq_centroid,  freq_entropy, freq_upsweep_mean, snr,
+                 time_asymmetry, time_skewness, time_entropy, time_flatness, time_centroid, time_pct50)%>% #removing length because too many NAs and can't have NA in bray curtis matrix (rerun later with only data with length available)
   mutate(Common = as.factor(Common))%>%
   mutate(across(where(is.numeric), scale))
+
+####histograms- looking at distribution of variables ####
+lp("tidyverse")
+lp("lubridate")
+lp("ggplot2")
+lp("patchwork")
+
+#remove site name column as it is non numeric
+fishdataHIST<-fishdata2%>%
+  dplyr::select(c(-Common))
+
+all_vars <- names(fishdataHIST) #create list of all variable names
+all_vars #check they're all there
+plots_list <- list()  #make empty list to store plots
+
+# Loop through each variable and create histogram
+
+for (var in all_vars) {
+  plot_title <- paste(var)
+  plot <- ggplot(fishdataHIST, aes(x = !!sym(var),)) +
+    geom_histogram() +
+    labs(title = plot_title)
+  plots_list[[length(plots_list) + 1]] <- plot
+}
+
+# Combine all plots into one
+combined_plots <- wrap_plots(plots_list)
+
+# Print the combined plot
+print(combined_plots)
 
 # lp("MASS")
 # install.packages(caret)
@@ -1021,6 +1075,48 @@ model <- lda(Common ~ ., data = train)
 # Print the model
 print(model)
 
+# ######################
+# #Test model performance (NEED TO REMOVE EVERYTHING BUT CANARY AND COPPER FROM DATASET FOR MODEL TESTING - NOT ENOUGH SAMPLES)
+# 
+# # Make predictions on the test set
+# lda_pred <- predict(model, newdata = test)
+# 
+# # The predicted class labels are in lda_pred$class
+# predicted_classes <- lda_pred$class
+# print(predicted_classes)
+# 
+# # The true labels from the test dataset are in test$Common
+# true_classes <- test$Common
+# 
+# # Check the distribution of classes in the true values and predicted values
+# table(true_classes)
+# table(predicted_classes)
+# 
+# # Create a confusion matrix
+# conf_matrix <- confusionMatrix(predicted_classes, true_classes) #positive specified as Canary rockfish because no instances in predicted
+# 
+# # Print the confusion matrix
+# print(conf_matrix)
+# 
+# # Accuracy
+# accuracy <- conf_matrix$overall['Accuracy']
+# print(paste("Accuracy:", accuracy))
+# 
+# # Sensitivity (Recall for each class)
+# sensitivity <- conf_matrix$byClass['Sensitivity']
+# print(paste("Sensitivity:", sensitivity))
+# 
+# # Specificity
+# specificity <- conf_matrix$byClass['Specificity']
+# print(paste("Specificity:", specificity))
+# 
+# # Precision (Positive Predictive Value for each class)
+# precision <- conf_matrix$byClass['Pos Pred Value']
+# print(paste("Precision:", precision))
+# 
+# # F1-Score
+# f1_score <- conf_matrix$byClass['F1']
+# print(paste("F1 Score:", f1_score))
 
 # Use the LDA model to predict and get the discriminant values (LD1, LD2)
 lda_pred <- predict(model)
@@ -1076,10 +1172,19 @@ print(paste("Max Positive Value of LD2:", loadings_df$LD1[max_positive_index], "
 print(paste("Max Negative Value of LD2:", loadings_df$LD1[max_negative_index], "for variable:", max_negative_value))
 
 #keep only the variables with r2 >.9 (can check this by running en)
-loadings_df_filtered <- loadings_df[rownames(loadings_df) %in% c( "freq_centroid","High.Freq..Hz.",
-                                                                        "freq_median_mean", "freq_entropy_mean"), ]
+# loadings_df_filtered <- loadings_df[rownames(loadings_df) %in% c( "freq_centroid","High.Freq..Hz.",
+#                                                                         "freq_median_mean", "freq_entropy_mean"), ]
+# 
+# 
+# loadings_df_filtered$variable <- c("High\nfrequency", "Frequency\ncentroid", "Mean median\nfrequency", "Mean frequency\nentropy")
 
-loadings_df_filtered$variable <- c("High\nfrequency", "Frequency\ncentroid", "Mean median\nfrequency", "Mean frequency\nentropy")
+#keep only the variables with r2 >.9 (can check this by running en)
+loadings_df_filtered <- loadings_df[rownames(loadings_df) %in% c("time_centroid", "freq_centroid", "freq_entropy","time_flatness"), ]
+
+
+#loadings_df_filtered$variable <- c("High\nfrequency", "Frequency\ncentroid", "Mean median\nfrequency", "Mean frequency\nentropy")
+
+loadings_df_filtered$variable <- c("frequency centroid","frequency entropy", "time centroid", "time flatness")
 
 # Check the loadings_df content (just for debugging)
 print(loadings_df_filtered)
@@ -1089,23 +1194,24 @@ print(loadings_df_filtered)
 LDAknocks<-ggplot(lda_result, aes(x = LD1, y = LD2)) +
   geom_point(aes(color = Common), size = 2) +  # Plot points with color by Common groups
   stat_ellipse(level = 0.80, geom = "polygon", alpha = 0.2, aes(colour = Common, fill = Common), show.legend = FALSE) +  # Add 80% confidence ellipse
-  geom_segment(data = loadings_df_filtered, aes(x = 0, y = 0, xend = LD1*0.75, yend = LD2*0.75), 
+  geom_segment(data = loadings_df_filtered, aes(x = 0, y = 0, xend = LD1, yend = LD2), 
                arrow = arrow(type = "closed", length = unit(0.2, "inches")), color = "black") +  # Add arrows
-  geom_text(data = loadings_df_filtered, aes(x = LD1*.75, y = LD2*.75, label = variable), 
+  geom_text(data = loadings_df_filtered, aes(x = LD1, y = LD2, label = variable), 
             size = 4, vjust = -1, hjust =0.4, color = "black") +  # Label arrows with variable names
   theme_bw() +  # Use a minimal theme for the plot
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+
   labs(
-    #title = "LDA Results: Fish Species",
-    x = "LD1 (57%)",  # Replace with actual explained variance for LD1
-    y = "LD2 (26%)",   # Replace with actual explained variance for LD2
+    title = "LDA Results: Fish Knocks",
+    x = "LD1 (66%)",  # Replace with actual explained variance for LD1
+    y = "LD2 (25%)",   # Replace with actual explained variance for LD2
     color = "Species"  # Change the legend title to "Species"
   ) +
   scale_color_manual(values = c("black", "gold", "firebrick1", "cyan", "royalblue", "pink")) +  # Customize colors
   scale_fill_manual(values = c("grey", "gold", "firebrick1", "cyan", "royalblue", "pink"))  # Customize fills
 LDAknocks
 
-ggsave("figures/LDA_scaled_IDconf1_knocks.png", plot = LDAknocks, width = 25, height = 25, units = "cm")
+ggsave("figures/LDA_scaled_noColin_IDconf1_knocks.png", plot = LDAknocks, width = 25, height = 25, units = "cm")
+
 
 ####################################
 #LDA
@@ -1235,16 +1341,56 @@ ggsave("figures/LDA_scaled_IDconf1and2_knocks.png", plot = LDAknocks2, width = 2
 #LDA - FISH GRUNTS ID CONFIDENCE 1
 
 fishdata0<-fishdata%>%
-  filter(t == "g", ID_confidence ==1,  Selection != 3030, str_detect(Species, "caurinus|maliger|pinniger|melanops|miniatus|vacca") ) #selection 3030 is a major outlier 
+  filter(t == "g", ID_confidence ==1|2,  Selection != 3030, str_detect(Species, "caurinus|melanops|pinniger|maliger") ) #selection 3030 is a major outlier 
 
 fishdata1<-fishdata0%>%
   dplyr::select(Species, fishID, Common, High.Freq..Hz., Low.Freq..Hz., freq_peak:time_centroid)
 
+#check colinearity (can only run 15 variables at a time in ggpairs plot)
+fishdataCOL<-fishdata1%>%
+  dplyr::select(
+                freq_centroid,  freq_entropy, 
+                 time_asymmetry, time_skewness, time_entropy)
 
+#create pairs plot with pearsons correlation coefficeint and smoother on dotplot
+ggpairs(fishdataCOL,
+        lower = list(continuous = "smooth"))
+
+# fishdata2<-fishdata1%>%
+#   dplyr::select(-Species, -fishID, -freq_flatness, -freq_entropy, -freq_skewness, -freq_roughness)%>% #removing length because too many NAs and can't have NA in bray curtis matrix (rerun later with only data with length available)
+#   mutate(Common = as.factor(Common))%>%
+#   mutate(across(where(is.numeric), scale))
+
+#try with only important variables from PCA (removed fkurtosis, fupsweepmean, timecentroid,timeiqr because not normally distributed)
 fishdata2<-fishdata1%>%
-  dplyr::select(-Species, -fishID, -freq_flatness, -freq_entropy, -freq_skewness, -freq_roughness)%>% #removing length because too many NAs and can't have NA in bray curtis matrix (rerun later with only data with length available)
+  dplyr::select(Common, freq_centroid,  freq_entropy, 
+                time_asymmetry, time_skewness, time_entropy)%>% #removing length because too many NAs and can't have NA in bray curtis matrix (rerun later with only data with length available)
   mutate(Common = as.factor(Common))%>%
   mutate(across(where(is.numeric), scale))
+
+#remove site name column as it is non numeric
+fishdataHIST<-fishdata2%>%
+  dplyr::select(c(-Common))
+
+all_vars <- names(fishdataHIST) #create list of all variable names
+all_vars #check they're all there
+plots_list <- list()  #make empty list to store plots
+
+# Loop through each variable and create histogram
+
+for (var in all_vars) {
+  plot_title <- paste(var)
+  plot <- ggplot(fishdataHIST, aes(x = !!sym(var),)) +
+    geom_histogram() +
+    labs(title = plot_title)
+  plots_list[[length(plots_list) + 1]] <- plot
+}
+
+# Combine all plots into one
+combined_plots <- wrap_plots(plots_list)
+
+# Print the combined plot
+print(combined_plots)
 
 set.seed(123)
 # Split the data into training and testing sets
@@ -1257,9 +1403,54 @@ model <- lda(Common ~ ., data = train)
 # Print the model
 print(model)
 
+# ######################
+# #Test model performance (NEED TO REMOVE CANARY AND QUILLBACK FROM DATASET FOR MODEL TESTING - NOT ENOUGH SAMPLES)
+# 
+# # Make predictions on the test set
+# lda_pred <- predict(model, newdata = test)
+# 
+# # The predicted class labels are in lda_pred$class
+# predicted_classes <- lda_pred$class
+# print(predicted_classes)
+# 
+# # The true labels from the test dataset are in test$Common
+# true_classes <- test$Common
+# 
+# # Check the distribution of classes in the true values and predicted values
+# table(true_classes)
+# table(predicted_classes)
+# 
+# # Create a confusion matrix
+# conf_matrix <- confusionMatrix(predicted_classes, true_classes) #positive specified as Canary rockfish because no instances in predicted
+# 
+# # Print the confusion matrix
+# print(conf_matrix)
+# 
+# # Accuracy
+# accuracy <- conf_matrix$overall['Accuracy']
+# print(paste("Accuracy:", accuracy))
+# 
+# # Sensitivity (Recall for each class)
+# sensitivity <- conf_matrix$byClass['Sensitivity']
+# print(paste("Sensitivity:", sensitivity))
+# 
+# # Specificity
+# specificity <- conf_matrix$byClass['Specificity']
+# print(paste("Specificity:", specificity))
+# 
+# # Precision (Positive Predictive Value for each class)
+# precision <- conf_matrix$byClass['Pos Pred Value']
+# print(paste("Precision:", precision))
+# 
+# # F1-Score
+# f1_score <- conf_matrix$byClass['F1']
+# print(paste("F1 Score:", f1_score))
+
 
 # Use the LDA model to predict and get the discriminant values (LD1, LD2)
 lda_pred <- predict(model)
+
+
 
 
 # Extract the LD1 and LD2 values
@@ -1312,12 +1503,10 @@ print(paste("Max Positive Value of LD2:", loadings_df$LD1[max_positive_index], "
 print(paste("Max Negative Value of LD2:", loadings_df$LD1[max_negative_index], "for variable:", max_negative_value))
 
 #keep only the variables with r2 >.9 (can check this by running en)
-loadings_df_filtered <- loadings_df[rownames(loadings_df) %in% c( "time_centroid","freq_pct5",
-                                                                   "time_duration", 
-                                                                  "time_pct50"), ]
+loadings_df_filtered <- loadings_df[rownames(loadings_df) %in% c( "time_entropy","freq_centroid",
+                                                                   "freq_entropy"), ]
 
-loadings_df_filtered$variable <- c("Frequency\n5%",  "Time\nduration", 
-                                  "Time\n50%", "Time\ncentroid")
+loadings_df_filtered$variable <- c("freq_centroid", "freq_entropy", "time_entropy")
 
 # Check the loadings_df content (just for debugging)
 print(loadings_df_filtered)
@@ -1327,23 +1516,23 @@ print(loadings_df_filtered)
 LDAgrunts<- ggplot(lda_result, aes(x = LD1, y = LD2)) +
   geom_point(aes(color = Common), size = 2) +  # Plot points with color by Common groups
   stat_ellipse(level = 0.70, geom = "polygon", alpha = 0.2, aes(colour = Common, fill = Common), show.legend = FALSE) +  # Add 80% confidence ellipse
-  geom_segment(data = loadings_df_filtered, aes(x = 0, y = 0, xend = LD1*0.4, yend = LD2*0.4), 
+  geom_segment(data = loadings_df_filtered, aes(x = 0, y = 0, xend = LD1, yend = LD2), 
                arrow = arrow(type = "closed", length = unit(0.2, "inches")), color = "black") +  # Add arrows
-  geom_text(data = loadings_df_filtered, aes(x = LD1*0.4, y = LD2*0.4, label = variable), 
+  geom_text(data = loadings_df_filtered, aes(x = LD1, y = LD2, label = variable), 
             size = 4, vjust = 1.6, hjust =0.4, color = "black") +  # Label arrows with variable names
   theme_bw() +  # Use a minimal theme for the plot
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+
   labs(
-    #title = "LDA Results: Fish Species",
-    x = "LD1 (85%)",  # Replace with actual explained variance for LD1
-    y = "LD2 (11%)",   # Replace with actual explained variance for LD2
+    title = "LDA Results: Fish Grunts - ID conf 1 and 2",
+    x = "LD1 (94%)",  # Replace with actual explained variance for LD1
+    y = "LD2 (5%)",   # Replace with actual explained variance for LD2
     color = "Species"  # Change the legend title to "Species"
   ) +
   scale_color_manual(values = c("black", "gold", "firebrick1", "royalblue", "pink")) +  # Customize colors
   scale_fill_manual(values = c("grey", "gold", "firebrick1", "royalblue", "pink"))  # Customize fills
 LDAgrunts
 
-ggsave("figures/LDA_scaled_IDconf1_grunts.png", plot = LDAgrunts, width = 25, height = 25, units = "cm")
+ggsave("figures/LDA_scaled_noColin_normVars_IDconf1and2_grunts.png", plot = LDAgrunts, width = 25, height = 25, units = "cm")
 
 
 
@@ -1385,3 +1574,55 @@ knocks_pca<-ggplot(fishdata1, aes(x = Delta.Time..s., y = Center.Freq..Hz.)) +
   theme_bw() +
   theme(legend.position = "right")  # Show legend on the right
 knocks_pca
+
+##########################################################################
+#try random forest on fish grunts
+
+
+fishdata0<-fishdata%>%
+  filter(t == "g", ID_confidence ==1|2,  Selection != 3030, str_detect(Species, "caurinus|melanops|pinniger|maliger") ) #selection 3030 is a major outlier 
+
+fishdata1<-fishdata0%>%
+  dplyr::select(Species, fishID, Common, High.Freq..Hz., Low.Freq..Hz., freq_peak:time_centroid)
+
+
+# fishdata2<-fishdata1%>%
+#   dplyr::select(-Species, -fishID, -freq_flatness, -freq_entropy, -freq_skewness, -freq_roughness)%>% #removing length because too many NAs and can't have NA in bray curtis matrix (rerun later with only data with length available)
+#   mutate(Common = as.factor(Common))%>%
+#   mutate(across(where(is.numeric), scale))
+
+#try with only important variables from PCA (removed fkurtosis, fupsweepmean, timecentroid,timeiqr because not normally distributed)
+fishdata2<-fishdata1%>%
+  dplyr::select(Common,  High.Freq..Hz., Low.Freq..Hz., freq_peak:time_centroid )%>% #removing length because too many NAs and can't have NA in bray curtis matrix (rerun later with only data with length available)
+  dplyr::select(-freq_flatness)%>%
+  mutate(Common = as.factor(Common))%>%
+  drop_na()
+
+# Load the necessary libraries
+# install.packages("randomForest")
+# library(randomForest)
+
+# Split the data into training and test sets
+set.seed(123)  # For reproducibility
+train_index <- createDataPartition(fishdata2$Common, p = 0.8, list = FALSE)  # 80% training, 20% testing
+train <- fishdata2[train_index, ]
+test <- fishdata2[-train_index, ]
+
+sum(is.na(train))
+
+# Train the Random Forest model
+rf_model <- randomForest(Common ~ ., data = train)
+
+# Print the model summary
+print(rf_model)
+
+# Make predictions on the test set
+rf_predictions <- predict(rf_model, newdata = test)
+
+# Evaluate the model performance
+conf_matrix <- confusionMatrix(rf_predictions, test$Common)
+
+# Print the confusion matrix and the accuracy
+print(conf_matrix)
+
+#work on how to visualize RF decision trees and PCA style ordination plots 
