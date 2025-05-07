@@ -19,6 +19,15 @@ lp("flextable")
 
 fishdata<-read.csv("wdata/Sound_Species_Behaviour_Length_wPyFeatures_20250221.csv", header = TRUE)
 
+#create new column with species common names
+fishdata$Common<- ifelse(fishdata$Species == "caurinus", "Copper rockfish",
+                         ifelse(fishdata$Species == "maliger", "Quillback rockfish",
+                                ifelse(fishdata$Species == "pinniger", "Canary rockfish",
+                                       ifelse(fishdata$Species == "miniatus", "Vermillion rockfish",
+                                              ifelse(fishdata$Species == "melanops", "Black rockfish",
+                                                     ifelse(fishdata$Species == "elongatus", "Lingcod",
+                                                            ifelse(fishdata$Species == "decagrammus", "Kelp Greenling",
+                                                                   ifelse(fishdata$Species == "vacca", "Pile Perch", "other"))))))))
 
 ##################################################################
 ###look at length vs sound characteristics by fish species############
