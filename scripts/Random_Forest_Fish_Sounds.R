@@ -37,17 +37,21 @@ fishdata$Common<- ifelse(fishdata$Species == "caurinus", "Copper rockfish",
 
 #(MULTICLASS)
 
+############################
+#ORIGINAL DATA - UNBALANCED
+
+#keep only ID confidence 1 for pinniger (all other pinniger grunts are actually blacks)
 fishdata0<-fishdata%>%
-  dplyr::filter(t == "g", ID_confidence ==1|2,  Selection != 3030, str_detect(Species, "caurinus|melanops|pinniger|maliger") ) #selection 3030 is a major outlier 
+  dplyr::filter(t == "g", ID_confidence ==1,  Selection != 3030, str_detect(Species, "caurinus|melanops|maliger") )
+
+numSpecies<-fishdata0 %>%
+  count(Species) %>%
+  arrange(desc(n))  # Optional: sort by count
+numSpecies
 
 fishdata1<-fishdata0%>%
   dplyr::select(Species, fishID, Common, High.Freq..Hz., Low.Freq..Hz., freq_peak:time_centroid)
 
-#try with only important variables from PCA (removed fkurtosis, fupsweepmean, timecentroid,timeiqr because not normally distributed)
-# fishdata2<-fishdata1%>%
-#   dplyr::select(-Species, -fishID, -freq_flatness, -freq_entropy, -freq_skewness, -freq_roughness)%>% #removing length because too many NAs and can't have NA in bray curtis matrix (rerun later with only data with length available)
-#   mutate(Common = as.factor(Common))%>%
-#   mutate(across(where(is.numeric), scale))
 
 #random forest version
 fishdata2<-fishdata1%>%
@@ -104,7 +108,7 @@ conf_df_flextable  <- line_spacing(conf_df_flextable , space = 1.5, part = "all"
 conf_df_flextable  <- set_table_properties(conf_df_flextable, align = "right", layout = "autofit")
 conf_df_flextable <- theme_vanilla(conf_df_flextable)
 conf_df_flextable
-save_as_image(x = conf_df_flextable, path = "figures/rf_grunt_TRAINING_confusion_matrix.png")
+save_as_image(x = conf_df_flextable, path = "figures/rf_grunt_UNBALANCED_TRAINING_confusion_matrix.png")
 
 # Set up side-by-side plotting area
 par(mfrow = c(1, 2))
@@ -146,7 +150,144 @@ p2 <- ggplot(imp_df, aes(x = reorder(Variable, MeanDecreaseAccuracy), y = MeanDe
 combined_plot <- p1 + p2  # patchwork combines them
 print(combined_plot)
 
-ggsave("figures/Grunt_Train_Variable_Importance.png", plot = combined_plot, width = 10, height = 6, dpi = 300)
+ggsave("figures/Grunt_UNBALANCED_Train_Variable_Importance.png", plot = combined_plot, width = 10, height = 6, dpi = 300)
+
+##############################################################################################################
+# Test the Random Forest model
+rf_preds <- predict(rf_model, newdata = test)
+# Get confusion matrix
+conf_mat_TEST <- confusionMatrix(rf_preds, test$Common)
+
+# View full summary
+print(conf_mat_TEST)
+
+#may need to make tables later of model validation results for paper
+overall_stats <- as.data.frame(t(conf_mat_TEST$overall))
+overall_stats
+class_stats <- as.data.frame(conf_mat_TEST$byClass)
+class_stats
+
+#####################################
+#BALANCED DATA - upsampled with replacement
+##############################################################################
+#keep only ID confidence 1 for pinniger (all other pinniger grunts are actually blacks)
+fishdata0<-fishdata%>%
+  dplyr::filter(t == "g", ID_confidence ==1,  Selection != 3030, str_detect(Species, "caurinus|melanops|maliger") )
+
+
+fishdata1<-fishdata0%>%
+  dplyr::select(Species, fishID, Common, High.Freq..Hz., Low.Freq..Hz., freq_peak:time_centroid)
+
+# Get max sample size across groups
+max_n <- fishdata1 %>%
+  count(Species) %>%
+  summarise(max_n = max(n)) %>%
+  pull(max_n)
+
+# Sample with replacement to equalize group sizes(bootstrap so all species have 50 values)
+balanced_data <- fishdata1 %>%
+  group_by(Species) %>%
+  slice_sample(n = max_n, replace = TRUE) %>%
+  ungroup()
+
+#random forest version
+fishdata2<-balanced_data%>%
+  dplyr::select(Common,  High.Freq..Hz., Low.Freq..Hz., freq_peak:time_centroid )%>% #removing length because too many NAs and can't have NA in bray curtis matrix (rerun later with only data with length available)
+  dplyr::select(-freq_flatness)%>%
+  mutate(Common = as.factor(Common))%>%
+  drop_na()
+
+# Split the data into training and test sets
+set.seed(123)  # For reproducibility
+train_index <- createDataPartition(fishdata2$Common, p = 0.7, list = FALSE)  #70% training, 30% testing
+train <- fishdata2[train_index, ]
+test <- fishdata2[-train_index, ]
+
+sum(is.na(train))
+
+# Train the Random Forest model
+rf_model <- randomForest(Common ~ ., data = train, ntree = 2000, importance=TRUE)
+
+# Print the model summary
+print(rf_model)
+
+# 1. View confusion matrix
+conf_matrix <- rf_model$confusion
+
+# 2. Convert to data frame
+conf_df <- as.data.frame(conf_matrix)
+
+# 3. Add row names as a new column for clarity
+conf_df$Actual_Class <- rownames(conf_df)
+rownames(conf_df) <- NULL  # optional: reset row names
+
+# 4. Reorder columns to show actual class first
+conf_df <- conf_df[, c(ncol(conf_df), 1:(ncol(conf_df)-1))]
+print(conf_df)
+
+
+set_flextable_defaults(
+  font.size = 10, theme_fun = theme_vanilla,
+  padding = 3,
+  background.color = "white")
+
+conf_df_flextable <- flextable(conf_df)
+conf_df_flextable <- colformat_double(
+  x = conf_df_flextable,
+  big.mark = ",", digits = 2, na_str = "N/A"
+)
+
+conf_df_flextable  <- line_spacing(conf_df_flextable , space = 1.5, part = "all")
+# countFS_table_flextable <- add_header_row(countFS_table_flextable,
+#                      colwidths = c(1, 8),
+#                      values = c("", "Sound Features")
+# )
+conf_df_flextable  <- set_table_properties(conf_df_flextable, align = "right", layout = "autofit")
+conf_df_flextable <- theme_vanilla(conf_df_flextable)
+conf_df_flextable
+save_as_image(x = conf_df_flextable, path = "figures/rf_grunt_BALANCED_TRAINING_confusion_matrix.png")
+
+# Set up side-by-side plotting area
+par(mfrow = c(1, 2))
+
+# Plot 1: Accuracy importance
+varImpPlot(rf_model, type = 1, main = "")
+
+# Plot 2: Gini importance
+varImpPlot(rf_model, type = 2, main = "")
+
+# Reset plotting layout
+par(mfrow = c(1, 1))
+
+#######################################################
+#create variable importance plots in ggplot
+
+# Extract and format importance data
+imp <- importance(rf_model)
+imp_df <- as.data.frame(imp)
+imp_df$Variable <- rownames(imp_df)
+
+# Plot using ggplot2 with spaced/rotated labels
+p1<-ggplot(imp_df, aes(x = reorder(Variable, MeanDecreaseGini), y = MeanDecreaseGini)) +
+  geom_col(fill = "deepskyblue4") +
+  coord_flip() +
+  labs(x = "Sound Features", y = "Mean Decrease Gini") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Plot 2: Mean Decrease Accuracy
+p2 <- ggplot(imp_df, aes(x = reorder(Variable, MeanDecreaseAccuracy), y = MeanDecreaseAccuracy)) +
+  geom_col(fill = "deepskyblue4") +
+  coord_flip() +
+  labs(x = "", y = "Mean Decrease Accuracy") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Combine and display side by side
+combined_plot <- p1 + p2  # patchwork combines them
+print(combined_plot)
+
+ggsave("figures/Grunt_BALANCED_Train_Variable_Importance.png", plot = combined_plot, width = 10, height = 6, dpi = 300)
 
 ##############################################################################################################
 # Test the Random Forest model
@@ -173,7 +314,7 @@ class_stats
 fishdata0 <- fishdata %>%
   filter(
     t == "g",
-    ID_confidence %in% c(1, 2),
+    ID_confidence %in% c(1),
     Selection != 3030,
     str_detect(Species, "caurinus|melanops|pinniger|maliger")
   ) %>%
@@ -309,7 +450,7 @@ library(pROC)
 roc_obj <- roc(response = test$Common, predictor = rf_probs[, "Copper rockfish"])
 
 # Plot ROC curve
-plot(smooth(roc_obj), main = "")
+plot(roc_obj, main = "")
 
 # Save base R ROC plot as PNG
 png("figures/roc_COPPER_grunt.png", width = 800, height = 800, res = 150)
@@ -326,7 +467,7 @@ auc(roc_obj)  # AUC score
 fishdata0 <- fishdata %>%
   filter(
     t == "g",
-    ID_confidence %in% c(1, 2),
+    ID_confidence %in% c(1),
     Selection != 3030,
     str_detect(Species, "caurinus|melanops|pinniger|maliger")
   ) %>%
@@ -462,7 +603,7 @@ library(pROC)
 roc_obj <- roc(response = test$Common, predictor = rf_probs[, "Quillback rockfish"])
 
 # Plot ROC curve
-plot(smooth(roc_obj), main = "")
+plot(roc_obj, main = "")
 
 # Save base R ROC plot as PNG
 png("figures/roc_QUILLBACK_grunt.png", width = 800, height = 800, res = 150)
@@ -774,6 +915,411 @@ plot(smooth(roc_obj), main = "")
 dev.off()
 
 auc(roc_obj)  # AUC score
+
+#######################################################################################
+#KNOCKS
+
+##########################################################################
+#try random forest on fish knocks
+
+#(MULTICLASS)
+
+############################
+#ORIGINAL DATA - UNBALANCED
+
+#keep only ID confidence 1 for pinniger (all other pinniger grunts are actually blacks)
+fishdata0<-fishdata%>%
+  dplyr::filter(t == "d", ID_confidence ==1,  Selection != 3030, str_detect(Species, "caurinus|melanops|maliger|elongatus|miniatus|vacca|decagrammus|pinniger") )
+
+numSpecies<-fishdata0 %>%
+  count(Species) %>%
+  arrange(desc(n))  # Optional: sort by count
+numSpecies
+
+fishdata1<-fishdata0%>%
+  dplyr::select(Species, fishID, Common, High.Freq..Hz., Low.Freq..Hz., freq_peak:time_centroid)
+
+
+#random forest version
+fishdata2<-fishdata1%>%
+  dplyr::select(Common,  High.Freq..Hz., Low.Freq..Hz., freq_peak:time_centroid )%>% #removing length because too many NAs and can't have NA in bray curtis matrix (rerun later with only data with length available)
+  dplyr::select(-freq_flatness)%>%
+  mutate(Common = as.factor(Common))%>%
+  drop_na()
+
+# Split the data into training and test sets
+set.seed(123)  # For reproducibility
+train_index <- createDataPartition(fishdata2$Common, p = 0.7, list = FALSE)  #70% training, 30% testing
+train <- fishdata2[train_index, ]
+test <- fishdata2[-train_index, ]
+
+sum(is.na(train))
+
+# Train the Random Forest model
+rf_model <- randomForest(Common ~ ., data = train, ntree = 2000, importance=TRUE)
+
+# Print the model summary
+print(rf_model)
+
+# 1. View confusion matrix
+conf_matrix <- rf_model$confusion
+
+# 2. Convert to data frame
+conf_df <- as.data.frame(conf_matrix)
+
+# 3. Add row names as a new column for clarity
+conf_df$Actual_Class <- rownames(conf_df)
+rownames(conf_df) <- NULL  # optional: reset row names
+
+# 4. Reorder columns to show actual class first
+conf_df <- conf_df[, c(ncol(conf_df), 1:(ncol(conf_df)-1))]
+print(conf_df)
+
+
+set_flextable_defaults(
+  font.size = 10, theme_fun = theme_vanilla,
+  padding = 3,
+  background.color = "white")
+
+conf_df_flextable <- flextable(conf_df)
+conf_df_flextable <- colformat_double(
+  x = conf_df_flextable,
+  big.mark = ",", digits = 2, na_str = "N/A"
+)
+
+conf_df_flextable  <- line_spacing(conf_df_flextable , space = 1.5, part = "all")
+# countFS_table_flextable <- add_header_row(countFS_table_flextable,
+#                      colwidths = c(1, 8),
+#                      values = c("", "Sound Features")
+# )
+conf_df_flextable  <- set_table_properties(conf_df_flextable, align = "right", layout = "autofit")
+conf_df_flextable <- theme_vanilla(conf_df_flextable)
+conf_df_flextable
+save_as_image(x = conf_df_flextable, path = "figures/rf_knock_UNBALANCED_TRAINING_confusion_matrix.png")
+
+# Set up side-by-side plotting area
+par(mfrow = c(1, 2))
+
+# Plot 1: Accuracy importance
+varImpPlot(rf_model, type = 1, main = "")
+
+# Plot 2: Gini importance
+varImpPlot(rf_model, type = 2, main = "")
+
+# Reset plotting layout
+par(mfrow = c(1, 1))
+
+#######################################################
+#create variable importance plots in ggplot
+
+# Extract and format importance data
+imp <- importance(rf_model)
+imp_df <- as.data.frame(imp)
+imp_df$Variable <- rownames(imp_df)
+
+# Plot using ggplot2 with spaced/rotated labels
+p1<-ggplot(imp_df, aes(x = reorder(Variable, MeanDecreaseGini), y = MeanDecreaseGini)) +
+  geom_col(fill = "deepskyblue4") +
+  coord_flip() +
+  labs(x = "Sound Features", y = "Mean Decrease Gini") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Plot 2: Mean Decrease Accuracy
+p2 <- ggplot(imp_df, aes(x = reorder(Variable, MeanDecreaseAccuracy), y = MeanDecreaseAccuracy)) +
+  geom_col(fill = "deepskyblue4") +
+  coord_flip() +
+  labs(x = "", y = "Mean Decrease Accuracy") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Combine and display side by side
+combined_plot <- p1 + p2  # patchwork combines them
+print(combined_plot)
+
+ggsave("figures/Knock_UNBALANCED_Train_Variable_Importance.png", plot = combined_plot, width = 10, height = 6, dpi = 300)
+
+##############################################################################################################
+# Test the Random Forest model
+rf_preds <- predict(rf_model, newdata = test)
+# Get confusion matrix
+conf_mat_TEST <- confusionMatrix(rf_preds, test$Common)
+
+# View full summary
+print(conf_mat_TEST)
+
+#may need to make tables later of model validation results for paper
+overall_stats <- as.data.frame(t(conf_mat_TEST$overall))
+overall_stats
+class_stats <- as.data.frame(conf_mat_TEST$byClass)
+class_stats
+
+
+# Partial dependence plot coloured by species
+
+
+lp("ranger")
+# Fit a quick RF
+set.seed(1143)  # for reproducibility
+rfo <- ranger(Common ~ ., data = train, probability = TRUE)
+print(rfo)
+
+# Prediction wrapper that returns average prediction for each class
+pfun <- function(object, newdata) {
+  colMeans(predict(object, data = newdata)$predictions)
+}
+
+#Freq_centroid
+# Partial dependence of probability for each class on petal width
+p <- partial(rfo, pred.var = "freq_centroid", pred.fun = pfun)
+ggplot(p, aes(freq_centroid, yhat, color = yhat.id)) +
+  geom_line() +
+  theme(legend.title = element_blank())
+
+#Freq_median_mean
+# Partial dependence of probability for each class on petal width
+p <- partial(rfo, pred.var = "freq_median_mean", pred.fun = pfun)
+ggplot(p, aes(freq_median_mean, yhat, color = yhat.id)) +
+  geom_line() +
+  theme(legend.title = element_blank())
+
+#Freq_pct75
+# Partial dependence of probability for each class on petal width
+p <- partial(rfo, pred.var = "freq_pct75", pred.fun = pfun)
+ggplot(p, aes(freq_pct75, yhat, color = yhat.id)) +
+  geom_line() +
+  theme(legend.title = element_blank())
+
+#Freq_entropy
+# Partial dependence of probability for each class on petal width
+p <- partial(rfo, pred.var = "freq_entropy_std", pred.fun = pfun)
+ggplot(p, aes(freq_entropy_std, yhat, color = yhat.id)) +
+  geom_line() +
+  theme(legend.title = element_blank())
+
+#Freq_pct5
+# Partial dependence of probability for each class on petal width
+p <- partial(rfo, pred.var = "freq_pct5", pred.fun = pfun)
+ggplot(p, aes(freq_pct5, yhat, color = yhat.id)) +
+  geom_line() +
+  theme(legend.title = element_blank())
+
+#####################################
+#BALANCED DATA - upsampled with replacement
+##############################################################################
+#keep only ID confidence 1 for pinniger (all other pinniger grunts are actually blacks)
+fishdata0<-fishdata%>%
+  dplyr::filter(t == "d", ID_confidence ==1,  Selection != 3030, str_detect(Species, "caurinus|melanops|maliger|elongatus|miniatus|vacca|decagrammus|pinniger") )
+
+
+fishdata1<-fishdata0%>%
+  dplyr::select(Species, fishID, Common, High.Freq..Hz., Low.Freq..Hz., freq_peak:time_centroid)
+
+# Get max sample size across groups
+max_n <- fishdata1 %>%
+  count(Species) %>%
+  summarise(max_n = max(n)) %>%
+  pull(max_n)
+
+# Sample with replacement to equalize group sizes(bootstrap so all species have 50 values)
+balanced_data <- fishdata1 %>%
+  group_by(Species) %>%
+  slice_sample(n = max_n, replace = TRUE) %>%
+  ungroup()
+
+#random forest version
+fishdata2<-balanced_data%>%
+  dplyr::select(Common,  High.Freq..Hz., Low.Freq..Hz., freq_peak:time_centroid )%>% #removing length because too many NAs and can't have NA in bray curtis matrix (rerun later with only data with length available)
+  dplyr::select(-freq_flatness)%>%
+  mutate(Common = as.factor(Common))%>%
+  drop_na()
+
+# Split the data into training and test sets
+set.seed(123)  # For reproducibility
+train_index <- createDataPartition(fishdata2$Common, p = 0.7, list = FALSE)  #70% training, 30% testing
+train <- fishdata2[train_index, ]
+test <- fishdata2[-train_index, ]
+
+sum(is.na(train))
+
+# Train the Random Forest model
+rf_model <- randomForest(Common ~ ., data = train, ntree = 2000, importance=TRUE)
+
+# Print the model summary
+print(rf_model)
+
+# 1. View confusion matrix
+conf_matrix <- rf_model$confusion
+
+# 2. Convert to data frame
+conf_df <- as.data.frame(conf_matrix)
+
+# 3. Add row names as a new column for clarity
+conf_df$Actual_Class <- rownames(conf_df)
+rownames(conf_df) <- NULL  # optional: reset row names
+
+# 4. Reorder columns to show actual class first
+conf_df <- conf_df[, c(ncol(conf_df), 1:(ncol(conf_df)-1))]
+print(conf_df)
+
+
+set_flextable_defaults(
+  font.size = 10, theme_fun = theme_vanilla,
+  padding = 3,
+  background.color = "white")
+
+conf_df_flextable <- flextable(conf_df)
+conf_df_flextable <- colformat_double(
+  x = conf_df_flextable,
+  big.mark = ",", digits = 2, na_str = "N/A"
+)
+
+conf_df_flextable  <- line_spacing(conf_df_flextable , space = 1.5, part = "all")
+# countFS_table_flextable <- add_header_row(countFS_table_flextable,
+#                      colwidths = c(1, 8),
+#                      values = c("", "Sound Features")
+# )
+conf_df_flextable  <- set_table_properties(conf_df_flextable, align = "right", layout = "autofit")
+conf_df_flextable <- theme_vanilla(conf_df_flextable)
+conf_df_flextable
+save_as_image(x = conf_df_flextable, path = "figures/rf_knock_BALANCED_TRAINING_confusion_matrix.png")
+
+# Set up side-by-side plotting area
+par(mfrow = c(1, 2))
+
+# Plot 1: Accuracy importance
+varImpPlot(rf_model, type = 1, main = "")
+
+# Plot 2: Gini importance
+varImpPlot(rf_model, type = 2, main = "")
+
+# Reset plotting layout
+par(mfrow = c(1, 1))
+
+#######################################################
+#create variable importance plots in ggplot
+
+# Extract and format importance data
+imp <- importance(rf_model)
+imp_df <- as.data.frame(imp)
+imp_df$Variable <- rownames(imp_df)
+
+# Plot using ggplot2 with spaced/rotated labels
+p1<-ggplot(imp_df, aes(x = reorder(Variable, MeanDecreaseGini), y = MeanDecreaseGini)) +
+  geom_col(fill = "deepskyblue4") +
+  coord_flip() +
+  labs(x = "Sound Features", y = "Mean Decrease Gini") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Plot 2: Mean Decrease Accuracy
+p2 <- ggplot(imp_df, aes(x = reorder(Variable, MeanDecreaseAccuracy), y = MeanDecreaseAccuracy)) +
+  geom_col(fill = "deepskyblue4") +
+  coord_flip() +
+  labs(x = "", y = "Mean Decrease Accuracy") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Combine and display side by side
+combined_plot <- p1 + p2  # patchwork combines them
+print(combined_plot)
+
+ggsave("figures/knock_BALANCED_Train_Variable_Importance.png", plot = combined_plot, width = 10, height = 6, dpi = 300)
+
+##############################################################################################################
+# Test the Random Forest model
+rf_preds <- predict(rf_model, newdata = test)
+# Get confusion matrix
+conf_mat_TEST <- confusionMatrix(rf_preds, test$Common)
+
+# View full summary
+print(conf_mat_TEST)
+
+#may need to make tables later of model validation results for paper
+overall_stats <- as.data.frame(t(conf_mat_TEST$overall))
+overall_stats
+class_stats <- as.data.frame(conf_mat_TEST$byClass)
+class_stats
+
+
+# Partial dependence plot coloured by species
+
+
+lp("ranger")
+# Fit a quick RF
+set.seed(1143)  # for reproducibility
+rfo <- ranger(Common ~ ., data = train, probability = TRUE)
+print(rfo)
+
+lp('pdp')
+# Prediction wrapper that returns average prediction for each class
+pfun <- function(object, newdata) {
+  colMeans(predict(object, data = newdata)$predictions)
+}
+
+#Freq_centroid
+# Partial dependence of probability for each class on petal width
+p <- partial(rfo, pred.var = "freq_centroid", pred.fun = pfun)
+all<-ggplot(p, aes(freq_centroid, yhat, color = yhat.id)) +
+  geom_line(size = 0.8) +  # Thicker lines
+  theme_classic() +
+  labs(y = "Probability", x = "frequency centroid") +  # Axis labels
+  theme(legend.title = element_blank())
+all
+# Filter to just Canary rockfish
+p_canary <- p %>% filter(yhat.id == "Canary rockfish")
+
+# Plot
+canary<-ggplot(p_canary, aes(freq_centroid, yhat)) +
+  geom_line(color = "orange", size = 0.8) +
+  theme_classic() +
+  labs(y = "Probability", x = "frequency centroid")
+canary
+# Filter to just Canary rockfish
+p_copper <- p %>% filter(yhat.id == "Copper rockfish")
+
+# Plot
+copper<-ggplot(p_copper, aes(freq_centroid, yhat)) +
+  geom_line(color = "red", size = 0.8) +
+  theme_classic() +
+  labs(y = "Probability", x = "frequency centroid")
+copper
+plot(canary +copper)
+
+#Freq_median_mean
+# Partial dependence of probability for each class on petal width
+p <- partial(rfo, pred.var = "freq_median_mean", pred.fun = pfun)
+ggplot(p, aes(freq_median_mean, yhat, color = yhat.id)) +
+  geom_line(size = 0.8) +  # Thicker lines
+  theme_classic() +
+  labs(y = "Probability", x = "freq_median_mean") +  # Axis labels
+  theme(legend.title = element_blank())
+
+
+#Freq_pct50
+# Partial dependence of probability for each class on petal width
+p <- partial(rfo, pred.var = "freq_pct95", pred.fun = pfun)
+ggplot(p, aes(freq_pct95, yhat, color = yhat.id)) +
+  geom_line(size = 0.8) +  # Thicker lines
+  theme_classic() +
+  labs(y = "Probability", x = "freq_pct95") +  # Axis labels
+  theme(legend.title = element_blank())
+
+#Freq_entropy
+# Partial dependence of probability for each class on petal width
+p <- partial(rfo, pred.var = "freq_entropy_std", pred.fun = pfun)
+ggplot(p, aes(freq_entropy_std, yhat, color = yhat.id)) +
+  geom_line() +
+  theme(legend.title = element_blank())
+
+#Freq_pct5
+# Partial dependence of probability for each class on petal width
+p <- partial(rfo, pred.var = "freq_pct5", pred.fun = pfun)
+ggplot(p, aes(freq_pct5, yhat, color = yhat.id)) +
+  geom_line() +
+  theme(legend.title = element_blank())
+
+
 
 
 
