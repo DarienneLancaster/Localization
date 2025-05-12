@@ -19,6 +19,7 @@ lp("flextable")
 lp("randomForest")
 lp("caret")
 lp("lattice")
+lp("gridExtra")
 
 fishdata<-read.csv("wdata/Sound_Species_Behaviour_Length_wPyFeatures_20250221.csv", header = TRUE)
 
@@ -42,7 +43,8 @@ fishdata$Common<- ifelse(fishdata$Species == "caurinus", "Copper rockfish",
 
 #keep only ID confidence 1 for pinniger (all other pinniger grunts are actually blacks)
 fishdata0<-fishdata%>%
-  dplyr::filter(t == "g", ID_confidence ==1,  Selection != 3030, str_detect(Species, "caurinus|melanops|maliger") )
+  dplyr::filter(t == "g", ID_confidence ==1|2,  Selection != 3030, str_detect(Species, "caurinus|melanops|maliger") )
+###
 
 numSpecies<-fishdata0 %>%
   count(Species) %>%
@@ -50,12 +52,12 @@ numSpecies<-fishdata0 %>%
 numSpecies
 
 fishdata1<-fishdata0%>%
-  dplyr::select(Species, fishID, Common, High.Freq..Hz., Low.Freq..Hz., freq_peak:time_centroid)
+  dplyr::select(Species, Site, fishID, Common, High.Freq..Hz., Low.Freq..Hz., freq_peak:time_centroid)
 
 
 #random forest version
 fishdata2<-fishdata1%>%
-  dplyr::select(Common,  High.Freq..Hz., Low.Freq..Hz., freq_peak:time_centroid )%>% #removing length because too many NAs and can't have NA in bray curtis matrix (rerun later with only data with length available)
+  dplyr::select(Common, Site, fishID, High.Freq..Hz., Low.Freq..Hz., freq_peak:time_centroid )%>% #removing length because too many NAs and can't have NA in bray curtis matrix (rerun later with only data with length available)
   dplyr::select(-freq_flatness)%>%
   mutate(Common = as.factor(Common))%>%
   drop_na()
@@ -63,10 +65,17 @@ fishdata2<-fishdata1%>%
 # Split the data into training and test sets
 set.seed(123)  # For reproducibility
 train_index <- createDataPartition(fishdata2$Common, p = 0.7, list = FALSE)  #70% training, 30% testing
-train <- fishdata2[train_index, ]
-test <- fishdata2[-train_index, ]
+train_wExtra <- fishdata2[train_index, ] #includes Site and fishID #
+test_wExtra <- fishdata2[-train_index, ] #includes Site and fishID #
 
-sum(is.na(train))
+train<- train_wExtra%>%
+  dplyr::select(!Site)%>%
+  dplyr::select(!fishID)
+test<- test_wExtra%>%
+  dplyr::select(!Site)%>%
+  dplyr::select(!fishID)
+
+###
 
 # Train the Random Forest model
 rf_model <- randomForest(Common ~ ., data = train, ntree = 2000, importance=TRUE)
@@ -126,7 +135,7 @@ par(mfrow = c(1, 1))
 #create variable importance plots in ggplot
 
 # Extract and format importance data
-imp <- importance(rf_model)
+imp <- randomForest::importance(rf_model)
 imp_df <- as.data.frame(imp)
 imp_df$Variable <- rownames(imp_df)
 
@@ -167,16 +176,75 @@ overall_stats
 class_stats <- as.data.frame(conf_mat_TEST$byClass)
 class_stats
 
+###
+################################################################################
+#try UMAP data visualization
+
+lp("umap")
+
+# Predict class labels on test set
+rf_preds <- predict(rf_model, newdata = test, type = "response")
+
+# Extract feature matrix (excluding response)
+X_test <- test[, !(names(test) %in% c("Common"))]
+X_test
+# Run UMAP
+umap_result <- umap(X_test)
+
+# Create a dataframe for plotting
+umap_df <- as.data.frame(umap_result$layout)
+umap_df$Predicted <- rf_preds
+umap_df$True <- test$Common
+umap_df$Site<-test_wExtra$Site
+umap_df$fishID<- test_wExtra$fishID
+
+par(mfrow = c(1, 2))
+###########
+#NOTE- change so all species have same colour in both plots
+
+#Predicted values plot (shows how the Random Forest classified fish sounds)
+pred<-ggplot(umap_df, aes(V1, V2, color = Predicted, fill = Predicted, shape = Site)) +
+  geom_point(alpha = 0.8, size = 2) +
+  stat_ellipse(level = 0.70, type = "norm", geom = "polygon", alpha = 0.1, color = NA) +
+  stat_ellipse(level = 0.70, type = "norm", geom = "path", size = 1, show.legend = FALSE) +
+  scale_color_brewer(palette = "Set1") +
+  scale_fill_brewer(palette = "Set1") +
+  labs(title = "Random Forest Predictions",
+       x = "UMAP 1", y = "UMAP 2") +
+  theme_classic()
+
+#True values plot (shows how well the groups align with true species classifications)
+true<-ggplot(umap_df, aes(V1, V2, color = True, fill = True, shape = Site)) +
+  geom_point(alpha = 0.8, size = 2) +
+  stat_ellipse(level = 0.70, type = "norm", geom = "polygon", alpha = 0.1, color = NA) +
+  stat_ellipse(level = 0.70, type = "norm", geom = "path", size = 1, show.legend = FALSE) +
+  scale_color_brewer(palette = "Set1") +
+  scale_fill_brewer(palette = "Set1") +
+  labs(title = "True Species Classifications",
+       x = "UMAP 1", y = "UMAP 2") +
+  theme_classic()
+
+UMAP_grunts_unbalanced<- pred+true
+UMAP_grunts_unbalanced
+ggsave("figures/UMAP_Grunt_UNBALANCED_IDconf1and2_bySite.png", plot = UMAP_grunts_unbalanced, width = 10, height = 6, dpi = 300)
+###
+
 #####################################
 #BALANCED DATA - upsampled with replacement
+
 ##############################################################################
 #keep only ID confidence 1 for pinniger (all other pinniger grunts are actually blacks)
 fishdata0<-fishdata%>%
-  dplyr::filter(t == "g", ID_confidence ==1,  Selection != 3030, str_detect(Species, "caurinus|melanops|maliger") )
+  dplyr::filter(t == "g", ID_confidence ==1|2,  Selection != 3030, str_detect(Species, "caurinus|melanops|maliger") )
+###
 
+numSpecies<-fishdata0 %>%
+  count(Species) %>%
+  arrange(desc(n))  # Optional: sort by count
+numSpecies
 
 fishdata1<-fishdata0%>%
-  dplyr::select(Species, fishID, Common, High.Freq..Hz., Low.Freq..Hz., freq_peak:time_centroid)
+  dplyr::select(Species, Site, fishID, Common, High.Freq..Hz., Low.Freq..Hz., freq_peak:time_centroid)
 
 # Get max sample size across groups
 max_n <- fishdata1 %>%
@@ -184,15 +252,15 @@ max_n <- fishdata1 %>%
   summarise(max_n = max(n)) %>%
   pull(max_n)
 
-# Sample with replacement to equalize group sizes(bootstrap so all species have 50 values)
+# Sample with replacement to equalize group sizes
 balanced_data <- fishdata1 %>%
   group_by(Species) %>%
-  slice_sample(n = max_n, replace = TRUE) %>%
+  slice_sample(n = 200, replace = TRUE) %>% #upsample all data so there are 200 datapoints per species
   ungroup()
 
 #random forest version
 fishdata2<-balanced_data%>%
-  dplyr::select(Common,  High.Freq..Hz., Low.Freq..Hz., freq_peak:time_centroid )%>% #removing length because too many NAs and can't have NA in bray curtis matrix (rerun later with only data with length available)
+  dplyr::select(Common, Site, fishID, High.Freq..Hz., Low.Freq..Hz., freq_peak:time_centroid )%>% #removing length because too many NAs and can't have NA in bray curtis matrix (rerun later with only data with length available)
   dplyr::select(-freq_flatness)%>%
   mutate(Common = as.factor(Common))%>%
   drop_na()
@@ -200,10 +268,15 @@ fishdata2<-balanced_data%>%
 # Split the data into training and test sets
 set.seed(123)  # For reproducibility
 train_index <- createDataPartition(fishdata2$Common, p = 0.7, list = FALSE)  #70% training, 30% testing
-train <- fishdata2[train_index, ]
-test <- fishdata2[-train_index, ]
+train_wExtra <- fishdata2[train_index, ] #includes Site and fishID #
+test_wExtra <- fishdata2[-train_index, ] #includes Site and fishID #
 
-sum(is.na(train))
+train<- train_wExtra%>%
+  dplyr::select(!Site)%>%
+  dplyr::select(!fishID)
+test<- test_wExtra%>%
+  dplyr::select(!Site)%>%
+  dplyr::select(!fishID)
 
 # Train the Random Forest model
 rf_model <- randomForest(Common ~ ., data = train, ntree = 2000, importance=TRUE)
@@ -261,9 +334,10 @@ par(mfrow = c(1, 1))
 
 #######################################################
 #create variable importance plots in ggplot
+################
 
 # Extract and format importance data
-imp <- importance(rf_model)
+imp <- randomForest::importance(rf_model)
 imp_df <- as.data.frame(imp)
 imp_df$Variable <- rownames(imp_df)
 
@@ -291,6 +365,7 @@ ggsave("figures/Grunt_BALANCED_Train_Variable_Importance.png", plot = combined_p
 
 ##############################################################################################################
 # Test the Random Forest model
+###############
 rf_preds <- predict(rf_model, newdata = test)
 # Get confusion matrix
 conf_mat_TEST <- confusionMatrix(rf_preds, test$Common)
@@ -303,6 +378,253 @@ overall_stats <- as.data.frame(t(conf_mat_TEST$overall))
 overall_stats
 class_stats <- as.data.frame(conf_mat_TEST$byClass)
 class_stats
+
+################################################################################
+#try UMAP data visualization
+#######################
+
+lp("umap")
+
+# Predict class labels on test set
+rf_preds <- predict(rf_model, newdata = test, type = "response")
+
+# Extract feature matrix (excluding response)
+X_test <- test[, !(names(test) %in% c("Common"))]
+X_test
+# Run UMAP
+umap_result <- umap(X_test)
+
+# Create a dataframe for plotting
+umap_df <- as.data.frame(umap_result$layout)
+umap_df$Predicted <- rf_preds
+umap_df$True <- test$Common
+umap_df$Site<-test_wExtra$Site
+umap_df$fishID<- test_wExtra$fishID
+
+par(mfrow = c(1, 2))
+###########
+#NOTE- change so all species have same colour in both plots
+
+#Predicted values plot (shows how the Random Forest classified fish sounds)
+pred<-ggplot(umap_df, aes(V1, V2, color = Predicted, fill = Predicted, shape = Site)) +
+  geom_point(alpha = 0.8, size = 2) +
+  stat_ellipse(level = 0.70, type = "norm", geom = "polygon", alpha = 0.1, color = NA) +
+  stat_ellipse(level = 0.70, type = "norm", geom = "path", size = 1, show.legend = FALSE) +
+  scale_color_brewer(palette = "Set1") +
+  scale_fill_brewer(palette = "Set1") +
+  labs(title = "Random Forest Predictions",
+       x = "UMAP 1", y = "UMAP 2") +
+  theme_classic()
+
+#True values plot (shows how well the groups align with true species classifications)
+true<-ggplot(umap_df, aes(V1, V2, color = True, fill = True, shape = Site)) +
+  geom_point(alpha = 0.8, size = 2) +
+  stat_ellipse(level = 0.70, type = "norm", geom = "polygon", alpha = 0.1, color = NA) +
+  stat_ellipse(level = 0.70, type = "norm", geom = "path", size = 1, show.legend = FALSE) +
+  scale_color_brewer(palette = "Set1") +
+  scale_fill_brewer(palette = "Set1") +
+  labs(title = "True Species Classifications",
+       x = "UMAP 1", y = "UMAP 2") +
+  theme_classic()
+
+UMAP_grunts_balanced<- pred+true
+UMAP_grunts_balanced
+ggsave("figures/UMAP_Grunt_BALANCED_IDconf1and2_bySite.png", plot = UMAP_grunts_unbalanced, width = 10, height = 6, dpi = 300)
+
+##########################################################################
+
+# Partial dependence plot coloured by species
+#################
+
+
+lp("ranger")
+# Fit a quick RF
+set.seed(1143)  # for reproducibility
+rfo <- ranger(Common ~ ., data = train, probability = TRUE)
+print(rfo)
+
+# Prediction wrapper that returns average prediction for each class
+pfun <- function(object, newdata) {
+  colMeans(predict(object, data = newdata)$predictions)
+}
+
+#Freq_pct25
+# Partial dependence of probability for each class on petal width
+p <- partial(rfo, pred.var = "freq_pct25", pred.fun = pfun)
+ggplot(p, aes(freq_pct25, yhat, color = yhat.id)) +
+  geom_line() +
+  theme(legend.title = element_blank())
+
+# Filter to just Quillback rockfish
+p_quill <- p %>% filter(yhat.id == "Quillback rockfish")
+
+# Plot
+quill<-ggplot(p_quill, aes(freq_pct25, yhat)) +
+  geom_line(color = "firebrick1", size = 0.8) +
+  theme_classic() +
+  labs(title = "Quillback rockfish",y = "Probability", x = "")+
+  coord_cartesian(ylim = c(0.25, 0.4))
+quill
+
+# Filter to just Copper rockfish
+p_copper <- p %>% filter(yhat.id == "Copper rockfish")
+
+# Plot
+copper<-ggplot(p_copper, aes(freq_pct25, yhat)) +
+  geom_line(color = "seagreen3", size = 0.8) +
+  theme_classic() +
+  labs(title = "Copper rockfish",y = "", x = "freq_pct25")+
+  coord_cartesian(ylim = c(0.25, 0.4))
+copper
+
+# Filter to just Black rockfish
+p_black <- p %>% filter(yhat.id == "Black rockfish")
+
+# Plot
+black<-ggplot(p_black, aes(freq_pct25, yhat)) +
+  geom_line(color = "dodgerblue3", size = 0.8) +
+  theme_classic() +
+  labs(title = "Black rockfish",y = "", x = "")+
+  coord_cartesian(ylim = c(0.25, 0.4))
+black
+PDP<-grid.arrange(quill,copper,black, nrow = 1)
+PDP
+
+#Low Frequency
+
+# Partial dependence of probability for each class on petal width
+p <- partial(rfo, pred.var = "Low.Freq..Hz.", pred.fun = pfun)
+ggplot(p, aes(Low.Freq..Hz., yhat, color = yhat.id)) +
+  geom_line() +
+  theme(legend.title = element_blank())
+
+# Filter to just Quillback rockfish
+p_quill <- p %>% filter(yhat.id == "Quillback rockfish")
+
+# Plot
+quill2<-ggplot(p_quill, aes(Low.Freq..Hz., yhat)) +
+  geom_line(color = "firebrick1", size = 0.8) +
+  theme_classic() +
+  labs(y = "Probability", x = "")+
+  coord_cartesian(ylim = c(0.25, 0.4))
+quill2
+
+# Filter to just Copper rockfish
+p_copper <- p %>% filter(yhat.id == "Copper rockfish")
+
+# Plot
+copper2<-ggplot(p_copper, aes(Low.Freq..Hz., yhat)) +
+  geom_line(color = "seagreen3", size = 0.8) +
+  theme_classic() +
+  labs(y = "", x = "Low.Freq..Hz.")+
+  coord_cartesian(ylim =c(0.25, 0.4))
+copper2
+
+# Filter to just Black rockfish
+p_black <- p %>% filter(yhat.id == "Black rockfish")
+
+# Plot
+black2<-ggplot(p_black, aes(Low.Freq..Hz., yhat)) +
+  geom_line(color = "dodgerblue3", size = 0.8) +
+  theme_classic() +
+  labs(y = "", x = ".")+
+  coord_cartesian(ylim = c(0.25, 0.4))
+black2
+PDP2<-grid.arrange(quill2,copper2,black2, nrow =1)
+PDP2
+
+#Freq_pct5
+# Partial dependence of probability for each class on petal width
+p <- partial(rfo, pred.var = "freq_pct5", pred.fun = pfun)
+ggplot(p, aes(freq_pct5, yhat, color = yhat.id)) +
+  geom_line() +
+  theme(legend.title = element_blank())
+
+# Filter to just Quillback rockfish
+p_quill <- p %>% filter(yhat.id == "Quillback rockfish")
+
+# Plot
+quill3<-ggplot(p_quill, aes(freq_pct5, yhat)) +
+  geom_line(color = "firebrick1", size = 0.8) +
+  theme_classic() +
+  labs(y = "Probability", x = "")+
+  coord_cartesian(ylim = c(0.25, 0.4))
+quill3
+
+# Filter to just Copper rockfish
+p_copper <- p %>% filter(yhat.id == "Copper rockfish")
+
+# Plot
+copper3<-ggplot(p_copper, aes(freq_pct5, yhat)) +
+  geom_line(color = "seagreen3", size = 0.8) +
+  theme_classic() +
+  labs(y = "", x = "freq_pct5")+
+  coord_cartesian(ylim = c(0.25, 0.4))
+copper3
+
+# Filter to just Black rockfish
+p_black <- p %>% filter(yhat.id == "Black rockfish")
+
+# Plot
+black3<-ggplot(p_black, aes(freq_pct5, yhat)) +
+  geom_line(color = "dodgerblue3", size = 0.8) +
+  theme_classic() +
+  labs(y = "", x = "")+
+  coord_cartesian(ylim = c(0.25, 0.4))
+black3
+PDP3<-grid.arrange(quill3,copper3,black3, nrow = 1)
+PDP3
+
+
+#Time roughness
+
+# Partial dependence of probability for each class on petal width
+p <- partial(rfo, pred.var = "time_roughness", pred.fun = pfun)
+ggplot(p, aes(time_roughness, yhat, color = yhat.id)) +
+  geom_line() +
+  theme(legend.title = element_blank())
+
+# Filter to just Quillback rockfish
+p_quill <- p %>% filter(yhat.id == "Quillback rockfish")
+
+# Plot
+quill4<-ggplot(p_quill, aes(time_roughness, yhat)) +
+  geom_line(color = "firebrick1", size = 0.8) +
+  theme_classic() +
+  labs(y = "Probability", x = "")+
+  coord_cartesian(ylim = c(0.25, 0.4))
+quill4
+
+# Filter to just Copper rockfish
+p_copper <- p %>% filter(yhat.id == "Copper rockfish")
+
+# Plot
+copper4<-ggplot(p_copper, aes(time_roughness, yhat)) +
+  geom_line(color = "seagreen3", size = 0.8) +
+  theme_classic() +
+  labs(y = "", x = "time_roughness")+
+  coord_cartesian(ylim = c(0.25, 0.4))
+copper4
+
+# Filter to just Black rockfish
+p_black <- p %>% filter(yhat.id == "Black rockfish")
+
+# Plot
+black4<-ggplot(p_black, aes(time_roughness, yhat)) +
+  geom_line(color = "dodgerblue3", size = 0.8) +
+  theme_classic() +
+  labs(y = "", x = "")+
+  coord_cartesian(ylim = c(0.25, 0.4))
+black4
+PDP4<-grid.arrange(quill4, copper4, black4, nrow=1)
+PDP4
+
+
+
+PDP_Grunts_Balanced <- grid.arrange(PDP, PDP2, PDP3, PDP4, ncol = 1)
+
+ggsave("figures/PDP_Grunt_BALANCED_GiniTop4bySpecies.png", plot = PDP_Grunts_Balanced, width = 10, height = 6, dpi = 300)
+
 
 ##############################################################################
 #One vs. All
@@ -917,6 +1239,7 @@ dev.off()
 auc(roc_obj)  # AUC score
 
 #######################################################################################
+
 #KNOCKS
 
 ##########################################################################
@@ -928,8 +1251,23 @@ auc(roc_obj)  # AUC score
 #ORIGINAL DATA - UNBALANCED
 
 #keep only ID confidence 1 for pinniger (all other pinniger grunts are actually blacks)
-fishdata0<-fishdata%>%
-  dplyr::filter(t == "d", ID_confidence ==1,  Selection != 3030, str_detect(Species, "caurinus|melanops|maliger|elongatus|miniatus|vacca|decagrammus|pinniger") )
+fishvacca<-fishdata%>%
+  filter(Species == "vacca")
+
+
+
+fishdata0 <- fishdata %>%
+  filter(
+    t == "d",
+    Selection != 3030,
+    str_detect(Species, "caurinus|melanops|maliger|elongatus|pinniger|vacca"),
+    (
+      Species %in% c("elongatus") & ID_confidence %in% c(1, 2)
+    ) |
+      (
+        !Species %in% c("elongatus") & ID_confidence == 1
+      )
+  )
 
 numSpecies<-fishdata0 %>%
   count(Species) %>%
@@ -937,12 +1275,12 @@ numSpecies<-fishdata0 %>%
 numSpecies
 
 fishdata1<-fishdata0%>%
-  dplyr::select(Species, fishID, Common, High.Freq..Hz., Low.Freq..Hz., freq_peak:time_centroid)
+  dplyr::select(Species, Site, fishID, Common, High.Freq..Hz., Low.Freq..Hz., freq_peak:time_centroid)
 
 
 #random forest version
 fishdata2<-fishdata1%>%
-  dplyr::select(Common,  High.Freq..Hz., Low.Freq..Hz., freq_peak:time_centroid )%>% #removing length because too many NAs and can't have NA in bray curtis matrix (rerun later with only data with length available)
+  dplyr::select(Common, Site, fishID, High.Freq..Hz., Low.Freq..Hz., freq_peak:time_centroid )%>% #removing length because too many NAs and can't have NA in bray curtis matrix (rerun later with only data with length available)
   dplyr::select(-freq_flatness)%>%
   mutate(Common = as.factor(Common))%>%
   drop_na()
@@ -950,8 +1288,15 @@ fishdata2<-fishdata1%>%
 # Split the data into training and test sets
 set.seed(123)  # For reproducibility
 train_index <- createDataPartition(fishdata2$Common, p = 0.7, list = FALSE)  #70% training, 30% testing
-train <- fishdata2[train_index, ]
-test <- fishdata2[-train_index, ]
+train_wExtra <- fishdata2[train_index, ] #includes Site and fishID #
+test_wExtra <- fishdata2[-train_index, ] #includes Site and fishID #
+
+train<- train_wExtra%>%
+  dplyr::select(!Site)%>%
+  dplyr::select(!fishID)
+test<- test_wExtra%>%
+  dplyr::select(!Site)%>%
+  dplyr::select(!fishID)
 
 sum(is.na(train))
 
@@ -1011,9 +1356,10 @@ par(mfrow = c(1, 1))
 
 #######################################################
 #create variable importance plots in ggplot
+########
 
 # Extract and format importance data
-imp <- importance(rf_model)
+imp <- randomForest::importance(rf_model)
 imp_df <- as.data.frame(imp)
 imp_df$Variable <- rownames(imp_df)
 
@@ -1041,12 +1387,14 @@ ggsave("figures/Knock_UNBALANCED_Train_Variable_Importance.png", plot = combined
 
 ##############################################################################################################
 # Test the Random Forest model
+########
 rf_preds <- predict(rf_model, newdata = test)
 # Get confusion matrix
 conf_mat_TEST <- confusionMatrix(rf_preds, test$Common)
 
 # View full summary
 print(conf_mat_TEST)
+table(test$Common)
 
 #may need to make tables later of model validation results for paper
 overall_stats <- as.data.frame(t(conf_mat_TEST$overall))
@@ -1054,66 +1402,113 @@ overall_stats
 class_stats <- as.data.frame(conf_mat_TEST$byClass)
 class_stats
 
+################################################################################
+#try UMAP data visualization
+###########
 
-# Partial dependence plot coloured by species
+lp("umap")
 
+# Predict class labels on test set
+rf_preds <- predict(rf_model, newdata = test, type = "response")
 
-lp("ranger")
-# Fit a quick RF
-set.seed(1143)  # for reproducibility
-rfo <- ranger(Common ~ ., data = train, probability = TRUE)
-print(rfo)
+# Extract feature matrix (excluding response)
+X_test <- test[, !(names(test) %in% c("Common"))]
+X_test
+# Run UMAP
+umap_result <- umap(X_test)
 
-# Prediction wrapper that returns average prediction for each class
-pfun <- function(object, newdata) {
-  colMeans(predict(object, data = newdata)$predictions)
-}
+# Create a dataframe for plotting
+umap_df <- as.data.frame(umap_result$layout)
+umap_df$Predicted <- rf_preds
+umap_df$True <- test$Common
+umap_df$Site<-test_wExtra$Site
+umap_df$fishID<- test_wExtra$fishID
 
-#Freq_centroid
-# Partial dependence of probability for each class on petal width
-p <- partial(rfo, pred.var = "freq_centroid", pred.fun = pfun)
-ggplot(p, aes(freq_centroid, yhat, color = yhat.id)) +
-  geom_line() +
-  theme(legend.title = element_blank())
+par(mfrow = c(1, 2))
+###########
+#NOTE- change so all species have same colour in both plots
 
-#Freq_median_mean
-# Partial dependence of probability for each class on petal width
-p <- partial(rfo, pred.var = "freq_median_mean", pred.fun = pfun)
-ggplot(p, aes(freq_median_mean, yhat, color = yhat.id)) +
-  geom_line() +
-  theme(legend.title = element_blank())
+#Predicted values plot (shows how the Random Forest classified fish sounds)
+pred <- ggplot(umap_df, aes(V1, V2, color = Predicted, fill = Predicted, shape = Site)) +
+  geom_point(alpha = 0.8, size = 2) +
+  stat_ellipse(aes(group = Predicted), level = 0.70, type = "norm", geom = "polygon", alpha = 0.1, color = NA, show.legend = FALSE) +
+  stat_ellipse(aes(group = Predicted), level = 0.70, type = "norm", geom = "path", size = 1, show.legend = FALSE) +
+  scale_color_brewer(palette = "Set1") +
+  scale_fill_brewer(palette = "Set1") +
+  labs(title = "Random Forest Predictions",
+       x = "UMAP 1", y = "UMAP 2") +
+  theme_classic()
 
-#Freq_pct75
-# Partial dependence of probability for each class on petal width
-p <- partial(rfo, pred.var = "freq_pct75", pred.fun = pfun)
-ggplot(p, aes(freq_pct75, yhat, color = yhat.id)) +
-  geom_line() +
-  theme(legend.title = element_blank())
+#True values plot (shows how well the groups align with true species classifications)
+true<-ggplot(umap_df, aes(V1, V2, color = True, fill = True, shape = Site)) +
+  geom_point(alpha = 0.8, size = 2) +
+  stat_ellipse(aes(group = True), level = 0.70, type = "norm", geom = "polygon", alpha = 0.1, color = NA, show.legend = FALSE) +
+  stat_ellipse(aes(group = True), level = 0.70, type = "norm", geom = "path", size = 1, show.legend = FALSE) +
+  scale_color_brewer(palette = "Set1") +
+  scale_fill_brewer(palette = "Set1") +
+  labs(title = "True Species Classifications",
+       x = "UMAP 1", y = "UMAP 2") +
+  theme_classic()
 
-#Freq_entropy
-# Partial dependence of probability for each class on petal width
-p <- partial(rfo, pred.var = "freq_entropy_std", pred.fun = pfun)
-ggplot(p, aes(freq_entropy_std, yhat, color = yhat.id)) +
-  geom_line() +
-  theme(legend.title = element_blank())
+UMAP_knocks_unbalanced<- pred+true
+UMAP_knocks_unbalanced
+ggsave("figures/UMAP_Knock_UNBALANCED_SiteID.png", plot = UMAP_knocks_unbalanced, width = 10, height = 6, dpi = 300)
+# library(viridis)# library(viTrueridis)
+# lp("viridis")
+# 
+# ggplot(umap_df, aes(V1, V2, color = True, fill = True)) +
+#   geom_point(alpha = 0.8, size = 2) +
+#   stat_ellipse(level = 0.70, type = "norm", geom = "polygon", alpha = 0.2, color = NA) +
+#   stat_ellipse(level = 0.70, type = "norm", geom = "path", size = 1) +
+#   scale_color_viridis_d(option = "D") +
+#   scale_fill_viridis_d(option = "D") +
+#   labs(title = "Random Forest Predictions (UMAP projection)",
+#        x = "UMAP 1", y = "UMAP 2") +
+#   theme_classic()
 
-#Freq_pct5
-# Partial dependence of probability for each class on petal width
-p <- partial(rfo, pred.var = "freq_pct5", pred.fun = pfun)
-ggplot(p, aes(freq_pct5, yhat, color = yhat.id)) +
-  geom_line() +
-  theme(legend.title = element_blank())
+lp("RColorBrewer")
+
+ggplot(umap_df, aes(V1, V2, color = True, fill = True)) +
+  geom_point(alpha = 0.8, size = 2) +
+  stat_ellipse(level = 0.70, type = "norm", geom = "polygon", alpha = 0.1, color = NA) +
+  stat_ellipse(level = 0.70, type = "norm", geom = "path", size = 1) +
+  scale_color_brewer(palette = "Set1") +
+  scale_fill_brewer(palette = "Set1") +
+  labs(title = "Random Forest Predictions (UMAP projection)",
+       x = "UMAP 1", y = "UMAP 2") +
+  theme_classic()
+
 
 #####################################
+
 #BALANCED DATA - upsampled with replacement
 ##############################################################################
 #keep only ID confidence 1 for pinniger (all other pinniger grunts are actually blacks)
-fishdata0<-fishdata%>%
-  dplyr::filter(t == "d", ID_confidence ==1,  Selection != 3030, str_detect(Species, "caurinus|melanops|maliger|elongatus|miniatus|vacca|decagrammus|pinniger") )
+# fishdata0<-fishdata%>%
+#   dplyr::filter(t == "d", ID_confidence ==1,  Selection != 3030, str_detect(Species, "caurinus|melanops|maliger|elongatus|miniatus|vacca|decagrammus|pinniger") )
 
+
+fishdata0 <- fishdata %>%
+  filter(
+    t == "d",
+    Selection != 3030,
+    str_detect(Species, "caurinus|melanops|maliger|elongatus|pinniger|vacca|decagrammus"),
+    (
+      Species %in% c("elongatus", "decagrammus") & ID_confidence %in% c(1, 2)
+    ) |
+      (
+        !Species %in% c("elongatus", "decagrammus") & ID_confidence == 1
+      )
+  )
+
+
+numSpecies<-fishdata0 %>%
+  count(Species) %>%
+  arrange(desc(n))  # Optional: sort by count
+numSpecies
 
 fishdata1<-fishdata0%>%
-  dplyr::select(Species, fishID, Common, High.Freq..Hz., Low.Freq..Hz., freq_peak:time_centroid)
+  dplyr::select(Species, Site, fishID, Common, High.Freq..Hz., Low.Freq..Hz., freq_peak:time_centroid)
 
 # Get max sample size across groups
 max_n <- fishdata1 %>%
@@ -1121,15 +1516,15 @@ max_n <- fishdata1 %>%
   summarise(max_n = max(n)) %>%
   pull(max_n)
 
-# Sample with replacement to equalize group sizes(bootstrap so all species have 50 values)
+# Sample with replacement to equalize group sizes
 balanced_data <- fishdata1 %>%
   group_by(Species) %>%
-  slice_sample(n = max_n, replace = TRUE) %>%
+  slice_sample(n = 300, replace = TRUE) %>% #upsample all data so there are 200 datapoints per species
   ungroup()
 
 #random forest version
 fishdata2<-balanced_data%>%
-  dplyr::select(Common,  High.Freq..Hz., Low.Freq..Hz., freq_peak:time_centroid )%>% #removing length because too many NAs and can't have NA in bray curtis matrix (rerun later with only data with length available)
+  dplyr::select(Common, Site, fishID, High.Freq..Hz., Low.Freq..Hz., freq_peak:time_centroid )%>% #removing length because too many NAs and can't have NA in bray curtis matrix (rerun later with only data with length available)
   dplyr::select(-freq_flatness)%>%
   mutate(Common = as.factor(Common))%>%
   drop_na()
@@ -1137,10 +1532,15 @@ fishdata2<-balanced_data%>%
 # Split the data into training and test sets
 set.seed(123)  # For reproducibility
 train_index <- createDataPartition(fishdata2$Common, p = 0.7, list = FALSE)  #70% training, 30% testing
-train <- fishdata2[train_index, ]
-test <- fishdata2[-train_index, ]
+train_wExtra <- fishdata2[train_index, ] #includes Site and fishID #
+test_wExtra <- fishdata2[-train_index, ] #includes Site and fishID #
 
-sum(is.na(train))
+train<- train_wExtra%>%
+  dplyr::select(!Site)%>%
+  dplyr::select(!fishID)
+test<- test_wExtra%>%
+  dplyr::select(!Site)%>%
+  dplyr::select(!fishID)
 
 # Train the Random Forest model
 rf_model <- randomForest(Common ~ ., data = train, ntree = 2000, importance=TRUE)
@@ -1200,7 +1600,7 @@ par(mfrow = c(1, 1))
 #create variable importance plots in ggplot
 
 # Extract and format importance data
-imp <- importance(rf_model)
+imp <- randomForest::importance(rf_model)
 imp_df <- as.data.frame(imp)
 imp_df$Variable <- rownames(imp_df)
 
@@ -1241,92 +1641,354 @@ overall_stats
 class_stats <- as.data.frame(conf_mat_TEST$byClass)
 class_stats
 
+##########################################################################
 
 # Partial dependence plot coloured by species
-
-
+############
 lp("ranger")
 # Fit a quick RF
 set.seed(1143)  # for reproducibility
 rfo <- ranger(Common ~ ., data = train, probability = TRUE)
 print(rfo)
 
-lp('pdp')
 # Prediction wrapper that returns average prediction for each class
 pfun <- function(object, newdata) {
   colMeans(predict(object, data = newdata)$predictions)
 }
-
-#Freq_centroid
+fishdata$freq_std
+#freq_std
 # Partial dependence of probability for each class on petal width
-p <- partial(rfo, pred.var = "freq_centroid", pred.fun = pfun)
-all<-ggplot(p, aes(freq_centroid, yhat, color = yhat.id)) +
-  geom_line(size = 0.8) +  # Thicker lines
-  theme_classic() +
-  labs(y = "Probability", x = "frequency centroid") +  # Axis labels
+p <- partial(rfo, pred.var = "freq_std", pred.fun = pfun)
+ggplot(p, aes(freq_std, yhat, color = yhat.id)) +
+  geom_line() +
   theme(legend.title = element_blank())
-all
-# Filter to just Canary rockfish
-p_canary <- p %>% filter(yhat.id == "Canary rockfish")
+
+# Filter to just Quillback rockfish
+p_quill <- p %>% filter(yhat.id == "Quillback rockfish")
 
 # Plot
-canary<-ggplot(p_canary, aes(freq_centroid, yhat)) +
-  geom_line(color = "orange", size = 0.8) +
+quill<-ggplot(p_quill, aes(freq_std, yhat)) +
+  geom_line(color = "firebrick1", size = 0.8) +
   theme_classic() +
-  labs(y = "Probability", x = "frequency centroid")
-canary
-# Filter to just Canary rockfish
+  labs(title = "Quillback rockfish",y = "Probability", x = "")+
+  coord_cartesian(ylim = c(0.1, 0.20))
+quill
+
+# Filter to just Copper rockfish
 p_copper <- p %>% filter(yhat.id == "Copper rockfish")
 
 # Plot
-copper<-ggplot(p_copper, aes(freq_centroid, yhat)) +
-  geom_line(color = "red", size = 0.8) +
+copper<-ggplot(p_copper, aes(freq_std, yhat)) +
+  geom_line(color = "seagreen3", size = 0.8) +
   theme_classic() +
-  labs(y = "Probability", x = "frequency centroid")
+  labs(title = "Copper rockfish",y = "", x = "")+
+  coord_cartesian(ylim = c(0.1, 0.2))
 copper
-plot(canary +copper)
 
-#Freq_median_mean
+# Filter to just Black rockfish
+p_black <- p %>% filter(yhat.id == "Black rockfish")
+
+# Plot
+black<-ggplot(p_black, aes(freq_std, yhat)) +
+  geom_line(color = "dodgerblue3", size = 0.8) +
+  theme_classic() +
+  labs(title = "Black rockfish",y = "", x = "freq_std")+
+  coord_cartesian(ylim = c(0.1, 0.2))
+black
+
+# Filter to just Black rockfish
+p_canary <- p %>% filter(yhat.id == "Canary rockfish")
+# Plot
+canary<-ggplot(p_canary, aes(freq_std, yhat)) +
+  geom_line(color = "orange", size = 0.8) +
+  theme_classic() +
+  labs(title = "Canary rockfish",y = "", x = "")+
+  coord_cartesian(ylim = c(0.1, 0.2))
+canary
+
+# Filter to just Black rockfish
+p_ling <- p %>% filter(yhat.id == "Lingcod")
+# Plot
+ling<-ggplot(p_ling, aes(freq_std, yhat)) +
+  geom_line(color = "purple", size = 0.8) +
+  theme_classic() +
+  labs(title = "Lingcod",y = "", x = "")+
+  coord_cartesian(ylim = c(0.1, 0.2))
+ling
+
+# Filter to just Black rockfish
+p_pile <- p %>% filter(yhat.id == "Pile Perch")
+# Plot
+pile<-ggplot(p_pile, aes(freq_std, yhat)) +
+  geom_line(color = "yellow3", size = 0.8) +
+  theme_classic() +
+  labs(title = "Pile Perch",y = "", x = "")+
+  coord_cartesian(ylim = c(0.1, 0.2))
+pile
+
+
+
+PDP<-grid.arrange(quill,copper,black, canary, ling, pile, nrow = 1)
+PDP
+#################################
+#freq_freq_median_mean
+fishdata$freq_median_mean
 # Partial dependence of probability for each class on petal width
 p <- partial(rfo, pred.var = "freq_median_mean", pred.fun = pfun)
 ggplot(p, aes(freq_median_mean, yhat, color = yhat.id)) +
-  geom_line(size = 0.8) +  # Thicker lines
-  theme_classic() +
-  labs(y = "Probability", x = "freq_median_mean") +  # Axis labels
-  theme(legend.title = element_blank())
-
-
-#Freq_pct50
-# Partial dependence of probability for each class on petal width
-p <- partial(rfo, pred.var = "freq_pct95", pred.fun = pfun)
-ggplot(p, aes(freq_pct95, yhat, color = yhat.id)) +
-  geom_line(size = 0.8) +  # Thicker lines
-  theme_classic() +
-  labs(y = "Probability", x = "freq_pct95") +  # Axis labels
-  theme(legend.title = element_blank())
-
-#Freq_entropy
-# Partial dependence of probability for each class on petal width
-p <- partial(rfo, pred.var = "freq_entropy_std", pred.fun = pfun)
-ggplot(p, aes(freq_entropy_std, yhat, color = yhat.id)) +
   geom_line() +
   theme(legend.title = element_blank())
 
-#Freq_pct5
+# Filter to just Quillback rockfish
+p_quill <- p %>% filter(yhat.id == "Quillback rockfish")
+
+# Plot
+quill2<-ggplot(p_quill, aes(freq_median_mean, yhat)) +
+  geom_line(color = "firebrick1", size = 0.8) +
+  theme_classic() +
+  labs(y = "Probability", x = "")+
+  coord_cartesian(ylim = c(0.1, 0.2))
+quill2
+
+# Filter to just Copper rockfish
+p_copper <- p %>% filter(yhat.id == "Copper rockfish")
+
+# Plot
+copper2<-ggplot(p_copper, aes(freq_median_mean, yhat)) +
+  geom_line(color = "seagreen3", size = 0.8) +
+  theme_classic() +
+  labs(y = "", x = "")+
+  coord_cartesian(ylim = c(0.1, 0.2))
+copper2
+
+# Filter to just Black rockfish
+p_black <- p %>% filter(yhat.id == "Black rockfish")
+
+# Plot
+black2<-ggplot(p_black, aes(freq_median_mean, yhat)) +
+  geom_line(color = "dodgerblue3", size = 0.8) +
+  theme_classic() +
+  labs(y = "", x = "freq_median_mean")+
+  coord_cartesian(ylim = c(0.1, 0.2))
+black2
+
+# Filter to just Black rockfish
+p_canary <- p %>% filter(yhat.id == "Canary rockfish")
+# Plot
+canary2<-ggplot(p_canary, aes(freq_median_mean, yhat)) +
+  geom_line(color = "orange", size = 0.8) +
+  theme_classic() +
+  labs(y = "", x = "")+
+  coord_cartesian(ylim = c(0.1, 0.2))
+canary2
+
+# Filter to just Black rockfish
+p_ling <- p %>% filter(yhat.id == "Lingcod")
+# Plot
+ling2<-ggplot(p_ling, aes(freq_median_mean, yhat)) +
+  geom_line(color = "purple", size = 0.8) +
+  theme_classic() +
+  labs(y = "", x = "")+
+  coord_cartesian(ylim = c(0.1, 0.2))
+ling2
+
+# Filter to just Black rockfish
+p_pile <- p %>% filter(yhat.id == "Pile Perch")
+# Plot
+pile2<-ggplot(p_pile, aes(freq_median_mean, yhat)) +
+  geom_line(color = "yellow3", size = 0.8) +
+  theme_classic() +
+  labs(y = "", x = "")+
+  coord_cartesian(ylim = c(0.1, 0.2))
+pile2
+
+PDP2<-grid.arrange(quill2,copper2,black2,canary2,ling2,pile2, nrow =1)
+PDP2
+##########################
+#freq_pct25
+fishdata$freq_pct25
 # Partial dependence of probability for each class on petal width
-p <- partial(rfo, pred.var = "freq_pct5", pred.fun = pfun)
-ggplot(p, aes(freq_pct5, yhat, color = yhat.id)) +
+p <- partial(rfo, pred.var = "freq_pct25", pred.fun = pfun)
+ggplot(p, aes(freq_pct25, yhat, color = yhat.id)) +
   geom_line() +
   theme(legend.title = element_blank())
 
+# Filter to just Quillback rockfish
+p_quill <- p %>% filter(yhat.id == "Quillback rockfish")
+
+# Plot
+quill3<-ggplot(p_quill, aes(freq_pct25, yhat)) +
+  geom_line(color = "firebrick1", size = 0.8) +
+  theme_classic() +
+  labs(y = "Probability", x = "")+
+  coord_cartesian(ylim = c(0.1, 0.2))
+quill3
+
+# Filter to just Copper rockfish
+p_copper <- p %>% filter(yhat.id == "Copper rockfish")
+
+# Plot
+copper3<-ggplot(p_copper, aes(freq_pct25, yhat)) +
+  geom_line(color = "seagreen3", size = 0.8) +
+  theme_classic() +
+  labs(y = "", x = "")+
+  coord_cartesian(ylim = c(0.1, 0.2))
+copper3
+
+# Filter to just Black rockfish
+p_black <- p %>% filter(yhat.id == "Black rockfish")
+
+# Plot
+black3<-ggplot(p_black, aes(freq_pct25, yhat)) +
+  geom_line(color = "dodgerblue3", size = 0.8) +
+  theme_classic() +
+  labs(y = "", x = "freq_pct25")+
+  coord_cartesian(ylim = c(0.1, 0.2))
+black3
+
+# Filter to just Black rockfish
+p_canary <- p %>% filter(yhat.id == "Canary rockfish")
+# Plot
+canary3<-ggplot(p_canary, aes(freq_pct25, yhat)) +
+  geom_line(color = "orange", size = 0.8) +
+  theme_classic() +
+  labs(y = "", x = "")+
+  coord_cartesian(ylim = c(0.1, 0.2))
+canary3
+
+# Filter to just Black rockfish
+p_ling <- p %>% filter(yhat.id == "Lingcod")
+# Plot
+ling3<-ggplot(p_ling, aes(freq_pct25, yhat)) +
+  geom_line(color = "purple", size = 0.8) +
+  theme_classic() +
+  labs(y = "", x = "")+
+  coord_cartesian(ylim = c(0.1, 0.2))
+ling3
+
+# Filter to just Black rockfish
+p_pile <- p %>% filter(yhat.id == "Pile Perch")
+# Plot
+pile3<-ggplot(p_pile, aes(freq_pct25, yhat)) +
+  geom_line(color = "yellow3", size = 0.8) +
+  theme_classic() +
+  labs(y = "", x = "")+
+  coord_cartesian(ylim = c(0.1, 0.2))
+pile3
+
+PDP3<-grid.arrange(quill3,copper3,black3,canary3, ling3, pile3, nrow = 1)
+PDP3
+
+######################################
+#snr
+fishdata$snr
+# Partial dependence of probability for each class on petal width
+p <- partial(rfo, pred.var = "snr", pred.fun = pfun)
+ggplot(p, aes(snr, yhat, color = yhat.id)) +
+  geom_line() +
+  theme(legend.title = element_blank())
+
+# Filter to just Quillback rockfish
+p_quill <- p %>% filter(yhat.id == "Quillback rockfish")
+
+# Plot
+quill4<-ggplot(p_quill, aes(snr, yhat)) +
+  geom_line(color = "firebrick1", size = 0.8) +
+  theme_classic() +
+  labs(y = "Probability", x = "")+
+  coord_cartesian(ylim = c(0.1, 0.2))
+quill4
+
+# Filter to just Copper rockfish
+p_copper <- p %>% filter(yhat.id == "Copper rockfish")
+
+# Plot
+copper4<-ggplot(p_copper, aes(snr, yhat)) +
+  geom_line(color = "seagreen3", size = 0.8) +
+  theme_classic() +
+  labs(y = "", x = "")+
+  coord_cartesian(ylim = c(0.1, 0.2))
+copper4
+
+# Filter to just Black rockfish
+p_black <- p %>% filter(yhat.id == "Black rockfish")
+
+# Plot
+black4<-ggplot(p_black, aes(snr, yhat)) +
+  geom_line(color = "dodgerblue3", size = 0.8) +
+  theme_classic() +
+  labs(y = "", x = "snr")+
+  coord_cartesian(ylim = c(0.1, 0.2))
+black4
+
+# Filter to just Black rockfish
+p_canary <- p %>% filter(yhat.id == "Canary rockfish")
+# Plot
+canary4<-ggplot(p_canary, aes(snr, yhat)) +
+  geom_line(color = "orange", size = 0.8) +
+  theme_classic() +
+  labs(y = "", x = "")+
+  coord_cartesian(ylim = c(0.1, 0.2))
+canary4
+
+# Filter to just Black rockfish
+p_ling <- p %>% filter(yhat.id == "Lingcod")
+# Plot
+ling4<-ggplot(p_ling, aes(snr, yhat)) +
+  geom_line(color = "purple", size = 0.8) +
+  theme_classic() +
+  labs(y = "", x = "")+
+  coord_cartesian(ylim = c(0.1, 0.2))
+ling4
+
+# Filter to just Black rockfish
+p_pile <- p %>% filter(yhat.id == "Pile Perch")
+# Plot
+pile4<-ggplot(p_pile, aes(snr, yhat)) +
+  geom_line(color = "yellow3", size = 0.8) +
+  theme_classic() +
+  labs(y = "", x = "")+
+  coord_cartesian(ylim = c(0.1, 0.2))
+pile4
+
+
+PDP4<-grid.arrange(quill4, copper4, black4,canary4,ling4, pile4, nrow=1)
+PDP4
 
 
 
+PDP_Knocks_Balanced <- grid.arrange(PDP, PDP2, PDP3, PDP4, ncol = 1)
 
+ggsave("figures/PDP_Knock_BALANCED_GiniTop4bySpecies.png", plot = PDP_Knocks_Balanced, width = 15, height = 10, dpi = 300)
 
+################################################################################
+#try UMAP data visualization
 
+lp("umap")
 
+# Predict class labels on test set
+rf_preds <- predict(rf_model, newdata = test, type = "response")
 
+# Extract feature matrix (excluding response)
+X_test <- test[, !(names(test) %in% c("Common"))]
+
+# Run UMAP
+umap_result <- umap(X_test)
+
+# Create a dataframe for plotting
+umap_df <- as.data.frame(umap_result$layout)
+umap_df$Predicted <- rf_preds
+umap_df$True <- test$Common
+
+ggplot(umap_df, aes(V1, V2, color = True, fill = True)) +
+  geom_point(alpha = 0.8, size = 2) +
+  # Shaded ellipse (fill only)
+  stat_ellipse(level = 0.80, type = "norm", geom = "polygon", alpha = 0.2, color = NA) +
+  # Solid outline ellipse
+  stat_ellipse(level = 0.80, type = "norm", geom = "path", size = 1) +
+  labs(title = "Random Forest Predictions (UMAP projection)",
+       x = "UMAP 1", y = "UMAP 2") +
+  theme_classic()
 
 
 
