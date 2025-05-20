@@ -20,7 +20,7 @@ lp("flextable")
 fishdata<-read.csv("wdata/Sound_Species_Behaviour_Length_wPyFeatures_20250221.csv", header = TRUE)
 
 spectros<-fishdata%>%
-  filter(Species == "pinniger", ID_confidence == 1, t == "g")
+  filter(Species == "maliger", ID_confidence == 1|2, t == "g")
 
 ##############################
 #create summary sound features table for call types by species
@@ -76,62 +76,78 @@ TotalE_ID1<-fishdata%>%
   group_by(Common) %>%  # Group by Common and ID_confidence
   summarize(TotE_ID1 = n())  # Count the rows for each group
 
+levels(as.factor(MeanD$Common))
 #calculate mean and SD for each sound feature for all knocks (d) with ID confidence of 1
-MeanD<-fishdata%>%
-  filter(ID_confidence == 1, t == "d")%>%
-  group_by(Common) %>%  # Group by Common
+MeanD <- fishdata %>%
+  filter(ID_confidence == 1, t == "d", Common !="other") %>%
+  group_by(Common) %>%
   summarise(
-    D_mean_High_Freq = mean(High.Freq..Hz., na.rm = TRUE),  # Mean for High.Freq..Hz.
-    D_sd_High_Freq = sd(High.Freq..Hz., na.rm = TRUE),  
-    D_mean_Low_Freq = mean(Low.Freq..Hz., na.rm = TRUE),    # Mean for Low.Freq..Hz.
-    D_sd_Low_Freq = sd(Low.Freq..Hz., na.rm = TRUE),  
-    across(freq_peak:time_centroid, \(x) mean(x, na.rm = TRUE), .names = "D_mean_{col}"),  # Calculate the mean
-    across( freq_peak:time_centroid, \(x) sd(x, na.rm = TRUE), .names = "D_sd_{col}")     # Calculate the SD
-  )
-
-#keep only a few columns
-MeanD1<-MeanD%>%
-  select(Common,D_mean_High_Freq, D_sd_High_Freq, D_mean_Low_Freq, D_sd_Low_Freq,
-         D_mean_freq_peak,D_sd_freq_peak,D_mean_freq_bandwidth, D_sd_freq_bandwidth, 
-         D_mean_time_duration, D_sd_time_duration)
+    across(
+      c(high_freq_hz, low_freq_hz, freq_peak, freq_bandwidth, time_duration),
+      list(D_mean = ~mean(.x, na.rm = TRUE), D_sd = ~sd(.x, na.rm = TRUE)),
+      .names = "{.col}_{.fn}"
+    )
+  ) %>%
+  pivot_longer(
+    cols = -Common,
+    names_to = c("feature", "stat"),
+    names_pattern = "(.*)_(D_mean|D_sd)"
+  ) %>%
+  pivot_wider(
+    names_from = stat,
+    values_from = value
+  ) %>%
+  mutate(summary = sprintf("%.1f ± %.1f", D_mean, D_sd)) %>%
+  select(Common, feature, summary) %>%
+  pivot_wider(names_from = feature, values_from = summary)
 
 #calculate mean and SD for each sound feature for all grunts (g) with ID confidence of 1
-MeanG<-fishdata%>%
-  filter(ID_confidence == 1, t == "g")%>%
-  group_by(Common) %>%  # Group by Common
+MeanG <- fishdata %>%
+  filter(ID_confidence == 1, t == "g", Common !="other") %>%
+  group_by(Common) %>%
   summarise(
-    G_mean_High_Freq = mean(High.Freq..Hz., na.rm = TRUE),  # G_mean for High.Freq..Hz.
-    G_sd_High_Freq = sd(High.Freq..Hz., na.rm = TRUE),  
-    G_mean_Low_Freq = mean(Low.Freq..Hz., na.rm = TRUE),    # Mean for Low.Freq..Hz.
-    G_sd_Low_Freq = sd(Low.Freq..Hz., na.rm = TRUE),  
-    across(freq_peak:time_centroid, \(x) mean(x, na.rm = TRUE), .names = "G_mean_{col}"),  # Calculate the mean
-    across(freq_peak:time_centroid, \(x) sd(x, na.rm = TRUE), .names = "G_sd_{col}")     # Calculate the SD
-  )
-
-#keep only a few columns
-MeanG1<-MeanG%>%
-  select(Common,G_mean_High_Freq, G_sd_High_Freq, G_mean_Low_Freq, G_sd_Low_Freq, G_mean_High_Freq,
-         G_mean_freq_peak,G_sd_freq_peak,G_mean_freq_bandwidth, G_sd_freq_bandwidth, 
-         G_mean_time_duration, G_sd_time_duration)
+    across(
+      c(high_freq_hz, low_freq_hz, freq_peak, freq_bandwidth, time_duration),
+      list(G_mean = ~mean(.x, na.rm = TRUE), G_sd = ~sd(.x, na.rm = TRUE)),
+      .names = "{.col}_{.fn}"
+    )
+  ) %>%
+  pivot_longer(
+    cols = -Common,
+    names_to = c("feature", "stat"),
+    names_pattern = "(.*)_(G_mean|G_sd)"
+  ) %>%
+  pivot_wider(
+    names_from = stat,
+    values_from = value
+  ) %>%
+  mutate(summary = sprintf("%.1f ± %.1f", G_mean, G_sd)) %>%
+  select(Common, feature, summary) %>%
+  pivot_wider(names_from = feature, values_from = summary)
 
 #calculate mean and SD for each sound feature for all unknown sounds (e) with ID confidence of 1
-MeanE<-fishdata%>%
-  filter(ID_confidence == 1, t == "e")%>%
-  group_by(Common) %>%  # Group by Common
+MeanE <- fishdata %>%
+  filter(ID_confidence == 1, t == "e", Common !="other") %>%
+  group_by(Common) %>%
   summarise(
-    E_mean_High_Freq = mean(High.Freq..Hz., na.rm = TRUE),  # Mean for High.Freq..Hz.
-    E_sd_High_Freq = sd(High.Freq..Hz., na.rm = TRUE),  
-    E_mean_Low_Freq = mean(Low.Freq..Hz., na.rm = TRUE),    # Mean for Low.Freq..Hz.
-    E_sd_Low_Freq = sd(Low.Freq..Hz., na.rm = TRUE),  
-    across(freq_peak:time_centroid, \(x) mean(x, na.rm = TRUE), .names = "E_mean_{col}"),  # Calculate the mean
-    across(freq_peak:time_centroid, \(x) sd(x, na.rm = TRUE), .names = "E_sd_{col}")     # Calculate the SD
-  )
-
-#keep only a few columns
-MeanE1<-MeanE%>%
-  select(Common,E_mean_High_Freq, E_sd_High_Freq, E_mean_Low_Freq, E_sd_Low_Freq, E_mean_High_Freq,
-         E_mean_freq_peak,E_sd_freq_peak,E_mean_freq_bandwidth, E_sd_freq_bandwidth, 
-         E_mean_time_duration, E_sd_time_duration)
+    across(
+      c(high_freq_hz, low_freq_hz, freq_peak, freq_bandwidth, time_duration),
+      list(E_mean = ~mean(.x, na.rm = TRUE), E_sd = ~sd(.x, na.rm = TRUE)),
+      .names = "{.col}_{.fn}"
+    )
+  ) %>%
+  pivot_longer(
+    cols = -Common,
+    names_to = c("feature", "stat"),
+    names_pattern = "(.*)_(E_mean|E_sd)"
+  ) %>%
+  pivot_wider(
+    names_from = stat,
+    values_from = value
+  ) %>%
+  mutate(summary = sprintf("%.1f ± %.1f", E_mean, E_sd)) %>%
+  select(Common, feature, summary) %>%
+  pivot_wider(names_from = feature, values_from = summary)
 
 
 ### add to summary dataframe
@@ -139,13 +155,13 @@ FSsummary <- TotalFS %>%
   left_join(TotalFS_ID1, by = "Common") %>%  # Join TotalFS with TotalFS_ID1 by Common
   left_join(TotalD, by = "Common")%>%
   left_join(TotalD_ID1, by = "Common")%>%
-  left_join(MeanD1, by = "Common")%>%
+  left_join(MeanD, by = "Common")%>%
   left_join(TotalG, by = "Common")%>%
   left_join(TotalG_ID1, by = "Common")%>%
-  left_join(MeanG1, by = "Common")%>%
+  left_join(MeanG, by = "Common")%>%
   left_join(TotalE, by = "Common")%>%
   left_join(TotalE_ID1, by = "Common")%>%
-  left_join(MeanE1, by = "Common")
+  left_join(MeanE, by = "Common")
 
 
 #full table  
@@ -185,27 +201,21 @@ countFS_table_flextable  <- line_spacing(countFS_table_flextable , space = 1.5, 
 # )
 countFS_table_flextable  <- set_table_properties(countFS_table_flextable , align = "right", layout = "autofit")
 countFS_table_flextable <- theme_vanilla(countFS_table_flextable)
+countFS_table_flextable <- width(countFS_table_flextable, width = 1.2)
 countFS_table_flextable
-save_as_image(x = countFS_table_flextable, path = "C:/Users/dlanc/Documents/PhD/Draft Manuscripts/Chapter 1 Species Specific Fish Sounds/Figures/countFS_table.png")
+save_as_image(x = countFS_table_flextable, path = "C:/Users/dlanc/Documents/PhD/Draft Manuscripts/Chapter 1 Species Specific Fish Sounds/Figures/countFS_table.png", zoom = 2)
 
 
 #knock table with sound features
 
-knock_table<- FSsummary%>%
-  select(Common, D_mean_High_Freq, D_sd_High_Freq, D_mean_Low_Freq, D_sd_Low_Freq,  D_mean_freq_peak, D_sd_freq_peak, D_mean_time_duration, D_sd_time_duration)%>%
-  filter(Common != "other")%>%
-  filter(Common != "Lingcod")%>%
-  filter(Common != "Kelp Greenling")%>%
+knock_table<- MeanD%>%
   rename(
-    "Knock mean high freq (Hz)" = D_mean_High_Freq,
-    "Knock sd high freq (Hz)" = D_sd_High_Freq,
-    "Knock mean low freq (Hz)" = D_mean_Low_Freq,
-    "Knock sd low freq (Hz)" = D_sd_Low_Freq,
-    "Knock mean peak freq (Hz)" = D_mean_freq_peak,
-    "Knock sd peak freq (Hz)" = D_sd_freq_peak,
-    "Knock mean duration (s)" = D_mean_time_duration,
-    "Knock sd duration (s)" = D_sd_time_duration,
-    "Species Common Name" = Common
+    "Knock high frequency (Hz)" = high_freq_hz,
+    "Knock low frequency (Hz)" = low_freq_hz,
+    "Knock peak frequency (Hz)" = freq_peak,
+    "Knock bandwidth (Hz)" = freq_bandwidth,
+    "Knock duration (s)" = time_duration,
+    "Species" = Common
   )
 
 set_flextable_defaults(
@@ -224,30 +234,24 @@ knock_flextable  <- line_spacing(knock_flextable , space = 1.5, part = "all")
 #                      values = c("", "Sound Features")
 # )
 knock_flextable  <- set_table_properties(knock_flextable , align = "right", layout = "autofit")
+# Add a title row: "Knocks"
 knock_flextable <- theme_vanilla(knock_flextable)
+knock_flextable <- width(knock_flextable, width = 1.2)
 knock_flextable
 save_as_image(x = knock_flextable, path = "C:/Users/dlanc/Documents/PhD/Draft Manuscripts/Chapter 1 Species Specific Fish Sounds/Figures/knock_table.png")
 
 
+
 #Grunt Table
 
-grunt_table<- FSsummary%>%
-  select(Common,G_mean_High_Freq, G_sd_High_Freq, G_mean_Low_Freq, G_sd_Low_Freq, G_mean_freq_peak, G_sd_freq_peak, G_mean_time_duration, G_sd_time_duration)%>%
-  filter(Common != "other")%>%
-  filter(Common != "Lingcod")%>%
-  filter(Common != "Kelp Greenling")%>%
-  filter(Common != "Vermillion rockfish")%>%
-  filter(Common != "Pile Perch")%>%
+grunt_table<- MeanG%>%
   rename(
-    "Grunt mean high freq (Hz)" = G_mean_High_Freq,
-    "Grunt sd high freq (Hz)" = G_sd_High_Freq,
-    "Grunt mean low freq (Hz)"= G_mean_Low_Freq,
-    "Grunt sd low freq (Hz)" = G_sd_Low_Freq,
-    "Grunt mean peak freq (Hz)" = G_mean_freq_peak,
-    "Grunt sd peak freq (Hz)" = G_sd_freq_peak,
-    "Grunt mean duration (s)" = G_mean_time_duration,
-    "Grunt sd duration (s)" = G_sd_time_duration,
-    "Species Common Name" = Common
+    "Grunt high frequency (Hz)" = high_freq_hz,
+    "Grunt low frequency (Hz)" = low_freq_hz,
+    "Grunt peak frequency (Hz)" = freq_peak,
+    "Grunt bandwidth (Hz)" = freq_bandwidth,
+    "Grunt duration (s)" = time_duration,
+    "Species" = Common
   )
 
 set_flextable_defaults(
@@ -267,29 +271,20 @@ grunt_flextable  <- line_spacing(grunt_flextable , space = 1.5, part = "all")
 # )
 grunt_flextable  <- set_table_properties(grunt_flextable , align = "right", layout = "autofit")
 grunt_flextable <- theme_vanilla(grunt_flextable)
+grunt_flextable <- width(grunt_flextable, width = 1.2)
 grunt_flextable
 save_as_image(x = grunt_flextable, path = "C:/Users/dlanc/Documents/PhD/Draft Manuscripts/Chapter 1 Species Specific Fish Sounds/Figures/grunt_table.png")
 
 
 #Other Table
-other_table<- FSsummary%>%
-  select(Common,E_mean_High_Freq, E_sd_High_Freq, E_mean_Low_Freq, E_sd_Low_Freq, E_sd_High_Freq, E_mean_freq_peak, E_sd_freq_peak, E_mean_time_duration, E_sd_time_duration)%>%
-  filter(Common != "other")%>%
-  filter(Common != "Lingcod")%>%
-  filter(Common != "Kelp Greenling")%>%
-  filter(Common != "Vermillion rockfish")%>%
-  filter(Common != "Quillback rockfish")%>%
-  filter(Common != "Pile Perch")%>%
+other_table<- MeanE%>%
   rename(
-    "Other mean high freq (Hz)" = E_mean_High_Freq,
-    "Other sd high freq (Hz)" = E_sd_High_Freq,
-    "Other mean low freq (Hz)" = E_mean_Low_Freq,
-    "Other sd low freq (Hz)" = E_sd_Low_Freq,
-    "Other mean peak freq (Hz)" = E_mean_freq_peak,
-    "Other sd peak freq (Hz)" = E_sd_freq_peak,
-    "Other mean duration (s)" = E_mean_time_duration,
-    "Other sd duration (s)" = E_sd_time_duration,
-    "Species Common Name" = Common
+    "Other high frequency (Hz)" = high_freq_hz,
+    "Other low frequency (Hz)" = low_freq_hz,
+    "Other peak frequency (Hz)" = freq_peak,
+    "Other bandwidth (Hz)" = freq_bandwidth,
+    "Other duration (s)" = time_duration,
+    "Species" = Common
   )
 
 set_flextable_defaults(
@@ -309,6 +304,7 @@ other_flextable  <- line_spacing(other_flextable , space = 1.5, part = "all")
 # )
 other_flextable  <- set_table_properties(other_flextable , align = "right", layout = "autofit")
 other_flextable <- theme_vanilla(other_flextable)
+other_flextable <- width(other_flextable, width = 1.2)
 other_flextable
 save_as_image(x = other_flextable, path = "C:/Users/dlanc/Documents/PhD/Draft Manuscripts/Chapter 1 Species Specific Fish Sounds/Figures/other_table.png")
 
