@@ -84,7 +84,7 @@ test<- test_wExtra%>%
   dplyr::select(!fishID)
 
 ###
-
+set.seed(123)  # For reproducibility
 # Train the Random Forest model
 rf_model <- randomForest(Common ~ ., data = train, ntree = 2000, importance=TRUE)
 
@@ -143,6 +143,7 @@ par(mfrow = c(1, 1))
 
 #######################################################
 #create variable importance plots in ggplot
+#############
 
 # Extract and format importance data
 imp <- randomForest::importance(rf_model)
@@ -173,6 +174,7 @@ ggsave("figures/Grunt_UNBALANCED_Train_Variable_Importance.png", plot = combined
 
 ##############################################################################################################
 # Test the Random Forest model
+#############
 rf_preds <- predict(rf_model, newdata = test)
 # Get confusion matrix
 conf_mat_TEST <- confusionMatrix(rf_preds, test$Common)
@@ -226,6 +228,7 @@ save_as_image(x = class_stats_flextable, path = "figures/rf_grunt_TEST_RESULTS_c
 ###
 ################################################################################
 #try UMAP data visualization
+#############
 
 lp("umap")
 
@@ -235,6 +238,9 @@ rf_preds <- predict(rf_model, newdata = test, type = "response")
 # Extract feature matrix (excluding response)
 X_test <- test[, !(names(test) %in% c("Common"))]
 X_test
+
+set.seed(55)
+
 # Run UMAP
 umap_result <- umap(X_test)
 
@@ -262,7 +268,7 @@ pred<-ggplot(umap_df, aes(V1, V2, color = Predicted, fill = Predicted, shape = S
   stat_ellipse(level = 0.70, type = "norm", geom = "path", size = 1, show.legend = FALSE) +
   scale_color_manual(values = custom_colors) +
   scale_fill_manual(values = custom_colors) +
-  labs(title = "Random Forest Predictions",
+  labs(title = "Random Forest Grunt Predictions",
        x = "UMAP 1", y = "UMAP 2") +
   theme_classic()+
   theme(legend.position = "none")
@@ -275,7 +281,7 @@ true<-ggplot(umap_df, aes(V1, V2, color = True, fill = True, shape = Site)) +
   stat_ellipse(level = 0.70, type = "norm", geom = "path", size = 1, show.legend = FALSE) +
   scale_color_manual(values = custom_colors) +
   scale_fill_manual(values = custom_colors) +
-  labs(title = "True Species Classifications",
+  labs(title = "True Species Grunt Classifications",
        x = "UMAP 1", y = "UMAP 2") +
   theme_classic()
 
@@ -283,7 +289,7 @@ UMAP_grunts_unbalanced<- pred+true
 UMAP_grunts_unbalanced
 ggsave("figures/UMAP_Grunt_UNBALANCED_IDconf1_1n2QB_bySite.png", plot = UMAP_grunts_unbalanced, width = 10, height = 6, dpi = 300)
 ###
-
+################
 # Partial dependence plot coloured by species
 #################
 
@@ -415,7 +421,7 @@ lp("patchwork")
 lp("cowplot")
 
 # Combine plots
-G_PDP_combined <- (G_freq25 | G_freq5 | G_Low) /
+G_PDP_combined <- (G_freq25 | G_Low | G_freq5) /
   (G_freq50 | G_peak | G_centroid) +
   plot_layout(guides = "collect") & 
   theme(legend.position = "right")
@@ -1627,13 +1633,7 @@ auc(roc_obj)  # AUC score
 
 ############################
 #ORIGINAL DATA - UNBALANCED
-
-#keep only ID confidence 1 for pinniger (all other pinniger grunts are actually blacks)
-fishvacca<-fishdata%>%
-  filter(Species == "vacca")
-
-
-
+#don't include Kelp Greenling because all IDs are just too uncertain
 fishdata0 <- fishdata %>%
   filter(
     t == "d",
@@ -1676,13 +1676,14 @@ test<- test_wExtra%>%
   dplyr::select(!Site)%>%
   dplyr::select(!fishID)
 
-sum(is.na(train))
-
+###
+set.seed(123)  # For reproducibility
 # Train the Random Forest model
 rf_model <- randomForest(Common ~ ., data = train, ntree = 2000, importance=TRUE)
 
 # Print the model summary
 print(rf_model)
+
 
 # 1. View confusion matrix
 conf_matrix <- rf_model$confusion
@@ -1690,8 +1691,12 @@ conf_matrix <- rf_model$confusion
 # 2. Convert to data frame
 conf_df <- as.data.frame(conf_matrix)
 
+##
+
 # 3. Add row names as a new column for clarity
-conf_df$Actual_Class <- rownames(conf_df)
+conf_df$'Actual Class' <- rownames(conf_df)
+conf_df<-conf_df%>%
+  rename(Error=class.error)
 rownames(conf_df) <- NULL  # optional: reset row names
 
 # 4. Reorder columns to show actual class first
@@ -1716,9 +1721,11 @@ conf_df_flextable  <- line_spacing(conf_df_flextable , space = 1.5, part = "all"
 #                      values = c("", "Sound Features")
 # )
 conf_df_flextable  <- set_table_properties(conf_df_flextable, align = "right", layout = "autofit")
-conf_df_flextable <- theme_vanilla(conf_df_flextable)
-conf_df_flextable
-save_as_image(x = conf_df_flextable, path = "figures/rf_knock_UNBALANCED_TRAINING_confusion_matrix.png")
+K_conf_df_flextable <- theme_vanilla(conf_df_flextable)
+K_conf_df_flextable
+save_as_image(x = K_conf_df_flextable, path = "figures/rf_knock_UNBALANCED_TRAINING_confusion_matrix.png")
+
+##
 
 # Set up side-by-side plotting area
 par(mfrow = c(1, 2))
@@ -1769,36 +1776,83 @@ ggsave("figures/Knock_UNBALANCED_Train_Variable_Importance.png", plot = combined
 rf_preds <- predict(rf_model, newdata = test)
 # Get confusion matrix
 conf_mat_TEST <- confusionMatrix(rf_preds, test$Common)
+conf_mat_TEST
 
-# View full summary
-print(conf_mat_TEST)
-table(test$Common)
-
-##Get F score for all classes
-
-# Extract precision and recall per class
-by_class <- conf_mat_TEST$byClass
-precision <- by_class[, "Pos Pred Value"]
-recall <- by_class[, "Sensitivity"]
-
-# Compute F1 score per class
-f1_score <- 2 * (precision * recall) / (precision + recall)
-
-# Combine in a table
-f1_table <- data.frame(
-  Class = rownames(by_class),
-  Precision = precision,
-  Recall = recall,
-  F1_Score = f1_score
-)
-
-print(f1_table)
+##
 
 #may need to make tables later of model validation results for paper
 overall_stats <- as.data.frame(t(conf_mat_TEST$overall))
 overall_stats
 class_stats <- as.data.frame(conf_mat_TEST$byClass)
 class_stats
+
+
+# 3. Add row names as a new column for clarity
+class_stats$Class <- rownames(class_stats)
+rownames(class_stats) <- NULL  # optional: reset row names
+class_stats<-class_stats%>%
+  select(-Sensitivity, -Specificity, -`Pos Pred Value`, -`Neg Pred Value`)%>%
+  mutate(Class = str_replace(Class, "^Class:", "")) %>%
+  rename('F Score' = F1, 'Knock Class' = Class)
+
+
+# 4. Reorder columns to show actual class first
+class_stats <- class_stats[, c(ncol(class_stats), 1:(ncol(class_stats)-1))]
+print(class_stats)
+
+
+set_flextable_defaults(
+  font.size = 10, theme_fun = theme_vanilla,
+  padding = 3,
+  background.color = "white")
+
+class_stats_flextable <- flextable(class_stats)
+class_stats_flextable <- colformat_double(
+  x = class_stats_flextable,
+  big.mark = ",", digits = 2, na_str = "N/A"
+)
+
+class_stats_flextable  <- line_spacing(class_stats_flextable , space = 1.5, part = "all")
+# countFS_table_flextable <- add_header_row(countFS_table_flextable,
+#                      colwidths = c(1, 8),
+#                      values = c("", "Sound Features")
+# )
+class_stats_flextable  <- set_table_properties(class_stats_flextable, align = "right", layout = "autofit")
+K_class_stats_flextable <- theme_vanilla(class_stats_flextable)
+K_class_stats_flextable
+save_as_image(x = K_class_stats_flextable, path = "figures/rf_knock_TEST_RESULTS_confusion_matrix.png")
+
+##
+##############
+# # View full summary
+# print(conf_mat_TEST)
+# table(test$Common)
+# 
+# ##Get F score for all classes
+# 
+# # Extract precision and recall per class
+# by_class <- conf_mat_TEST$byClass
+# precision <- by_class[, "Pos Pred Value"]
+# recall <- by_class[, "Sensitivity"]
+# 
+# # Compute F1 score per class
+# f1_score <- 2 * (precision * recall) / (precision + recall)
+# 
+# # Combine in a table
+# f1_table <- data.frame(
+#   Class = rownames(by_class),
+#   Precision = precision,
+#   Recall = recall,
+#   F1_Score = f1_score
+# )
+# 
+# print(f1_table)
+# 
+# #may need to make tables later of model validation results for paper
+# overall_stats <- as.data.frame(t(conf_mat_TEST$overall))
+# overall_stats
+# class_stats <- as.data.frame(conf_mat_TEST$byClass)
+# class_stats
 
 ################################################################################
 #try UMAP data visualization
@@ -1860,30 +1914,154 @@ true<-ggplot(umap_df, aes(V1, V2, color = True, fill = True, shape = Site)) +
 UMAP_knocks_unbalanced<- pred+true
 UMAP_knocks_unbalanced
 ggsave("figures/UMAP_Knock_UNBALANCED_SiteID.png", plot = UMAP_knocks_unbalanced, width = 10, height = 6, dpi = 300)
-# library(viridis)# library(viTrueridis)
-# lp("viridis")
-# 
-# ggplot(umap_df, aes(V1, V2, color = True, fill = True)) +
-#   geom_point(alpha = 0.8, size = 2) +
-#   stat_ellipse(level = 0.70, type = "norm", geom = "polygon", alpha = 0.2, color = NA) +
-#   stat_ellipse(level = 0.70, type = "norm", geom = "path", size = 1) +
-#   scale_color_viridis_d(option = "D") +
-#   scale_fill_viridis_d(option = "D") +
-#   labs(title = "Random Forest Predictions (UMAP projection)",
-#        x = "UMAP 1", y = "UMAP 2") +
-#   theme_classic()
 
-lp("RColorBrewer")
+####################
+#PDP plots - Unbalanced Knocks
 
-ggplot(umap_df, aes(V1, V2, color = True, fill = True)) +
-  geom_point(alpha = 0.8, size = 2) +
-  stat_ellipse(level = 0.70, type = "norm", geom = "polygon", alpha = 0.1, color = NA) +
-  stat_ellipse(level = 0.70, type = "norm", geom = "path", size = 1) +
-  scale_color_brewer(palette = "Set1") +
-  scale_fill_brewer(palette = "Set1") +
-  labs(title = "Random Forest Predictions (UMAP projection)",
-       x = "UMAP 1", y = "UMAP 2") +
-  theme_classic()
+################
+
+lp("ranger")
+lp("pdp")
+# Fit a quick RF
+set.seed(1143)  # for reproducibility
+rfo <- ranger(Common ~ ., data = train, probability = TRUE)
+print(rfo)
+
+# Prediction wrapper that returns average prediction for each class
+pfun <- function(object, newdata) {
+  colMeans(predict(object, data = newdata)$predictions)
+}
+
+
+#All species together
+######################
+
+custom_colors <- c(
+  "Black rockfish" = "#003399",   
+  "Quillback rockfish" = "#FF6600", 
+  "Copper rockfish" = "#33CC99",
+  "Lingcod" = "#33CCFF",
+  "Canary rockfish" = "#FFCC00",
+  "Pile Perch" = "#9900CC" 
+)
+
+#Frequency  Centroid
+
+p <- partial(rfo, pred.var = "freq_centroid", pred.fun = pfun)
+K_centroid<-ggplot(p, aes(freq_centroid, yhat, color = yhat.id)) +
+  geom_line(size = 0.8) +
+  scale_color_manual(values = custom_colors) +
+  theme_classic() +
+  labs(
+    title = "",
+    y = "", 
+    x = "Frequency Centroid (Hz)", 
+    color = "Species"
+  ) +
+  coord_cartesian(ylim = c(0, 0.5))
+K_centroid
+
+#Frequency  Median Mean
+
+p <- partial(rfo, pred.var = "freq_median_mean", pred.fun = pfun)
+K_median<-ggplot(p, aes(freq_median_mean, yhat, color = yhat.id)) +
+  geom_line(size = 0.8) +
+  scale_color_manual(values = custom_colors) +
+  theme_classic() +
+  labs(
+    title = "",
+    y = "", 
+    x = "Mean Median Frequency (Hz)", 
+    color = "Species"
+  ) +
+  coord_cartesian(ylim = c(0, 0.5))
+K_median
+
+#Frequency  50
+
+# Partial dependence of probability for each class on petal width
+p <- partial(rfo, pred.var = "freq_pct50", pred.fun = pfun)
+K_freq50<-ggplot(p, aes(freq_pct50, yhat, color = yhat.id)) +
+  geom_line(size = 0.8) +
+  scale_color_manual(values = custom_colors) +
+  theme_classic() +
+  labs(
+    title = "",
+    y = "", 
+    x = "Frequency 50% (Hz)", 
+    color = "Species"
+  ) +
+  coord_cartesian(ylim = c(0, 0.5))
+K_freq50
+
+#Freq 25
+p <- partial(rfo, pred.var = "freq_pct25", pred.fun = pfun)
+K_freq25<-ggplot(p, aes(x = freq_pct25, y = yhat, color = yhat.id)) +
+  geom_line(size = 0.8) +
+  scale_color_manual(values = custom_colors) +
+  theme_classic() +
+  labs(
+    title = "",
+    y = "", 
+    x = "Frequency 25% (Hz)", 
+    color = "Species"
+  ) +
+  coord_cartesian(ylim = c(0, 0.5))
+K_freq25
+
+#Frequency  75
+
+# Partial dependence of probability for each class on petal width
+p <- partial(rfo, pred.var = "freq_pct75", pred.fun = pfun)
+K_freq75<-ggplot(p, aes(freq_pct75, yhat, color = yhat.id)) +
+  geom_line(size = 0.8) +
+  scale_color_manual(values = custom_colors) +
+  theme_classic() +
+  labs(
+    title = "",
+    y = "", 
+    x = "Frequency 75% (Hz)", 
+    color = "Species"
+  ) +
+  coord_cartesian(ylim = c(0, 0.5))
+K_freq75
+
+#Frequency  5
+
+# Partial dependence of probability for each class on petal width
+p <- partial(rfo, pred.var = "freq_pct5", pred.fun = pfun)
+K_freq5<-ggplot(p, aes(freq_pct5, yhat, color = yhat.id)) +
+  geom_line(size = 0.8) +
+  scale_color_manual(values = custom_colors) +
+  theme_classic() +
+  labs(
+    title = "",
+    y = "", 
+    x = "Frequency 5% (Hz)", 
+    color = "Species"
+  ) +
+  coord_cartesian(ylim = c(0, 0.5))
+K_freq5
+
+lp("patchwork")
+lp("cowplot")
+
+# Combine plots
+K_PDP_combined <- (K_freq50 | K_centroid| K_median ) /
+  (K_freq25| K_freq75 | K_freq5) +
+  plot_layout(guides = "collect") & 
+  theme(legend.position = "right")
+
+K_PDP_final <- ggdraw() +
+  # Shared y-axis label (rotated)
+  draw_label("Probability", angle = 90, x = 0.03, y = 0.5, vjust = 0.5) +
+  # Shared x-axis label (centered at bottom)
+  draw_label("Sound Feature", angle = 0, x = 0.48, y = 0.02, vjust = 0.5) +
+  # Combined plot
+  draw_plot(K_PDP_combined, x = 0.05, y = 0.05, width = 0.9, height = 0.9)
+
+K_PDP_final
+ggsave("figures/PDP_Knock_Unbalanced_Top6GINI.png", plot = K_PDP_final, width = 10, height = 6, dpi = 300)
 
 
 #####################################
