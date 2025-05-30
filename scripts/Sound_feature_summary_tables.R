@@ -38,58 +38,87 @@ fishdata$Common<- ifelse(fishdata$Species == "caurinus", "Copper rockfish",
 TotalFS<-fishdata%>%
   group_by(Common) %>%
   summarize(TotFS = n())
+# 
+# #check how many g, d, and e for each species and confidence value
+Sum<-fishdata %>%
+  group_by(Common, ID_confidence, t) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  tidyr::pivot_wider(names_from = ID_confidence, values_from = n, names_prefix = "ID_conf_",
+                     values_fill = 0)
 
-TotalFS_ID1<-fishdata%>%
-  filter(ID_confidence == 1) %>%  # Filter to include only rows where ID_confidence is 1
-  group_by(Common) %>%  # Group by Common and ID_confidence
-  summarize(TotFS_ID1 = n())  # Count the rows for each group
-
-## count total # of each call type by species (all ID confidence)
-TotalG<-fishdata%>%
-  filter(t == "g") %>%  # Filter to include only rows where ID_confidence is 1
-  group_by(Common) %>%  # Group by Common and ID_confidence
-  summarize(TotG = n())  # Count the rows for each group
-
-TotalD<-fishdata%>%
-  filter( t == "d") %>%  # Filter to include only rows where ID_confidence is 1
-  group_by(Common) %>%  # Group by Common and ID_confidence
-  summarize(TotD = n())  # Count the rows for each group
-
-TotalE<-fishdata%>%
-  filter(t == "e") %>%  # Filter to include only rows where ID_confidence is 1
-  group_by(Common) %>%  # Group by Common and ID_confidence
-  summarize(TotE = n())  # Count the rows for each group
+Sum<-fishdata %>%
+  group_by(ID_confidence) %>%
+  summarise(n = n(), .groups = "drop")
+# 
+# TotalFS_ID1 <- fishdata %>%
+#   filter((ID_confidence == 1) | 
+#            (Common == "Lingcod" & ID_confidence %in% c(1, 2))) %>%
+#   group_by(Common) %>%
+#   summarize(TotFS_ID1 = n(), .groups = "drop")
+# 
+# ## count total # of each call type by species (all ID confidence)
+# TotalG<-fishdata%>%
+#   filter(t == "g") %>%  # Filter to include only rows where ID_confidence is 1
+#   group_by(Common) %>%  # Group by Common and ID_confidence
+#   summarize(TotG = n())  # Count the rows for each group
+# 
+# TotalD<-fishdata%>%
+#   filter( t == "d") %>%  # Filter to include only rows where ID_confidence is 1
+#   group_by(Common) %>%  # Group by Common and ID_confidence
+#   summarize(TotD = n())  # Count the rows for each group
+# 
+# TotalE<-fishdata%>%
+#   filter(t == "e") %>%  # Filter to include only rows where ID_confidence is 1
+#   group_by(Common) %>%  # Group by Common and ID_confidence
+#   summarize(TotE = n())  # Count the rows for each group
 
 ## count total # of each call type by species (ID confidence 1 ONLY)
-TotalG_ID1<-fishdata%>%
-  filter(ID_confidence == 1, t == "g") %>%  # Filter to include only rows where ID_confidence is 1
-  group_by(Common) %>%  # Group by Common and ID_confidence
-  summarize(TotG_ID1 = n())  # Count the rows for each group
+TotalG_ID1 <- fishdata %>%
+  filter(t == "g" & 
+           Common != "other" &
+           (ID_confidence == 1 | 
+              (Common == "Quillback rockfish" & ID_confidence %in% c(1, 2)))) %>%
+  group_by(Common) %>%
+  summarize(TotG_ID1 = n(), .groups = "drop")
 
-TotalD_ID1<-fishdata%>%
-  filter(ID_confidence == 1, t == "d") %>%  # Filter to include only rows where ID_confidence is 1
-  group_by(Common) %>%  # Group by Common and ID_confidence
-  summarize(TotD_ID1 = n())  # Count the rows for each group
+TotalD_ID1 <- fishdata %>%
+  filter(t == "d" &
+           Common != "other" &
+           (ID_confidence == 1 | 
+              (Common == "Lingcod" & ID_confidence %in% c(1, 2)))) %>%
+  group_by(Common) %>%
+  summarize(TotG_ID1 = n(), .groups = "drop")
+
 
 TotalE_ID1<-fishdata%>%
-  filter(ID_confidence == 1, t == "e") %>%  # Filter to include only rows where ID_confidence is 1
+  filter(ID_confidence == 1, t == "e", Common != "other") %>%  # Filter to include only rows where ID_confidence is 1
   group_by(Common) %>%  # Group by Common and ID_confidence
   summarize(TotE_ID1 = n())  # Count the rows for each group
 
 levels(as.factor(MeanD$Common))
 #calculate mean and SD for each sound feature for all knocks (d) with ID confidence of 1
+##
 MeanD <- fishdata %>%
-  filter(ID_confidence == 1, t == "d", Common !="other") %>%
+  filter(t == "d" &
+           Common != "other" &
+           (ID_confidence == 1 | 
+              (Common == "Lingcod" & ID_confidence %in% c(1, 2)))) %>%
+  rename(
+    high_freq_hz = High.Freq..Hz.,
+    low_freq_hz = Low.Freq..Hz.
+  ) %>%
   group_by(Common) %>%
   summarise(
+    n = n(),  # ← Add count of rows per species
     across(
       c(high_freq_hz, low_freq_hz, freq_peak, freq_bandwidth, time_duration),
       list(D_mean = ~mean(.x, na.rm = TRUE), D_sd = ~sd(.x, na.rm = TRUE)),
       .names = "{.col}_{.fn}"
-    )
+    ),
+    .groups = "drop"
   ) %>%
   pivot_longer(
-    cols = -Common,
+    cols = -c(Common, n),  # Keep `n` out of the pivot
     names_to = c("feature", "stat"),
     names_pattern = "(.*)_(D_mean|D_sd)"
   ) %>%
@@ -98,113 +127,129 @@ MeanD <- fishdata %>%
     values_from = value
   ) %>%
   mutate(summary = sprintf("%.1f ± %.1f", D_mean, D_sd)) %>%
-  select(Common, feature, summary) %>%
+  select(Common, n, feature, summary) %>%
   pivot_wider(names_from = feature, values_from = summary)
+##
 
 #calculate mean and SD for each sound feature for all grunts (g) with ID confidence of 1
+##
 MeanG <- fishdata %>%
   filter(ID_confidence == 1, t == "g", Common !="other") %>%
+  rename(
+    high_freq_hz = High.Freq..Hz.,
+    low_freq_hz = Low.Freq..Hz.
+  ) %>%
   group_by(Common) %>%
   summarise(
+    n = n(),  # ← Add count of rows per species
     across(
       c(high_freq_hz, low_freq_hz, freq_peak, freq_bandwidth, time_duration),
-      list(G_mean = ~mean(.x, na.rm = TRUE), G_sd = ~sd(.x, na.rm = TRUE)),
+      list(D_mean = ~mean(.x, na.rm = TRUE), D_sd = ~sd(.x, na.rm = TRUE)),
       .names = "{.col}_{.fn}"
-    )
+    ),
+    .groups = "drop"
   ) %>%
   pivot_longer(
-    cols = -Common,
+    cols = -c(Common, n),  # Keep `n` out of the pivot
     names_to = c("feature", "stat"),
-    names_pattern = "(.*)_(G_mean|G_sd)"
+    names_pattern = "(.*)_(D_mean|D_sd)"
   ) %>%
   pivot_wider(
     names_from = stat,
     values_from = value
   ) %>%
-  mutate(summary = sprintf("%.1f ± %.1f", G_mean, G_sd)) %>%
-  select(Common, feature, summary) %>%
+  mutate(summary = sprintf("%.1f ± %.1f", D_mean, D_sd)) %>%
+  select(Common, n, feature, summary) %>%
   pivot_wider(names_from = feature, values_from = summary)
 
 #calculate mean and SD for each sound feature for all unknown sounds (e) with ID confidence of 1
+
+##
 MeanE <- fishdata %>%
   filter(ID_confidence == 1, t == "e", Common !="other") %>%
+  rename(
+    high_freq_hz = High.Freq..Hz.,
+    low_freq_hz = Low.Freq..Hz.
+  ) %>%
   group_by(Common) %>%
   summarise(
+    n = n(),  # ← Add count of rows per species
     across(
       c(high_freq_hz, low_freq_hz, freq_peak, freq_bandwidth, time_duration),
-      list(E_mean = ~mean(.x, na.rm = TRUE), E_sd = ~sd(.x, na.rm = TRUE)),
+      list(D_mean = ~mean(.x, na.rm = TRUE), D_sd = ~sd(.x, na.rm = TRUE)),
       .names = "{.col}_{.fn}"
-    )
+    ),
+    .groups = "drop"
   ) %>%
   pivot_longer(
-    cols = -Common,
+    cols = -c(Common, n),  # Keep `n` out of the pivot
     names_to = c("feature", "stat"),
-    names_pattern = "(.*)_(E_mean|E_sd)"
+    names_pattern = "(.*)_(D_mean|D_sd)"
   ) %>%
   pivot_wider(
     names_from = stat,
     values_from = value
   ) %>%
-  mutate(summary = sprintf("%.1f ± %.1f", E_mean, E_sd)) %>%
-  select(Common, feature, summary) %>%
+  mutate(summary = sprintf("%.1f ± %.1f", D_mean, D_sd)) %>%
+  select(Common, n, feature, summary) %>%
   pivot_wider(names_from = feature, values_from = summary)
 
-
-### add to summary dataframe
-FSsummary <- TotalFS %>%
-  left_join(TotalFS_ID1, by = "Common") %>%  # Join TotalFS with TotalFS_ID1 by Common
-  left_join(TotalD, by = "Common")%>%
-  left_join(TotalD_ID1, by = "Common")%>%
-  left_join(MeanD, by = "Common")%>%
-  left_join(TotalG, by = "Common")%>%
-  left_join(TotalG_ID1, by = "Common")%>%
-  left_join(MeanG, by = "Common")%>%
-  left_join(TotalE, by = "Common")%>%
-  left_join(TotalE_ID1, by = "Common")%>%
-  left_join(MeanE, by = "Common")
-
-
-#full table  
-sound_summary<-flextable(FSsummary)
-
-print(sound_summary)
-
+##############
+# ### add to summary dataframe
+# FSsummary <- TotalFS %>%
+#   left_join(TotalFS_ID1, by = "Common") %>%  # Join TotalFS with TotalFS_ID1 by Common
+#   left_join(TotalD, by = "Common")%>%
+#   left_join(TotalD_ID1, by = "Common")%>%
+#   left_join(MeanD, by = "Common")%>%
+#   left_join(TotalG, by = "Common")%>%
+#   left_join(TotalG_ID1, by = "Common")%>%
+#   left_join(MeanG, by = "Common")%>%
+#   left_join(TotalE, by = "Common")%>%
+#   left_join(TotalE_ID1, by = "Common")%>%
+#   left_join(MeanE, by = "Common")
+# 
+# 
+# #full table  
+# sound_summary<-flextable(FSsummary)
+# 
+# print(sound_summary)
+##########################
 #shortened table
 
-countFS_table<- FSsummary%>%
-  select(Common, TotFS, TotFS_ID1, TotD_ID1, TotG_ID1, TotE_ID1)%>%
-  filter(Common != "other")%>%
-  rename(
-    "Total Fish Sounds" = TotFS,
-    "Total Fish Sounds (High Confidence)" = TotFS_ID1,
-    "Total Knocks" = TotD_ID1,
-    "Total Grunts" = TotG_ID1,
-    "Total Other"= TotE_ID1,
-    "Species Common Name" = Common
-  )
-
-set_flextable_defaults(
-  font.size = 10, theme_fun = theme_vanilla,
-  padding = 3,
-  background.color = "white")
-
-countFS_table_flextable <- flextable(countFS_table)
-countFS_table_flextable <- colformat_double(
-  x = countFS_table_flextable,
-  big.mark = ",", digits = 2, na_str = "N/A"
-)
-
-countFS_table_flextable  <- line_spacing(countFS_table_flextable , space = 1.5, part = "all")
-# countFS_table_flextable <- add_header_row(countFS_table_flextable,
-#                      colwidths = c(1, 8),
-#                      values = c("", "Sound Features")
+# countFS_table<- FSsummary%>%
+#   select(Common, TotFS, TotFS_ID1, TotD_ID1, TotG_ID1, TotE_ID1)%>%
+#   filter(Common != "other")%>%
+#   rename(
+#     "Total Fish Sounds" = TotFS,
+#     "Total Fish Sounds (High Confidence)" = TotFS_ID1,
+#     "Total Knocks" = TotD_ID1,
+#     "Total Grunts" = TotG_ID1,
+#     "Total Other"= TotE_ID1,
+#     "Species Common Name" = Common
+#   )
+# 
+# set_flextable_defaults(
+#   font.size = 10, theme_fun = theme_vanilla,
+#   padding = 3,
+#   background.color = "white")
+# 
+# countFS_table_flextable <- flextable(countFS_table)
+# countFS_table_flextable <- colformat_double(
+#   x = countFS_table_flextable,
+#   big.mark = ",", digits = 2, na_str = "N/A"
 # )
-countFS_table_flextable  <- set_table_properties(countFS_table_flextable , align = "right", layout = "autofit")
-countFS_table_flextable <- theme_vanilla(countFS_table_flextable)
-countFS_table_flextable <- width(countFS_table_flextable, width = 1.2)
-countFS_table_flextable
-save_as_image(x = countFS_table_flextable, path = "C:/Users/dlanc/Documents/PhD/Draft Manuscripts/Chapter 1 Species Specific Fish Sounds/Figures/countFS_table.png", zoom = 2)
-
+# 
+# countFS_table_flextable  <- line_spacing(countFS_table_flextable , space = 1.5, part = "all")
+# # countFS_table_flextable <- add_header_row(countFS_table_flextable,
+# #                      colwidths = c(1, 8),
+# #                      values = c("", "Sound Features")
+# # )
+# countFS_table_flextable  <- set_table_properties(countFS_table_flextable , align = "right", layout = "autofit")
+# countFS_table_flextable <- theme_vanilla(countFS_table_flextable)
+# countFS_table_flextable <- width(countFS_table_flextable, width = 1.2)
+# countFS_table_flextable
+# save_as_image(x = countFS_table_flextable, path = "C:/Users/dlanc/Documents/PhD/Draft Manuscripts/Chapter 1 Species Specific Fish Sounds/Figures/countFS_table.png", zoom = 2)
+################
 
 #knock table with sound features
 
