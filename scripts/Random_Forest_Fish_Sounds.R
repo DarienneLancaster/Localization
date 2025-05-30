@@ -292,18 +292,12 @@ ggsave("figures/UMAP_Grunt_UNBALANCED_IDconf1_1n2QB_bySite.png", plot = UMAP_gru
 ################
 # Partial dependence plot coloured by species
 #################
-
-
-lp("ranger")
-lp("pdp")
-# Fit a quick RF
-set.seed(1143)  # for reproducibility
-rfo <- ranger(Common ~ ., data = train, probability = TRUE)
-print(rfo)
-
-# Prediction wrapper that returns average prediction for each class
+set.seed(123)
+rfo <- randomForest(Common ~ ., data = train, ntree = 1000, importance = TRUE)
+rfo
+# Prediction wrapper that returns class probabilities
 pfun <- function(object, newdata) {
-  colMeans(predict(object, data = newdata)$predictions)
+  colMeans(predict(object, newdata = newdata, type = "prob"))
 }
 
 ##################
@@ -1640,12 +1634,11 @@ fishdata0 <- fishdata %>%
     Selection != 3030,
     str_detect(Species, "caurinus|melanops|maliger|elongatus|pinniger|vacca"),
     (
-      Species %in% c("elongatus") & ID_confidence %in% c(1, 2)
-    ) |
-      (
-        !Species %in% c("elongatus") & ID_confidence == 1
-      )
-  )
+      # Keep ID_confidence == 1 generally
+      ID_confidence == 1 |
+        # Exception: Lingcod and Kelp Greenling can be 1 or 2
+        (str_detect(Species, "elongatus") & ID_confidence %in% c(1, 2))
+    ))
 
 numSpecies<-fishdata0 %>%
   count(Species) %>%
@@ -1680,7 +1673,6 @@ test<- test_wExtra%>%
 set.seed(123)  # For reproducibility
 # Train the Random Forest model
 rf_model <- randomForest(Common ~ ., data = train, ntree = 2000, importance=TRUE)
-
 # Print the model summary
 print(rf_model)
 
@@ -1822,7 +1814,45 @@ K_class_stats_flextable <- theme_vanilla(class_stats_flextable)
 K_class_stats_flextable
 save_as_image(x = K_class_stats_flextable, path = "figures/rf_knock_TEST_RESULTS_confusion_matrix.png")
 
-##
+#######
+#Plot one v. All ROC curves
+###############
+rf_predsROC <- as.data.frame(predict(rf_model, newdata = test, type = "prob"))
+rf_classes <- predict(rf_model, newdata = test)  # predicted classes (optional)
+y_true <- test$Common  # true class labels
+
+lp("pROC")
+lp("ggplot2")
+lp("reshape2")
+
+# Convert actual labels to factor to match column names
+y_true <- as.factor(y_true)
+classes <- levels(y_true)
+
+# Initialize list to store ROC curves
+roc_list <- list()
+auc_list <- c()
+
+# For each class: compute One-vs-All ROC
+for (cls in classes) {
+  true_binary <- as.numeric(y_true == cls)
+  prob <- rf_predsROC[[cls]]
+  
+  roc_obj <- roc(true_binary, prob)
+  roc_list[[cls]] <- roc_obj
+  auc_list[cls] <- auc(roc_obj)
+}
+
+# Plot using base R
+plot(roc_list[[1]], col = 1, main = "One-vs-Rest ROC Curves", lwd = 2, legacy.axes = TRUE)
+for (i in 2:length(roc_list)) {
+  plot(roc_list[[i]], add = TRUE, col = i, lwd = 2)
+}
+legend("bottomright", legend = paste(classes, "(AUC =", round(auc_list, 2), ")"),
+       col = 1:length(classes), lwd = 2)
+
+################
+
 ##############
 # # View full summary
 # print(conf_mat_TEST)
@@ -1917,25 +1947,18 @@ ggsave("figures/UMAP_Knock_UNBALANCED_SiteID.png", plot = UMAP_knocks_unbalanced
 
 ####################
 #PDP plots - Unbalanced Knocks
-
-################
-
-lp("ranger")
-lp("pdp")
-# Fit a quick RF
-set.seed(1143)  # for reproducibility
-rfo <- ranger(Common ~ ., data = train, probability = TRUE)
-print(rfo)
-
-# Prediction wrapper that returns average prediction for each class
+##########
+##
+# Set seed and fit random forest
+set.seed(123)
+rfo <- randomForest(Common ~ ., data = train, ntree = 1000, importance = TRUE)
+rfo
+# Prediction wrapper that returns class probabilities
 pfun <- function(object, newdata) {
-  colMeans(predict(object, data = newdata)$predictions)
+  colMeans(predict(object, newdata = newdata, type = "prob"))
 }
 
-
-#All species together
-######################
-
+# Define custom colors for species
 custom_colors <- c(
   "Black rockfish" = "#003399",   
   "Quillback rockfish" = "#FF6600", 
@@ -1945,10 +1968,10 @@ custom_colors <- c(
   "Pile Perch" = "#9900CC" 
 )
 
-#Frequency  Centroid
-
 p <- partial(rfo, pred.var = "freq_centroid", pred.fun = pfun)
-K_centroid<-ggplot(p, aes(freq_centroid, yhat, color = yhat.id)) +
+
+# Plot partial dependence lines
+K_centroid <- ggplot(p, aes(freq_centroid, yhat, color = yhat.id)) +
   geom_line(size = 0.8) +
   scale_color_manual(values = custom_colors) +
   theme_classic() +
@@ -1959,7 +1982,10 @@ K_centroid<-ggplot(p, aes(freq_centroid, yhat, color = yhat.id)) +
     color = "Species"
   ) +
   coord_cartesian(ylim = c(0, 0.5))
+
+# Show the plot
 K_centroid
+# ##
 
 #Frequency  Median Mean
 
@@ -2973,3 +2999,110 @@ p <- partial(rfo, pred.var = "freq_pct5", pred.fun = pfun)
 ggplot(p, aes(freq_pct5, yhat, color = yhat.id)) +
   geom_line() +
   theme(legend.title = element_blank())
+
+############################
+#TEST CLASS WEIGHTING WITH RANGER
+#####
+#ORIGINAL DATA - UNBALANCED
+#don't include Kelp Greenling because all IDs are just too uncertain
+fishdata0 <- fishdata %>%
+  filter(
+    t == "d",
+    Selection != 3030,
+    str_detect(Species, "caurinus|melanops|maliger|elongatus|pinniger|vacca"),
+    (
+      # Keep ID_confidence == 1 generally
+      ID_confidence == 1 |
+        # Exception: Lingcod and Kelp Greenling can be 1 or 2
+        (str_detect(Species, "elongatus") & ID_confidence %in% c(1, 2))
+    ))
+
+numSpecies<-fishdata0 %>%
+  count(Species) %>%
+  arrange(desc(n))  # Optional: sort by count
+numSpecies
+
+fishdata1<-fishdata0%>%
+  dplyr::select(Species, Site, fishID, Common, High.Freq..Hz., Low.Freq..Hz., freq_peak:time_centroid)
+
+
+#random forest version
+fishdata2<-fishdata1%>%
+  dplyr::select(Common, Site, fishID, High.Freq..Hz., Low.Freq..Hz., freq_peak:time_centroid )%>% #removing length because too many NAs and can't have NA in bray curtis matrix (rerun later with only data with length available)
+  dplyr::select(-freq_flatness)%>%
+  mutate(Common = as.factor(Common))%>%
+  drop_na()
+
+# Split the data into training and test sets
+set.seed(123)  # For reproducibility
+train_index <- createDataPartition(fishdata2$Common, p = 0.7, list = FALSE)  #70% training, 30% testing
+train_wExtra <- fishdata2[train_index, ] #includes Site and fishID #
+test_wExtra <- fishdata2[-train_index, ] #includes Site and fishID #
+
+train<- train_wExtra%>%
+  dplyr::select(!Site)%>%
+  dplyr::select(!fishID)
+test<- test_wExtra%>%
+  dplyr::select(!Site)%>%
+  dplyr::select(!fishID)
+
+
+# First, get class distribution to compute weights (inverse frequency example)
+class_counts <- table(train$Common)
+class_counts
+class_weights <- 1 / class_counts
+class_weights
+class_weights <- class_weights / sum(class_weights)  # normalize to sum to 1
+
+# Fit the ranger model
+model <- ranger(
+  formula = Common ~ .,
+  data = train,
+  num.trees = 2000,
+  max.depth = 6,  # to limit tree depth (not split count directly)
+  class.weights = class_weights,
+  probability = FALSE,  # Set to TRUE if you want class probabilities
+  importance = 'impurity'
+)
+
+# Print model summary
+print(model)
+
+##
+# Assuming you already have a trained model
+predictions_test <- predict(model, data = test)
+
+# For classification
+predicted_classes_test <- predictions_test$predictions
+
+# For binary classification with probabilities
+# probs_test <- predictions_test$predictions[, 2]  # if probability = TRUE was used
+
+# Evaluate
+conf_matrix_test <- confusionMatrix(factor(predicted_classes_test), factor(test$Common))
+print(conf_matrix_test)
+##
+
+# Make predictions on training data
+predictions <- predict(model, data = train)
+predictions
+# Extract predicted classes
+predicted_classes <- predictions$predictions
+
+# Actual classes
+actual_classes <- train$Common
+
+# Load necessary library for evaluation
+library(caret)
+
+# Confusion matrix
+conf_matrix <- confusionMatrix(factor(predicted_classes), factor(actual_classes))
+print(conf_matrix)
+
+# Accuracy
+accuracy <- conf_matrix$overall['Accuracy']
+print(paste("Training Accuracy:", round(accuracy, 4)))
+
+
+#################################
+
