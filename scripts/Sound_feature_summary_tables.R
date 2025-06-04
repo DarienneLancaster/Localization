@@ -131,6 +131,53 @@ MeanD <- fishdata %>%
   pivot_wider(names_from = feature, values_from = summary)
 ##
 
+#drums - all features
+#calculate mean and SD for each sound feature for all knocks (d) with ID confidence of 1
+##
+MeanD_all <- fishdata %>%
+  filter(t == "d" &
+           Common != "other" &
+           (ID_confidence == 1 | 
+              (Common == "Lingcod" & ID_confidence %in% c(1, 2)))) %>%
+  rename(
+    high_freq_hz = High.Freq..Hz.,
+    low_freq_hz = Low.Freq..Hz.
+  ) %>%
+  group_by(Common) %>%
+  summarise(
+    n = n(),  # ← Add count of rows per species
+    across(
+      c(high_freq_hz, low_freq_hz, freq_peak:time_centroid),
+      list(D_mean = ~mean(.x, na.rm = TRUE), D_sd = ~sd(.x, na.rm = TRUE)),
+      .names = "{.col}_{.fn}"
+    ),
+    .groups = "drop"
+  ) %>%
+  pivot_longer(
+    cols = -c(Common, n),  # Keep `n` out of the pivot
+    names_to = c("feature", "stat"),
+    names_pattern = "(.*)_(D_mean|D_sd)"
+  ) %>%
+  pivot_wider(
+    names_from = stat,
+    values_from = value
+  ) %>%
+  mutate(summary = sprintf("%.1f ± %.1f", D_mean, D_sd)) %>%
+  select(Common, n, feature, summary) %>%
+  pivot_wider(names_from = feature, values_from = summary)%>%
+  select(!c(n,freq_flatness))%>%
+  pivot_longer(-Common, names_to = "feature", values_to = "summary") %>%
+  pivot_wider(names_from = Common, values_from = summary)%>%
+  rename(
+    'Black rockfish (n = 28)' = 'Black rockfish',
+    'Canary rockfish (n = 253)' = 'Canary rockfish',
+    'Copper rockfish (n = 147)' = 'Copper rockfish',
+    'Lingcod (n = 52)' = 'Lingcod',
+    'Pile Perch (n = 15)' = 'Pile Perch',
+    'Quillback rockfish (n = 44)' = 'Quillback rockfish',
+    'Vermillion rockfish (n = 2)' = 'Vermillion rockfish')
+##
+
 #calculate mean and SD for each sound feature for all grunts (g) with ID confidence of 1
 ##
 MeanG <- fishdata %>%
@@ -161,6 +208,44 @@ MeanG <- fishdata %>%
   mutate(summary = sprintf("%.1f ± %.1f", D_mean, D_sd)) %>%
   select(Common, n, feature, summary) %>%
   pivot_wider(names_from = feature, values_from = summary)
+
+#grunts - all features
+MeanG_all <- fishdata %>%
+  filter(ID_confidence == 1, t == "g", Common !="other") %>%
+  rename(
+    high_freq_hz = High.Freq..Hz.,
+    low_freq_hz = Low.Freq..Hz.
+  ) %>%
+  group_by(Common) %>%
+  summarise(
+    n = n(),  # ← Add count of rows per species
+    across(
+      c(high_freq_hz, low_freq_hz, freq_peak:time_centroid),
+      list(D_mean = ~mean(.x, na.rm = TRUE), D_sd = ~sd(.x, na.rm = TRUE)),
+      .names = "{.col}_{.fn}"
+    ),
+    .groups = "drop"
+  ) %>%
+  pivot_longer(
+    cols = -c(Common, n),  # Keep `n` out of the pivot
+    names_to = c("feature", "stat"),
+    names_pattern = "(.*)_(D_mean|D_sd)"
+  ) %>%
+  pivot_wider(
+    names_from = stat,
+    values_from = value
+  ) %>%
+  mutate(summary = sprintf("%.1f ± %.1f", D_mean, D_sd)) %>%
+  select(Common, n, feature, summary) %>%
+  pivot_wider(names_from = feature, values_from = summary)%>%
+  select(!c(n,freq_flatness))%>%
+  pivot_longer(-Common, names_to = "feature", values_to = "summary") %>%
+  pivot_wider(names_from = Common, values_from = summary)%>%
+  rename(
+    'Black rockfish (n = 45)' = 'Black rockfish',
+    'Canary rockfish (n = 2)' = 'Canary rockfish',
+    'Copper rockfish (n = 50)' = 'Copper rockfish',
+    'Quillback rockfish (n = 9)' = 'Quillback rockfish')
 
 #calculate mean and SD for each sound feature for all unknown sounds (e) with ID confidence of 1
 
@@ -193,6 +278,43 @@ MeanE <- fishdata %>%
   mutate(summary = sprintf("%.1f ± %.1f", D_mean, D_sd)) %>%
   select(Common, n, feature, summary) %>%
   pivot_wider(names_from = feature, values_from = summary)
+
+#other sounds - all features
+MeanE_all <- fishdata %>%
+  filter(ID_confidence == 1, t == "e", Common !="other") %>%
+  rename(
+    high_freq_hz = High.Freq..Hz.,
+    low_freq_hz = Low.Freq..Hz.
+  ) %>%
+  group_by(Common) %>%
+  summarise(
+    n = n(),  # ← Add count of rows per species
+    across(
+      c(high_freq_hz, low_freq_hz, freq_peak:time_centroid),
+      list(D_mean = ~mean(.x, na.rm = TRUE), D_sd = ~sd(.x, na.rm = TRUE)),
+      .names = "{.col}_{.fn}"
+    ),
+    .groups = "drop"
+  ) %>%
+  pivot_longer(
+    cols = -c(Common, n),  # Keep `n` out of the pivot
+    names_to = c("feature", "stat"),
+    names_pattern = "(.*)_(D_mean|D_sd)"
+  ) %>%
+  pivot_wider(
+    names_from = stat,
+    values_from = value
+  ) %>%
+  mutate(summary = sprintf("%.1f ± %.1f", D_mean, D_sd)) %>%
+  select(Common, n, feature, summary) %>%
+  pivot_wider(names_from = feature, values_from = summary)%>%
+  select(!c(n,freq_flatness))%>%
+  pivot_longer(-Common, names_to = "feature", values_to = "summary") %>%
+  pivot_wider(names_from = Common, values_from = summary)%>%
+  rename(
+    'Black rockfish (n = 2)' = 'Black rockfish',
+    'Canary rockfish (n = 5)' = 'Canary rockfish',
+    'Copper rockfish (n = 3)' = 'Copper rockfish')
 
 ##############
 # ### add to summary dataframe
@@ -285,6 +407,34 @@ knock_flextable <- width(knock_flextable, width = 1.2)
 knock_flextable
 save_as_image(x = knock_flextable, path = "C:/Users/dlanc/Documents/PhD/Draft Manuscripts/Chapter 1 Species Specific Fish Sounds/Figures/knock_table.png")
 
+#knock table ALL FEATURES
+
+set_flextable_defaults(
+  font.size = 10, theme_fun = theme_vanilla,
+  padding = 3,
+  background.color = "white")
+knock_flextableALL<- MeanD_all%>%
+  rename(
+    "Knock feature" = feature
+  )
+knock_flextableALL <- flextable(knock_flextableALL)
+
+knock_flextableALL
+knock_flextableALL <- colformat_double(
+  x = knock_flextableALL,
+  big.mark = ",", digits = 2, na_str = "N/A"
+)
+knock_flextableALL  <- line_spacing(knock_flextableALL , space = 1.5, part = "all")
+# knock_flextable <- add_header_row(knock_flextable,
+#                      colwidths = c(1, 8),
+#                      values = c("", "Sound Features")
+# )
+knock_flextableALL  <- set_table_properties(knock_flextableALL , align = "right", layout = "autofit")
+# Add a title row: "Knocks"
+knock_flextableALL <- theme_vanilla(knock_flextableALL)
+knock_flextableALL <- width(knock_flextableALL, width = 1.2)
+knock_flextableALL
+save_as_image(x = knock_flextableALL, path = "C:/Users/dlanc/Documents/PhD/Draft Manuscripts/Chapter 1 Species Specific Fish Sounds/Figures/knock_table_ALLFEATURES.png")
 
 
 #Grunt Table
@@ -320,6 +470,37 @@ grunt_flextable <- width(grunt_flextable, width = 1.2)
 grunt_flextable
 save_as_image(x = grunt_flextable, path = "C:/Users/dlanc/Documents/PhD/Draft Manuscripts/Chapter 1 Species Specific Fish Sounds/Figures/grunt_table.png")
 
+#grunt table ALL FEATURES
+
+set_flextable_defaults(
+  font.size = 10, theme_fun = theme_vanilla,
+  padding = 3,
+  background.color = "white")
+
+G_flextableALL<- MeanG_all%>%
+  rename(
+    "Grunt feature" = feature
+  )
+G_flextableALL <- flextable(G_flextableALL)
+
+G_flextableALL
+G_flextableALL <- colformat_double(
+  x = G_flextableALL,
+  big.mark = ",", digits = 2, na_str = "N/A"
+)
+G_flextableALL  <- line_spacing(G_flextableALL , space = 1.5, part = "all")
+# G_flextable <- add_header_row(G_flextable,
+#                      colwidths = c(1, 8),
+#                      values = c("", "Sound Features")
+# )
+G_flextableALL  <- set_table_properties(G_flextableALL , align = "right", layout = "autofit")
+# Add a title row: "Knocks"
+G_flextableALL <- theme_vanilla(G_flextableALL)
+G_flextableALL <- width(G_flextableALL, width = 1.2)
+G_flextableALL
+save_as_image(x = G_flextableALL, path = "C:/Users/dlanc/Documents/PhD/Draft Manuscripts/Chapter 1 Species Specific Fish Sounds/Figures/grunt_table_ALLFEATURES.png")
+
+
 
 #Other Table
 other_table<- MeanE%>%
@@ -352,6 +533,36 @@ other_flextable <- theme_vanilla(other_flextable)
 other_flextable <- width(other_flextable, width = 1.2)
 other_flextable
 save_as_image(x = other_flextable, path = "C:/Users/dlanc/Documents/PhD/Draft Manuscripts/Chapter 1 Species Specific Fish Sounds/Figures/other_table.png")
+
+#Other sounds table - ALL FEATURES
+set_flextable_defaults(
+  font.size = 10, theme_fun = theme_vanilla,
+  padding = 3,
+  background.color = "white")
+
+other_flextableALL<- MeanE_all%>%
+  rename(
+    "Other sound feature" = feature
+  )
+other_flextableALL <- flextable(other_flextableALL)
+
+other_flextableALL
+other_flextableALL <- colformat_double(
+  x = other_flextableALL,
+  big.mark = ",", digits = 2, na_str = "N/A"
+)
+other_flextableALL  <- line_spacing(other_flextableALL , space = 1.5, part = "all")
+# other_flextable <- add_header_row(other_flextable,
+#                      colwidths = c(1, 8),
+#                      values = c("", "Sound Features")
+# )
+other_flextableALL  <- set_table_properties(other_flextableALL , align = "right", layout = "autofit")
+# Add a title row: "Knocks"
+other_flextableALL <- theme_vanilla(other_flextableALL)
+other_flextableALL <- width(other_flextableALL, width = 1.2)
+other_flextableALL
+save_as_image(x = other_flextableALL, path = "C:/Users/dlanc/Documents/PhD/Draft Manuscripts/Chapter 1 Species Specific Fish Sounds/Figures/Other_table_ALLFEATURES.png")
+
 
 ##example code for customizing flextable
 #other_flextable <- add_footer_lines(other_flextable, "Daily air quality measurements in New York, May to September 1973.")
