@@ -21,7 +21,7 @@ lp("caret")
 lp("lattice")
 lp("gridExtra")
 
-fishdata<-read.csv("wdata/Sound_Species_Behaviour_Length_wPyFeatures_20250221.csv", header = TRUE)
+fishdata<-read.csv("wdata/Sound_Species_Behaviour_Length_wPyFeatures_20250616.csv", header = TRUE)
 
 #create new column with species common names
 fishdata$Common<- ifelse(fishdata$Species == "caurinus", "Copper rockfish",
@@ -32,6 +32,9 @@ fishdata$Common<- ifelse(fishdata$Species == "caurinus", "Copper rockfish",
                                                      ifelse(fishdata$Species == "elongatus", "Lingcod",
                                                             ifelse(fishdata$Species == "decagrammus", "Kelp Greenling",
                                                                    ifelse(fishdata$Species == "vacca", "Pile Perch", "other"))))))))
+
+KG<-fishdata%>%
+  filter(Common == "Kelp Greenling")
 
 ##########################################################################
 #try random forest on fish grunts 
@@ -195,7 +198,7 @@ rownames(class_stats) <- NULL  # optional: reset row names
 class_stats<-class_stats%>%
   select(-Sensitivity, -Specificity, -`Pos Pred Value`, -`Neg Pred Value`)%>%
   mutate(Class = str_replace(Class, "^Class:", "")) %>%
-  rename('F Score' = F1, 'Grunt Class' = Class)
+  rename('F1 Score' = F1, 'Grunt Class' = Class)
 
 
 # 4. Reorder columns to show actual class first
@@ -293,6 +296,7 @@ ggsave("figures/UMAP_Grunt_UNBALANCED_IDconf1_1n2QB_bySite.png", plot = UMAP_gru
 # Partial dependence plot coloured by species
 #################
 set.seed(123)
+lp("pdp")
 rfo <- randomForest(Common ~ ., data = train, ntree = 1000, importance = TRUE)
 rfo
 # Prediction wrapper that returns class probabilities
@@ -1785,7 +1789,7 @@ rownames(class_stats) <- NULL  # optional: reset row names
 class_stats<-class_stats%>%
   select(-Sensitivity, -Specificity, -`Pos Pred Value`, -`Neg Pred Value`)%>%
   mutate(Class = str_replace(Class, "^Class:", "")) %>%
-  rename('F Score' = F1, 'Knock Class' = Class)
+  rename('F1 Score' = F1, 'Knock Class' = Class)
 
 
 # 4. Reorder columns to show actual class first
