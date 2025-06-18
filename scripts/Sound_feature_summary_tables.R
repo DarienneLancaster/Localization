@@ -17,7 +17,7 @@ lp("gridExtra")
 lp("stringr")
 lp("flextable")
 
-fishdata<-read.csv("wdata/Sound_Species_Behaviour_Length_wPyFeatures_20250221.csv", header = TRUE)
+fishdata<-read.csv("wdata/Sound_Species_Behaviour_Length_wPyFeatures_20250616.csv", header = TRUE)
 
 spectros<-fishdata%>%
   filter(Species == "maliger", ID_confidence == 1|2, t == "g")
@@ -568,3 +568,4 @@ save_as_image(x = other_flextableALL, path = "C:/Users/dlanc/Documents/PhD/Draft
 #other_flextable <- add_footer_lines(other_flextable, "Daily air quality measurements in New York, May to September 1973.")
 #other_flextable <- color(other_flextable, part = "footer", color = "#666666")
 #other_flextable <- set_caption(other_flextable, caption = "New York Air Quality Measurements")
+
