@@ -17,7 +17,7 @@ lp("gridExtra")
 lp("stringr")
 lp("flextable")
 
-fishdata<-read.csv("wdata/Sound_Species_Behaviour_Length_wPyFeatures_20250221.csv", header = TRUE)
+fishdata<-read.csv("wdata/Sound_Species_Behaviour_Length_wPyFeatures_20250616.csv", header = TRUE)
 
 #create new column with species common names
 fishdata$Common<- ifelse(fishdata$Species == "caurinus", "Copper rockfish",
@@ -98,9 +98,6 @@ fishdata98 <- fishdata99 %>%
   ) %>%
   ungroup()
 
-# #code to check if there are any overlapping selection boxes (should have 0 rows if all errors fixed)
-# fishdata111<-fishdata98%>%
-#   filter(Call_Interval < 0)
 
 #calculate how many calls are repeated within a sequence
 fishdata998 <- fishdata98 %>%
@@ -136,7 +133,7 @@ fishdata000<-fishdata004%>%
 
 #histogram of calling interval (time between linked calls) by species 
 ggplot(fishdata000, aes(x = C_Interval_mean)) +
-  geom_histogram(binwidth = 0.1, color = "black", fill = "darkturquoise") +
+  geom_histogram(binwidth = 0.1, color = "black", fill = "#FFCC00") +
   facet_wrap(~ Species, scales = "free_y") +
   labs(title = "Histograms of Call Interval by Species", x = "Call Interval", y = "Count") +
   coord_cartesian(ylim = c(0, 20)) +  # Fix y-axis range from 0 to 8
@@ -144,27 +141,771 @@ ggplot(fishdata000, aes(x = C_Interval_mean)) +
 
 #histogram of calling repetition (within a sequence) by species 
 ggplot(fishdata000, aes(x = Sequence_Reps)) +
-  geom_histogram(binwidth = 1, color = "black", fill = "darkturquoise") +
+  geom_histogram(binwidth = 1, color = "black", fill = "#FFCC00") +
   facet_wrap(~ Species, scales = "free_y") +
   labs(title = "Histograms of Call Repetition by Species", x = "Call Repetition Rate", y = "Count") +
   coord_cartesian(ylim = c(0, 10)) +  # Fix y-axis range from 0 to 8
   theme_classic()
 
-#need to add back in the rest of the data (only a few column included right now)
-#play with different time increments between calls for linking call sequences
-#Examine grunts vs. knocks dynamics and behaviour dynamics (are calls repeated more when they're associated with fear/aggression?)
 
-#change missing cells in t to e (for unknown sound)
-fishdata<-fishdata%>%
-  mutate(t = ifelse(is.na(t) & s == "e", "e", t))%>%
-  mutate(t = ifelse(t == "" & s == "e", "e", t))
+#############################################################################
+#Summary table of Call interval, repetition rate, # grunts, # knocks, time in FOV
+
+##
+
+lp("purrr")
+lp("stringr")
+lp("lubridate")
+
+#convert tottime to time and then change to seconds
+CallDeets <- CallDeets %>%
+  mutate(tottime = as.numeric(as_hms(tottime)))
 
 
-fishdataT<-fishdata%>%
-  filter(Species == "maliger", mean_length >200)
+# Define columns to summarize
+summary_cols <- c("Sequence_Reps","d_count","g_count",  "e_count",  "C_Interval_mean", "C_Interval_sd", "tottime")
 
 
-# 
-# %>%
-# filter(fishID == "0005_20220912")
+summary_table <- CallDeets %>%
+  group_by(Common) %>%
+  summarise(
+    n_fish = n_distinct(fishID),  # 🔢 Count unique fishID per Common
+    across(all_of(summary_cols),
+           list(mean = ~mean(.x, na.rm = TRUE),
+                sd = ~sd(.x, na.rm = TRUE)),
+           .names = "{.col}_{.fn}")
+  ) %>%
+  # Combine each mean and sd into a single string column
+  mutate(across(ends_with("_mean"), 
+                ~ {
+                  col_base <- str_remove(cur_column(), "_mean")
+                  sd_col <- paste0(col_base, "_sd")
+                  mean_val <- round(.x, 2)
+                  sd_val <- round(get(sd_col), 2)
+                  paste0(mean_val, " ± ", sd_val)
+                },
+                .names = "{str_remove(.col, '_mean')}")) %>%
+  # Select Common, unique fish count, and the formatted ± columns
+  select(Common, n_fish, all_of(summary_cols))
+
+# View result
+print(summary_table)
+
+
+##########################
+#create summary flex table for call details
+
+calldeets_table<- summary_table%>%
+  rename(
+    "Call repetition" = Sequence_Reps,
+    "Knock count" = d_count,
+    "Grunt count" = g_count,
+    "Other count" = e_count,
+    "Call interval (mean)" = C_Interval_mean,
+    "Call interval (standard deviation)" = C_Interval_sd,
+    "Species" = Common,
+    "n" = "n_fish",
+    "Time on camera (s)" = "tottime" 
+  )
+
+set_flextable_defaults(
+  font.size = 10, theme_fun = theme_vanilla,
+  padding = 3,
+  background.color = "white")
+
+calldeets_flextable <- flextable(calldeets_table)
+calldeets_flextable <- colformat_double(
+  x = calldeets_flextable,
+  big.mark = ",", digits = 2, na_str = "N/A"
+)
+calldeets_flextable  <- line_spacing(calldeets_flextable , space = 1.5, part = "all")
+# knock_flextable <- add_header_row(knock_flextable,
+#                      colwidths = c(1, 8),
+#                      values = c("", "Sound Features")
+# )
+calldeets_flextable  <- set_table_properties(calldeets_flextable , align = "right", layout = "autofit")
+# Add a title row: "Knocks"
+calldeets_flextable <- theme_vanilla(calldeets_flextable)
+calldeets_flextable <- width(calldeets_flextable, width = 1.2)
+calldeets_flextable
+save_as_image(x = calldeets_flextable, path = "figures/CH2/Call_Details_Table.png")
+
+##########################
+#create box plots of call details
+
+# Define custom colors for species
+custom_colors <- c(
+  "Black rockfish" = "#003399",   
+  "Quillback rockfish" = "#FF6600", 
+  "Copper rockfish" = "#33CC99",
+  "Lingcod" = "#33CCFF",
+  "Canary rockfish" = "#FFCC00",
+  "Pile Perch" = "#9900CC" 
+)
+
+#Call interval
+
+CI<- ggplot(CallDeets, aes(x = Common, y = C_Interval_mean, fill = Common)) +
+  geom_boxplot(varwidth = TRUE, color = "black", outlier.shape = NA, alpha = 0.7) +
+  geom_point(
+    aes(color = Common),
+    position = position_jitter(width = 0.1),
+    size = 1,
+    alpha = 0.3,
+    shape = 21,
+    show.legend = FALSE
+  ) +
+  scale_fill_manual(values = custom_colors) +
+  scale_color_manual(values = custom_colors) +  # color points same as fill
+  labs(
+    title = "Call Interval",
+    x = "",
+    y = "Call interval (s)"
+  ) +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  )
+CI
+
+#call repetition
+CR<- ggplot(CallDeets, aes(x = Common, y = Sequence_Reps, fill = Common)) +
+  geom_boxplot(varwidth = TRUE, color = "black",  outlier.shape = NA, alpha = 0.7) +
+  geom_point(
+    aes(color = Common),
+    position = position_jitter(width = 0.1),
+    size = 1,
+    alpha = 0.3,
+    shape = 21,
+    show.legend = FALSE
+  ) +
+  scale_fill_manual(values = custom_colors) +
+  scale_color_manual(values = custom_colors) +  # color points same as fill
+  labs(
+    title = "Call Repetition",
+    x = "",
+    y = "Call repetition (count)"
+  ) +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  )
+CR
+
+# number knocks
+Knum<- ggplot(CallDeets, aes(x = Common, y = d_count, fill = Common)) +
+  geom_boxplot(varwidth = TRUE, color = "black",  outlier.shape = NA, alpha = 0.7) +
+  geom_point(
+    aes(color = Common),
+    position = position_jitter(width = 0.1),
+    size = 1,
+    alpha = 0.3,
+    shape = 21,
+    show.legend = FALSE
+  ) +
+  scale_fill_manual(values = custom_colors) +
+  scale_color_manual(values = custom_colors) +  # color points same as fill
+  labs(
+    title = "Knock count",
+    x = "",
+    y = "Knock (count)"
+  ) +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  )
+Knum
+
+#number grunts
+Gnum<- ggplot(CallDeets, aes(x = Common, y = g_count, fill = Common)) +
+  geom_boxplot(varwidth = TRUE, color = "black",  outlier.shape = NA, alpha = 0.7) +
+  geom_point(
+    aes(color = Common),
+    position = position_jitter(width = 0.1),
+    size = 1,
+    alpha = 0.3,
+    shape = 21,
+    show.legend = FALSE
+  ) +
+  scale_fill_manual(values = custom_colors) +
+  scale_color_manual(values = custom_colors) +  # color points same as fill
+  labs(
+    title = "Grunt count",
+    x = "",
+    y = "Grunt (count)"
+  ) +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  )
+Gnum
+
+
+
+lp("patchwork")
+lp("cowplot")
+
+# Combine plots
+All_calldeets <- (CI |CR) /
+  (Knum| Gnum) +
+  plot_layout(guides = "collect") & 
+  theme(legend.position = "")
+
+All_calldeetsfinal <- ggdraw() +
+  # Title at the top
+  draw_label("", fontface = "bold", x = 0.1, y = 0.98, size = 16, hjust = 0.5) +
+  # Shared y-axis label (rotated)
+  draw_label("", angle = 90, x = 0.03, y = 0.5, vjust = 0.5) +
+  # Shared x-axis label (centered at bottom)
+  draw_label("Species", angle = 0, x = 0.48, y = 0.02, vjust = 0.5) +
+  # Combined plot
+  draw_plot(All_calldeets, x = 0.05, y = 0.05, width = 0.9, height = 0.9)
+
+All_calldeetsfinal
+ggsave("figures/CH2/CallDetails_Boxplots.png", plot = All_calldeetsfinal, width = 10, height = 6, dpi = 300)
+
+#look at call rate (before this can be included we need a better estimates of how often fish show
+#up on camera and are silent)
+
+CallDeets$CallRate<-(CallDeets$soundsperfish/CallDeets$tottime)
+
+#Call rate
+CallR<- ggplot(CallDeets, aes(x = Common, y = CallRate, fill = Common)) +
+  geom_boxplot(varwidth = TRUE, color = "black",  outlier.shape = NA, alpha = 0.7) +
+  geom_point(
+    aes(color = Common),
+    position = position_jitter(width = 0.1),
+    size = 2,
+    alpha = 0.3,
+    shape = 21,
+    show.legend = FALSE
+  ) +
+  scale_fill_manual(values = custom_colors) +
+  scale_color_manual(values = custom_colors) +  # color points same as fill
+  labs(
+    title = "Call Rate",
+    x = "Species",
+    y = "Call rate (calls per second)"
+  ) +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  )
+CallR
+  
+
+###################################################################################
+#GLM poisson for number of Grunts vs. behaviour
+
+#Quillback
+
+
+levels(as.factor(CallDeets$Activity))
+
+CallDeets_qb <- CallDeets %>%
+  mutate(
+    Activity = if_else(Activity == "" | is.na(Activity), "No activity", Activity),
+    Activity = str_replace(Activity, "Chase other", "Chase"),
+    Activity = str_replace(Activity, "Chase conspecific", "Chase"),
+    Activity = str_replace(Activity, "Guarding bait", "Flight"),
+    Activity = str_replace(Activity, "Passing", "A No activity"),
+    Activity = str_replace(Activity, "No activity", "A No activity"),
+    Activity = str_replace(Activity, "Attracted", "Approach"))%>%
+  filter(Species == "maliger")
+
+#load MASS package to get glm.nb (negative binomial function)
+lp("MASS")
+
+M1<- glm.nb(g_count~Activity, data = CallDeets_qb)
+summary(M1)
+#get glm equivalent of R-squared (explained deviance)
+explaineddeviance<- 100*(((M1)$null.deviance-(M1)$deviance)/(M1)$null.deviance)
+explaineddeviance
+
+Mnull<- glm.nb(g_count~1, data = CallDeets_qb)
+summary(Mnull)
+#get glm equivalent of R-squared (explained deviance)
+explaineddeviance<- 100*(((Mnull)$null.deviance-(Mnull)$deviance)/(Mnull)$null.deviance)
+explaineddeviance
+
+
+lp("AICcmodavg")
+packageVersion("AICcmodavg")
+
+lp("flextable")
+###put all models in a list to compare AIC weights
+models <- list(Mnull, M1)
+model.names <- c('Mnull', 'M1')
+
+AIC_results<-aictab(cand.set = models, modnames = model.names)
+flextable(AIC_results)
+
+
+
+###model validation plots
+
+par(mfrow = c(2, 2))
+plot(M1)
+#validation plots aren't great but no major issues considering what a small sample size it is
+
+# Residuals vs Fitted plot - hoping for random scattering of points around line.  
+# QQ plot - hoping for points to follow line closely (dipping below and above line near the ends (called tailedness) can indicate overdistribution)
+#         - points mostly above or mostly below line can indicate skewedness to right or left
+#         - small sample sizes like ours are more prone to variability so it's not uncommon for it not to perfectly fit the line
+# Scale-Location plot - plots fitted values against square root of standardized residuals (looking again for even scattering around a straight middle line 
+# like the Residual vs. fitted plot - again outliers and small datasets can have issues with this)
+# Residuals vs Leverage - helps identify influential outliers (in this example point 7 is almost worrisome but it's not past the dashed lines so probably okay to include)
+
+#####calculate residuals and add to dataframe
+
+residuals <- residuals(M1)
+TF2 <- CallDeets1 %>%
+  dplyr::mutate(resid = residuals)
+
+## plot residuals vs predictors (looking for flat line with lm)
+
+E1<-ggplot(TF2) +
+  geom_point(aes(x = Activity,
+                 y = resid)) +
+  geom_smooth(aes(x = Activity,
+                  y = resid),
+              method = "lm")
+
+lp("gridExtra")
+lp("DHARMa")
+resVpred<-grid.arrange(E1,  nrow = 2, respect=TRUE)
+
+#check model fit with DHARMa tests
+r <- simulateResiduals(M1, n = 1000, plot = TRUE)  #If there are issues with resid vs pred quantile plot they will show up in red on this plot
+
+####################################
+#Copper
+
+#Quillback
+
+
+levels(as.factor(CallDeets$Activity))
+
+CallDeets_cop <- CallDeets %>%
+  mutate(
+    Activity = if_else(Activity == "" | is.na(Activity), "No activity", Activity),
+    Activity = str_replace(Activity, "Chase other", "Chase"),
+    Activity = str_replace(Activity, "Chase conspecific", "Chase"),
+    Activity = str_replace(Activity, "Guarding bait", "Flight"),
+    Activity = str_replace(Activity, "Passing", "A No activity"),
+    Activity = str_replace(Activity, "No activity", "A No activity"),
+    Activity = str_replace(Activity, "Attracted", "Approach"))%>%
+  filter(Species == "caurinus")
+
+#load MASS package to get glm.nb (negative binomial function)
+lp("MASS")
+
+M1<- glm.nb(g_count~Activity, data = CallDeets_cop)
+summary(M1)
+#get glm equivalent of R-squared (explained deviance)
+explaineddeviance<- 100*(((M1)$null.deviance-(M1)$deviance)/(M1)$null.deviance)
+explaineddeviance
+
+Mnull<- glm.nb(g_count~1, data = CallDeets_cop)
+summary(Mnull)
+#get glm equivalent of R-squared (explained deviance)
+explaineddeviance<- 100*(((Mnull)$null.deviance-(Mnull)$deviance)/(Mnull)$null.deviance)
+explaineddeviance
+
+
+lp("AICcmodavg")
+packageVersion("AICcmodavg")
+
+lp("flextable")
+###put all models in a list to compare AIC weights
+models <- list(Mnull, M1)
+model.names <- c('Mnull', 'M1')
+
+AIC_results<-aictab(cand.set = models, modnames = model.names)
+flextable(AIC_results)
+
+###model validation plots
+
+par(mfrow = c(2, 2))
+plot(M1)
+#validation plots aren't great but no major issues considering what a small sample size it is
+
+# Residuals vs Fitted plot - hoping for random scattering of points around line.  
+# QQ plot - hoping for points to follow line closely (dipping below and above line near the ends (called tailedness) can indicate overdistribution)
+#         - points mostly above or mostly below line can indicate skewedness to right or left
+#         - small sample sizes like ours are more prone to variability so it's not uncommon for it not to perfectly fit the line
+# Scale-Location plot - plots fitted values against square root of standardized residuals (looking again for even scattering around a straight middle line 
+# like the Residual vs. fitted plot - again outliers and small datasets can have issues with this)
+# Residuals vs Leverage - helps identify influential outliers (in this example point 7 is almost worrisome but it's not past the dashed lines so probably okay to include)
+
+#####calculate residuals and add to dataframe
+
+residuals <- residuals(M1)
+TF2 <- CallDeets1 %>%
+  dplyr::mutate(resid = residuals)
+
+## plot residuals vs predictors (looking for flat line with lm)
+
+E1<-ggplot(TF2) +
+  geom_point(aes(x = Activity,
+                 y = resid)) +
+  geom_smooth(aes(x = Activity,
+                  y = resid),
+              method = "lm")
+
+lp("gridExtra")
+lp("DHARMa")
+resVpred<-grid.arrange(E1,  nrow = 2, respect=TRUE)
+
+#check model fit with DHARMa tests
+r <- simulateResiduals(M1, n = 1000, plot = TRUE)  #If there are issues with resid vs pred quantile plot they will show up in red on this plot
+
+
+##############################################
+#Behaviour box plots
+
+CallDeets2 <- CallDeets %>%
+  mutate(
+    Activity = if_else(Activity == "" | is.na(Activity), "No activity", Activity),
+    Activity = str_replace(Activity, "Chase other", "Chase"),
+    Activity = str_replace(Activity, "Chase conspecific", "Chase"),
+    Activity = str_replace(Activity, "Guarding bait", "Flight"),
+    Activity = str_replace(Activity, "Passing", "No activity"),
+    Activity = str_replace(Activity, "No activity", "No activity"),
+    Activity = str_replace(Activity, "Attracted", "Approach"))%>%
+  filter(Species == "caurinus")
+
+# Define custom colors for species
+custom_colors_BEHAV <- c(
+  "Chase" = "#003399",   
+  "Flight" = "#FF6600", 
+  "No activity" = "#33CC99",
+  "Approach" = "#33CCFF",
+  "Feeding" = "#FFCC00",
+  "Pile Perch" = "#9900CC" 
+)
+
+####
+#definite trend of more grunts when in flight (being chased for Coppers and Quillbacks, doesn't really show up for other species)
+
+#number grunts
+G_BEHA_C<- ggplot(CallDeets2, aes(x = Activity, y = g_count, fill = Activity)) +
+  geom_boxplot(varwidth = TRUE, color = "black",  outlier.shape = NA, alpha = 0.7) +
+  geom_point(
+    aes(color = Activity),
+    position = position_jitter(width = 0.1),
+    size = 1,
+    alpha = 0.3,
+    shape = 21,
+    show.legend = FALSE
+  ) +
+  scale_fill_manual(values = custom_colors_BEHAV) +
+  scale_color_manual(values = custom_colors_BEHAV) +  # color points same as fill
+  labs(
+    title = "Copper",
+    x = "",
+    y = "Grunt (count)"
+  ) +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  )
+G_BEHA_C
+
+#number grunts
+K_BEHA_C<- ggplot(CallDeets2, aes(x = Activity, y = d_count, fill = Activity)) +
+  geom_boxplot(varwidth = TRUE, color = "black",  outlier.shape = NA, alpha = 0.7) +
+  geom_point(
+    aes(color = Activity),
+    position = position_jitter(width = 0.1),
+    size = 1,
+    alpha = 0.3,
+    shape = 21,
+    show.legend = FALSE
+  ) +
+  scale_fill_manual(values = custom_colors_BEHAV) +
+  scale_color_manual(values = custom_colors_BEHAV) +  # color points same as fill
+  labs(
+    title = "",
+    x = "",
+    y = "Knock (count)"
+  ) +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  )
+K_BEHA_C
+
+#number grunts
+Rep_BEHA_C<- ggplot(CallDeets2, aes(x = Activity, y = Sequence_Reps, fill = Activity)) +
+  geom_boxplot(varwidth = TRUE, color = "black",  outlier.shape = NA, alpha = 0.7) +
+  geom_point(
+    aes(color = Activity),
+    position = position_jitter(width = 0.1),
+    size = 1,
+    alpha = 0.3,
+    shape = 21,
+    show.legend = FALSE
+  ) +
+  scale_fill_manual(values = custom_colors_BEHAV) +
+  scale_color_manual(values = custom_colors_BEHAV) +  # color points same as fill
+  labs(
+    title = "",
+    x = "",
+    y = "Call repetition (count)"
+  ) +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  )
+Rep_BEHA_C
+
+#number grunts
+INT_BEHA_C<- ggplot(CallDeets2, aes(x = Activity, y = C_Interval_mean, fill = Activity)) +
+  geom_boxplot(varwidth = TRUE, color = "black",  outlier.shape = NA, alpha = 0.7) +
+  geom_point(
+    aes(color = Activity),
+    position = position_jitter(width = 0.1),
+    size = 1,
+    alpha = 0.3,
+    shape = 21,
+    show.legend = FALSE
+  ) +
+  scale_fill_manual(values = custom_colors_BEHAV) +
+  scale_color_manual(values = custom_colors_BEHAV) +  # color points same as fill
+  labs(
+    title = "",
+    x = "",
+    y = "Call interval (s)"
+  ) +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  )
+INT_BEHA_C
+
+####################
+#behaviour vs call patterns for QB
+
+CallDeets3 <- CallDeets %>%
+  mutate(
+    Activity = if_else(Activity == "" | is.na(Activity), "No activity", Activity),
+    Activity = str_replace(Activity, "Chase other", "Chase"),
+    Activity = str_replace(Activity, "Chase conspecific", "Chase"),
+    Activity = str_replace(Activity, "Guarding bait", "Flight"),
+    Activity = str_replace(Activity, "Passing", "No activity"),
+    Activity = str_replace(Activity, "No activity", "No activity"),
+    Activity = str_replace(Activity, "Attracted", "Approach"))%>%
+  filter(Species == "maliger")
+
+# Define custom colors for species
+custom_colors_BEHAV <- c(
+  "Chase" = "#003399",   
+  "Flight" = "#FF6600", 
+  "No activity" = "#33CC99",
+  "Approach" = "#33CCFF",
+  "Feeding" = "#FFCC00",
+  "Pile Perch" = "#9900CC" 
+)
+
+####
+#definite trend of more grunts when in flight (being chased for Coppers and Quillbacks, doesn't really show up for other species)
+
+#number grunts
+G_BEHA_Q<- ggplot(CallDeets3, aes(x = Activity, y = g_count, fill = Activity)) +
+  geom_boxplot(varwidth = TRUE, color = "black",  outlier.shape = NA, alpha = 0.7) +
+  geom_point(
+    aes(color = Activity),
+    position = position_jitter(width = 0.1),
+    size = 1,
+    alpha = 0.3,
+    shape = 21,
+    show.legend = FALSE
+  ) +
+  scale_fill_manual(values = custom_colors_BEHAV) +
+  scale_color_manual(values = custom_colors_BEHAV) +  # color points same as fill
+  labs(
+    title = "Quillback",
+    x = "",
+    y = "Grunt (count)"
+  ) +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  )
+G_BEHA_Q
+
+#number knocks
+K_BEHA_Q<- ggplot(CallDeets3, aes(x = Activity, y = d_count, fill = Activity)) +
+  geom_boxplot(varwidth = TRUE, color = "black",  outlier.shape = NA, alpha = 0.7) +
+  geom_point(
+    aes(color = Activity),
+    position = position_jitter(width = 0.1),
+    size = 1,
+    alpha = 0.3,
+    shape = 21,
+    show.legend = FALSE
+  ) +
+  scale_fill_manual(values = custom_colors_BEHAV) +
+  scale_color_manual(values = custom_colors_BEHAV) +  # color points same as fill
+  labs(
+    title = "",
+    x = "",
+    y = "Knock (count)"
+  ) +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  )
+K_BEHA_Q
+
+#number reps
+Rep_BEHA_Q<- ggplot(CallDeets3, aes(x = Activity, y = Sequence_Reps, fill = Activity)) +
+  geom_boxplot(varwidth = TRUE, color = "black",  outlier.shape = NA, alpha = 0.7) +
+  geom_point(
+    aes(color = Activity),
+    position = position_jitter(width = 0.1),
+    size = 1,
+    alpha = 0.3,
+    shape = 21,
+    show.legend = FALSE
+  ) +
+  scale_fill_manual(values = custom_colors_BEHAV) +
+  scale_color_manual(values = custom_colors_BEHAV) +  # color points same as fill
+  labs(
+    title = "",
+    x = "",
+    y = "Call repetition (count)"
+  ) +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  )
+Rep_BEHA_Q
+
+#call interval
+INT_BEHA_Q<- ggplot(CallDeets3, aes(x = Activity, y = C_Interval_mean, fill = Activity)) +
+  geom_boxplot(varwidth = TRUE, color = "black",  outlier.shape = NA, alpha = 0.7) +
+  geom_point(
+    aes(color = Activity),
+    position = position_jitter(width = 0.1),
+    size = 1,
+    alpha = 0.3,
+    shape = 21,
+    show.legend = FALSE
+  ) +
+  scale_fill_manual(values = custom_colors_BEHAV) +
+  scale_color_manual(values = custom_colors_BEHAV) +  # color points same as fill
+  labs(
+    title = "",
+    x = "",
+    y = "Call interval (s)"
+  ) +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  )
+INT_BEHA_Q
+
+
+lp("patchwork")
+lp("cowplot")
+
+# Combine plots
+CallPat_Beha_CQB <- ( G_BEHA_Q|K_BEHA_Q|Rep_BEHA_Q|INT_BEHA_Q) /
+  ( G_BEHA_C|K_BEHA_C|Rep_BEHA_C|INT_BEHA_C) +
+  plot_layout(guides = "collect") & 
+  theme(legend.position = "")
+
+CallPat_Beha_CQBfinal <- ggdraw() +
+  # Title at the top
+  draw_label("", fontface = "bold", x = 0.1, y = 0.98, size = 16, hjust = 0.5) +
+  # Shared y-axis label (rotated)
+  draw_label("", angle = 90, x = 0.03, y = 0.5, vjust = 0.5) +
+  # Shared x-axis label (centered at bottom)
+  draw_label("Behaviour", angle = 0, x = 0.48, y = 0.02, vjust = 0.5) +
+  # Combined plot
+  draw_plot(CallPat_Beha_CQB, x = 0.05, y = 0.05, width = 0.9, height = 0.9)
+
+CallPat_Beha_CQBfinal
+ggsave("figures/CH2/CallPatterns_Behaviour_QB_C_Boxplots.png", plot = CallPat_Beha_CQBfinal, width = 10, height = 6, dpi = 300)
+
+
+#################
+#check other species relationship to call interval
+
+CallDeets4 <- CallDeets %>%
+  mutate(
+    Activity = if_else(Activity == "" | is.na(Activity), "No activity", Activity),
+    Activity = str_replace(Activity, "Chase other", "Chase"),
+    Activity = str_replace(Activity, "Chase conspecific", "Chase"),
+    Activity = str_replace(Activity, "Guarding bait", "Flight"),
+    Activity = str_replace(Activity, "Passing", "No activity"),
+    Activity = str_replace(Activity, "No activity", "No activity"),
+    Activity = str_replace(Activity, "Attracted", "Approach"))%>%
+  filter(Species == "pinniger")
+
+#call interval
+INT_BEHA_O<- ggplot(CallDeets4, aes(x = Activity, y = C_Interval_mean, fill = Activity)) +
+  geom_boxplot(varwidth = TRUE, color = "black",  outlier.shape = NA, alpha = 0.7) +
+  geom_point(
+    aes(color = Activity),
+    position = position_jitter(width = 0.1),
+    size = 1,
+    alpha = 0.3,
+    shape = 21,
+    show.legend = FALSE
+  ) +
+  scale_fill_manual(values = custom_colors_BEHAV) +
+  scale_color_manual(values = custom_colors_BEHAV) +  # color points same as fill
+  labs(
+    title = "call interval",
+    x = "",
+    y = "Call interval (s)"
+  ) +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  )
+INT_BEHA_O
+
+#test if there are significant differences in number of grunts across behaviours
+
+#Copper Grunts 
+pairwise.wilcox.test(CallDeets2$g_count, CallDeets2$Activity, p.adjust.method = "BH")
+# significantly more grunts during flight than during No Activity and Feeding
+
+#Quillback Grunts 
+pairwise.wilcox.test(CallDeets3$g_count, CallDeets3$Activity, p.adjust.method = "BH")
+
+#test if there are significant differences in number of Knocks across behaviours
+
+#Copper Knocks
+pairwise.wilcox.test(CallDeets2$d_count, CallDeets2$Activity, p.adjust.method = "BH")
+
+#Quillback Knocks
+pairwise.wilcox.test(CallDeets3$d_count, CallDeets3$Activity, p.adjust.method = "BH")
+
+#test if there are significant differences in number of call reps across behaviours
+
+#Copper Call Rep
+pairwise.wilcox.test(CallDeets2$Sequence_Reps, CallDeets2$Activity, p.adjust.method = "BH")
+
+#Quillback Call Rep
+pairwise.wilcox.test(CallDeets3$Sequence_Reps, CallDeets3$Activity, p.adjust.method = "BH")
+
 
