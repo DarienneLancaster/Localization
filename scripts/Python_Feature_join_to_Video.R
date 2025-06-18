@@ -37,8 +37,13 @@ PyData1<-PyData%>%
 
 FD_py<-left_join(FD1, PyData1, by= c("Begin.File", "Begin.Time..s."))
 
+py_clean<- FD_py%>%
+  select(-X, -X.1, -X.2, -a, -selec.file.x, -selec.file.y, -sdDrift, -meanDrift, -locadjust, -Cam, -vidnames1, -vidnames2, -vidnames3,
+         -filenum3, -filenum1, -filenum2, -vidstarttime, -videndtime, -videotime1, -videotime2, -vidnum, -CamName, 
+         -View, -Channel, -Confidence, -Class, -Sound.type, -Software, -uuid, )
+
 #export .csv of new data
-write.csv(FD_py,"wdata/Sound_Species_Behaviour_Length_wPyFeatures_20250221.csv", row.names = FALSE)
+write.csv(py_clean,"wdata/Sound_Species_Behaviour_Length_wPyFeatures_20250616.csv", row.names = FALSE)
 
 ###look at length vs sound characteristics by fish species############
 
