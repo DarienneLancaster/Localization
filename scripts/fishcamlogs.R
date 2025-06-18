@@ -12,7 +12,7 @@ lp("withr")
 lp("ggplot2")
 lp("processx")
 lp("smplot2")  #package that allows you to add correlation stats to graphs
-#the package orca must be downloaded using miniconda to export static images from plotly
+
 ######
 
 #######import buzzer times from logs######
@@ -52,7 +52,7 @@ lp("smplot2")  #package that allows you to add correlation stats to graphs
 # write.csv(logtimes, "wdata/logtimes.csv", row.names = FALSE)
 ######
 
-#######Calculating Mean Drift per day per camera#####
+#######Calculating Time Mean Drift per day per camera#####
 
 #load in updated logtimes file with AMAR buzzer times added and out of water
 #times removed
