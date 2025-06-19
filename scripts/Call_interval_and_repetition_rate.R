@@ -186,7 +186,7 @@ summary_table <- CallDeets %>%
                 },
                 .names = "{str_remove(.col, '_mean')}")) %>%
   # Select Common, unique fish count, and the formatted ± columns
-  select(Common, n_fish, all_of(summary_cols))
+  dplyr::select(Common, n_fish, all_of(summary_cols))
 
 # View result
 print(summary_table)
@@ -245,6 +245,7 @@ custom_colors <- c(
 
 #Call interval
 
+
 CI<- ggplot(CallDeets, aes(x = Common, y = C_Interval_mean, fill = Common)) +
   geom_boxplot(varwidth = TRUE, color = "black", outlier.shape = NA, alpha = 0.7) +
   geom_point(
@@ -258,7 +259,7 @@ CI<- ggplot(CallDeets, aes(x = Common, y = C_Interval_mean, fill = Common)) +
   scale_fill_manual(values = custom_colors) +
   scale_color_manual(values = custom_colors) +  # color points same as fill
   labs(
-    title = "Call Interval",
+    title = "",
     x = "",
     y = "Call interval (s)"
   ) +
@@ -283,7 +284,7 @@ CR<- ggplot(CallDeets, aes(x = Common, y = Sequence_Reps, fill = Common)) +
   scale_fill_manual(values = custom_colors) +
   scale_color_manual(values = custom_colors) +  # color points same as fill
   labs(
-    title = "Call Repetition",
+    title = "",
     x = "",
     y = "Call repetition (count)"
   ) +
@@ -308,7 +309,7 @@ Knum<- ggplot(CallDeets, aes(x = Common, y = d_count, fill = Common)) +
   scale_fill_manual(values = custom_colors) +
   scale_color_manual(values = custom_colors) +  # color points same as fill
   labs(
-    title = "Knock count",
+    title = "",
     x = "",
     y = "Knock (count)"
   ) +
@@ -333,7 +334,7 @@ Gnum<- ggplot(CallDeets, aes(x = Common, y = g_count, fill = Common)) +
   scale_fill_manual(values = custom_colors) +
   scale_color_manual(values = custom_colors) +  # color points same as fill
   labs(
-    title = "Grunt count",
+    title = "",
     x = "",
     y = "Grunt (count)"
   ) +
@@ -366,7 +367,7 @@ All_calldeetsfinal <- ggdraw() +
   draw_plot(All_calldeets, x = 0.05, y = 0.05, width = 0.9, height = 0.9)
 
 All_calldeetsfinal
-ggsave("figures/CH2/CallDetails_Boxplots.png", plot = All_calldeetsfinal, width = 10, height = 6, dpi = 300)
+ggsave("figures/CH2/CallDetails_Boxplots.png", plot = All_calldeetsfinal, width = 10, height = 10, dpi = 300)
 
 #look at call rate (before this can be included we need a better estimates of how often fish show
 #up on camera and are silent)
@@ -908,4 +909,71 @@ pairwise.wilcox.test(CallDeets2$Sequence_Reps, CallDeets2$Activity, p.adjust.met
 #Quillback Call Rep
 pairwise.wilcox.test(CallDeets3$Sequence_Reps, CallDeets3$Activity, p.adjust.method = "BH")
 
+###################################
+#Percent behaviour type by species
 
+CallDeets_all <- CallDeets %>%
+  mutate(
+    Activity = if_else(Activity == "" | is.na(Activity), "No activity", Activity),
+    Activity = str_replace(Activity, "Chase other", "Chase"),
+    Activity = str_replace(Activity, "Chase conspecific", "Chase"),
+    Activity = str_replace(Activity, "Guarding bait", "Flight"),
+    Activity = str_replace(Activity, "Passing", "No activity"),
+    Activity = str_replace(Activity, "No activity", "No activity"),
+    Activity = str_replace(Activity, "Attracted", "Approach"))
+
+
+# Step 1: Prepare data by calculating percentages
+  activity_summary <- CallDeets_all %>%
+  group_by(Common, Activity) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  group_by(Common) %>%
+  mutate(percentage = count / sum(count) * 100)
+
+custom_colors_BEHAV <- c(
+  "Chase" = "#003399",   
+  "Flight" = "#FF6600", 
+  "No activity" = "#33CC99",
+  "Approach" = "#33CCFF",
+  "Feeding" = "#FFCC00"
+)
+
+# Step 2: Plot stacked bar chart with custom colors
+Beha_Bar <- ggplot(activity_summary, aes(x = Common, y = percentage, fill = Activity)) +
+  geom_bar(stat = "identity", position = "stack", color = "black", alpha =0.7) +
+  scale_fill_manual(values = custom_colors_BEHAV) +
+  labs(
+    title = "",
+    x = "Species",
+    y = "Behavoiur (%)",
+    fill = "Behaviour"  # <-- This renames the legend title
+  ) +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+Beha_Bar
+ggsave("figures/CH2/Percentage_Behaviour_barplot.png", plot = Beha_Bar, width = 10, height = 6, dpi = 300)
+  
+# if you want sample size for each bar use this code. 
+
+# Beha_Bar <- ggplot(activity_summary, aes(x = Common, y = percentage, fill = Activity)) +
+#   geom_bar(stat = "identity", position = "stack", color = "black", alpha = 0.5) +
+#   # Add count labels inside each bar segment
+#   geom_text(aes(label = count),
+#             position = position_stack(vjust = 0.5),
+#             size = 3, color = "black") +
+#   scale_fill_manual(values = custom_colors_BEHAV) +
+#   labs(
+#     title = "",
+#     x = "Species",
+#     y = "Behaviour (%)",
+#     fill = "Behaviour"
+#   ) +
+#   theme_classic() +
+#   theme(
+#     axis.text.x = element_text(angle = 45, hjust = 1)
+#   )
+# 
+# Beha_Bar
