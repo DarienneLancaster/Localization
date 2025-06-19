@@ -118,7 +118,7 @@ linetype_map <- length_knocks_all %>%
 length_knocks_all_linetype <- left_join(length_knocks_all, linetype_map, by = "Common")
 
 knocks_all_50 <- ggplot(length_knocks_all_linetype, aes(x = mean_length, y = freq_pct50, color = Common)) +
-  geom_point(aes(color = Common), alpha = 0.3) +
+  geom_point(aes(color = Common), alpha = 0.2) +
   geom_smooth(aes(group = Common, color = Common, linetype = linetype), method = "lm", se = FALSE) +
   labs(
     x = "",
@@ -138,7 +138,7 @@ linetype_map <- length_knocks_all %>%
   group_modify(~ {
     model <- lm(freq_peak ~ mean_length, data = .x)
     p_val <- tidy(model) %>% filter(term == "mean_length") %>% pull(p.value)
-    linetype <- ifelse(p_val < 0.05, "dashed", "solid")
+    linetype <- ifelse(p_val < 0.07, "dashed", "solid")
     tibble(linetype = linetype)
   })
 
@@ -146,7 +146,7 @@ linetype_map <- length_knocks_all %>%
 length_knocks_all_linetype <- left_join(length_knocks_all, linetype_map, by = "Common")
 
 knocks_all_peak <- ggplot(length_knocks_all_linetype, aes(x = mean_length, y = freq_peak, color = Common)) +
-  geom_point(aes(color = Common), alpha = 0.3) +
+  geom_point(aes(color = Common), alpha = 0.2) +
   geom_smooth(aes(group = Common, color = Common, linetype = linetype), method = "lm", se = FALSE) +
   labs(
     x = "",
@@ -166,7 +166,7 @@ linetype_map <- length_knocks_all %>%
   group_modify(~ {
     model <- lm(freq_pct25 ~ mean_length, data = .x)
     p_val <- tidy(model) %>% filter(term == "mean_length") %>% pull(p.value)
-    linetype <- ifelse(p_val < 0.05, "dashed", "solid")
+    linetype <- ifelse(p_val < 0.07, "dashed", "solid")
     tibble(linetype = linetype)
   })
 
@@ -174,7 +174,7 @@ linetype_map <- length_knocks_all %>%
 length_knocks_all_linetype <- left_join(length_knocks_all, linetype_map, by = "Common")
 
 knocks_all_25 <- ggplot(length_knocks_all_linetype, aes(x = mean_length, y = freq_pct25, color = Common)) +
-  geom_point(aes(color = Common), alpha = 0.3) +
+  geom_point(aes(color = Common), alpha = 0.2) +
   geom_smooth(aes(group = Common, color = Common, linetype = linetype), method = "lm", se = FALSE) +
   labs(
     x = "",
@@ -194,7 +194,7 @@ linetype_map <- length_knocks_all %>%
   group_modify(~ {
     model <- lm(freq_pct75 ~ mean_length, data = .x)
     p_val <- tidy(model) %>% filter(term == "mean_length") %>% pull(p.value)
-    linetype <- ifelse(p_val < 0.05, "dashed", "solid")
+    linetype <- ifelse(p_val < 0.07, "dashed", "solid")
     tibble(linetype = linetype)
   })
 
@@ -202,7 +202,7 @@ linetype_map <- length_knocks_all %>%
 length_knocks_all_linetype <- left_join(length_knocks_all, linetype_map, by = "Common")
 
 knocks_all_75 <- ggplot(length_knocks_all_linetype, aes(x = mean_length, y = freq_pct75, color = Common)) +
-  geom_point(aes(color = Common), alpha = 0.3) +
+  geom_point(aes(color = Common), alpha = 0.2) +
   geom_smooth(aes(group = Common, color = Common, linetype = linetype), method = "lm", se = FALSE) +
   labs(
     x = "",
@@ -253,7 +253,7 @@ length_grunts_all<-fishdata%>%
 lp('purrr')
 lp('broom')
 
-#Linear regression Frequency 50% vs all species (KNOCKS)
+#Linear regression Frequency 50% vs all species (GRUNTS)
 
 # Define custom colors for species
 custom_colors <- c(
@@ -418,14 +418,24 @@ lp("umap")
 lp("dplyr")
 
 Behav_UMAP<-fishdata%>%
-  filter(t == "g", ID_confidence == 1|2,  Selection != 3030, str_detect(Species, "maliger"))%>%
-  select(Common, Activity, Site, freq_peak:time_centroid, High.Freq..Hz., Low.Freq..Hz.)%>%
+  filter(t == "d", ID_confidence == 1|2,  Selection != 3030, str_detect(Species, "maliger"))%>%
+  dplyr::select(Common, Activity, Site, mean_length, freq_peak:time_centroid, High.Freq..Hz., Low.Freq..Hz.)%>%
   mutate(Activity = if_else(Activity == "" | is.na(Activity), "No activity", Activity))%>%
-  select(-freq_flatness)
+  mutate(
+    Activity = if_else(Activity == "" | is.na(Activity), "No activity", Activity),
+    Activity = str_replace(Activity, "Chase other", "Chase"),
+    Activity = str_replace(Activity, "Chase conspecific", "Chase"),
+    Activity = str_replace(Activity, "Guarding bait", "Flight"),
+    Activity = str_replace(Activity, "Passing", "No activity"),
+    Activity = str_replace(Activity, "No activity", "No activity"),
+    Activity = str_replace(Activity, "Attracted", "Approach"))%>%
+  dplyr::select(-freq_flatness)
+
+
   
 
 # Extract feature matrix (excluding response)
-X_test <- Behav_UMAP[, !(names(Behav_UMAP) %in% c("Common", "Activity", "Site"))]
+X_test <- Behav_UMAP[, !(names(Behav_UMAP) %in% c("Common", "Activity", "Site", "mean_length"))]
 X_test
 # Run UMAP
 umap_result <- umap(X_test)
@@ -434,57 +444,129 @@ umap_result <- umap(X_test)
 umap_df <- as.data.frame(umap_result$layout)
 umap_df$Activity<-Behav_UMAP$Activity
 umap_df$Site<-Behav_UMAP$Site
+umap_df$mean_length<-Behav_UMAP$mean_length
 #umap_df$True <- test$Common
 # umap_df$Site<-test_wExtra$Site
 # umap_df$fishID<- test_wExtra$fishID
 levels(as.factor(umap_df$Activity))
 
-par(mfrow = c(1, 2))
-###########
-#NOTE- change so all species have same colour in both plots
+# Define custom colors for species
 custom_colors <- c(
-  "Attracted" = "#003399",   
-  "Chase conspecific" = "#FF6600", 
-  "Chase other" = "#33CC99",
-  "Feeding" = "#33CCFF",
-  "Guarding bait" = "#FFCC00",   
-  "Passing" = "#9900CC", 
-  "Scavenging" = "#334",
-  "No activity" = "#CAFF70"
+  "Chase" = "#003399",   
+  "Flight" = "#FF6600", 
+  "No activity" = "#33CC99",
+  "Approach" = "#33CCFF",
+  "Feeding" = "#FFCC00",
+  "Pile Perch" = "#9900CC" 
 )
 
+par(mfrow = c(1, 2))
+###########
 
 #Predicted values plot (shows how the Random Forest classified fish sounds)
-Behaviour <- ggplot(umap_df, aes(V1, V2, color = Activity, fill = Activity, shape = Site)) +
+Behaviour_QB <- ggplot(umap_df, aes(V1, V2, color = Activity, fill = Activity, shape = Site)) +
   geom_point(alpha = 0.8, size = 2) +
   stat_ellipse(aes(group = Activity), level = 0.70, type = "norm", geom = "polygon", alpha = 0.1, color = NA, show.legend = FALSE) +
   stat_ellipse(aes(group = Activity), level = 0.70, type = "norm", geom = "path", size = 1, show.legend = FALSE) +
   scale_color_manual(values = custom_colors) +
   scale_fill_manual(values = custom_colors) +
-  labs(title = "Behaviour",
+  labs(title = "Quillback Grunts",
        x = "UMAP 1", y = "UMAP 2") +
   theme_classic()+
   theme(legend.position = "right")
-Behaviour
+Behaviour_QB
 
-#black rockfish knocks show some pattern
+###Seeing if two groups are length related between Flight and 
+# #Predicted values plot (shows how the Random Forest classified fish sounds)
+# Behaviour_QB <- ggplot(umap_df, aes(V1, V2, color = mean_length, fill =mean_length, shape = Site)) +
+#   geom_point(alpha = 0.8, size = 2) +
+#   stat_ellipse(aes(group = mean_length), level = 0.70, type = "norm", geom = "polygon", alpha = 0.1, color = NA, show.legend = FALSE) +
+#   stat_ellipse(aes(group = mean_length), level = 0.70, type = "norm", geom = "path", size = 1, show.legend = FALSE) +
+#   #scale_color_manual(values = custom_colors) +
+#   #scale_fill_manual(values = custom_colors) +
+#   labs(title = "Quillback Grunts",
+#        x = "UMAP 1", y = "UMAP 2", fill = "Behaviour") +
+#   theme_classic()+
+#   theme(legend.position = "right")
+# Behaviour_QB
 
-#True values plot (shows how well the groups align with true species classifications)
-true<-ggplot(umap_df, aes(V1, V2, color = True, fill = True, shape = Site)) +
+ggsave("figures/CH2/UMAP_Behaviour_QuillbackKnock.png", plot = Behaviour_QB, width = 10, height = 6, dpi = 300)
+
+#Predicted values plot (shows how the Random Forest classified fish sounds)
+Behaviour_C <- ggplot(umap_df, aes(V1, V2, color = Activity, fill = Activity, shape = Site)) +
   geom_point(alpha = 0.8, size = 2) +
-  stat_ellipse(aes(group = True), level = 0.70, type = "norm", geom = "polygon", alpha = 0.1, color = NA, show.legend = FALSE) +
-  stat_ellipse(aes(group = True), level = 0.70, type = "norm", geom = "path", size = 1, show.legend = FALSE) +
+  stat_ellipse(aes(group = Activity), level = 0.70, type = "norm", geom = "polygon", alpha = 0.1, color = NA, show.legend = FALSE) +
+  stat_ellipse(aes(group = Activity), level = 0.70, type = "norm", geom = "path", size = 1, show.legend = FALSE) +
   scale_color_manual(values = custom_colors) +
   scale_fill_manual(values = custom_colors) +
-  labs(title = "True Species Classifications",
+  labs(title = "Copper Grunts",
        x = "UMAP 1", y = "UMAP 2") +
-  theme_classic()
+  theme_classic()+
+  theme(legend.position = "right")
+Behaviour_C
 
-UMAP_knocks_unbalanced<- pred+true
-UMAP_knocks_unbalanced
-ggsave("figures/UMAP_Knock_UNBALANCED_SiteID.png", plot = UMAP_knocks_unbalanced, width = 10, height = 6, dpi = 300)
+ggsave("figures/CH2/UMAP_Behaviour_CopperKnock.png", plot = Behaviour_C, width = 10, height = 6, dpi = 300)
+
+#Predicted values plot (shows how the Random Forest classified fish sounds)
+Behaviour_B <- ggplot(umap_df, aes(V1, V2, color = Activity, fill = Activity, shape = Site)) +
+  geom_point(alpha = 0.8, size = 2) +
+  stat_ellipse(aes(group = Activity), level = 0.70, type = "norm", geom = "polygon", alpha = 0.1, color = NA, show.legend = FALSE) +
+  stat_ellipse(aes(group = Activity), level = 0.70, type = "norm", geom = "path", size = 1, show.legend = FALSE) +
+  scale_color_manual(values = custom_colors) +
+  scale_fill_manual(values = custom_colors) +
+  labs(title = "Copper Grunts",
+       x = "UMAP 1", y = "UMAP 2") +
+  theme_classic()+
+  theme(legend.position = "right")
+Behaviour_B
+
+ggsave("figures/CH2/UMAP_Behaviour_Black.png", plot = Behaviour_B, width = 10, height = 6, dpi = 300)
 
 
+#Predicted values plot (shows how the Random Forest classified fish sounds)
+Behaviour_L <- ggplot(umap_df, aes(V1, V2, color = Activity, fill = Activity, shape = Site)) +
+  geom_point(alpha = 0.8, size = 2) +
+  stat_ellipse(aes(group = Activity), level = 0.70, type = "norm", geom = "polygon", alpha = 0.1, color = NA, show.legend = FALSE) +
+  stat_ellipse(aes(group = Activity), level = 0.70, type = "norm", geom = "path", size = 1, show.legend = FALSE) +
+  scale_color_manual(values = custom_colors) +
+  scale_fill_manual(values = custom_colors) +
+  labs(title = "Copper Grunts",
+       x = "UMAP 1", y = "UMAP 2") +
+  theme_classic()+
+  theme(legend.position = "right")
+Behaviour_L
+
+ggsave("figures/CH2/UMAP_Behaviour_LingcodKnock.png", plot = Behaviour_L, width = 10, height = 6, dpi = 300)
+
+#Predicted values plot (shows how the Random Forest classified fish sounds)
+Behaviour_PP <- ggplot(umap_df, aes(V1, V2, color = Activity, fill = Activity, shape = Site)) +
+  geom_point(alpha = 0.8, size = 2) +
+  stat_ellipse(aes(group = Activity), level = 0.70, type = "norm", geom = "polygon", alpha = 0.1, color = NA, show.legend = FALSE) +
+  stat_ellipse(aes(group = Activity), level = 0.70, type = "norm", geom = "path", size = 1, show.legend = FALSE) +
+  scale_color_manual(values = custom_colors) +
+  scale_fill_manual(values = custom_colors) +
+  labs(title = "Copper Grunts",
+       x = "UMAP 1", y = "UMAP 2") +
+  theme_classic()+
+  theme(legend.position = "right")
+Behaviour_PP
+
+ggsave("figures/CH2/UMAP_Behaviour_PilePerchKnock.png", plot = Behaviour_PP, width = 10, height = 6, dpi = 300)
+
+#Predicted values plot (shows how the Random Forest classified fish sounds)
+Behaviour_Can <- ggplot(umap_df, aes(V1, V2, color = Activity, fill = Activity, shape = Site)) +
+  geom_point(alpha = 0.8, size = 2) +
+  stat_ellipse(aes(group = Activity), level = 0.70, type = "norm", geom = "polygon", alpha = 0.1, color = NA, show.legend = FALSE) +
+  stat_ellipse(aes(group = Activity), level = 0.70, type = "norm", geom = "path", size = 1, show.legend = FALSE) +
+  scale_color_manual(values = custom_colors) +
+  scale_fill_manual(values = custom_colors) +
+  labs(title = "Copper Grunts",
+       x = "UMAP 1", y = "UMAP 2") +
+  theme_classic()+
+  theme(legend.position = "right")
+Behaviour_Can
+
+ggsave("figures/CH2/UMAP_Behaviour_CanKnock.png", plot = Behaviour_Can, width = 10, height = 6, dpi = 300)
 
 
 
