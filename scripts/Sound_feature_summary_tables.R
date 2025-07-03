@@ -95,13 +95,13 @@ TotalE_ID1<-fishdata%>%
   group_by(Common) %>%  # Group by Common and ID_confidence
   summarize(TotE_ID1 = n())  # Count the rows for each group
 
-levels(as.factor(MeanD$Common))
+
 #calculate mean and SD for each sound feature for all knocks (d) with ID confidence of 1
 ##
 MeanD <- fishdata %>%
   filter(t == "d" &
            Common != "other" &
-           (ID_confidence == 1 | 
+           (ID_confidence == 1 |
               (Common == "Lingcod" & ID_confidence %in% c(1, 2)))) %>%
   rename(
     high_freq_hz = High.Freq..Hz.,
@@ -126,8 +126,8 @@ MeanD <- fishdata %>%
     names_from = stat,
     values_from = value
   ) %>%
-  mutate(summary = sprintf("%.1f ± %.1f", D_mean, D_sd)) %>%
-  select(Common, n, feature, summary) %>%
+  mutate(summary = sprintf("%.2f ± %.2f", D_mean, D_sd)) %>%
+  dplyr::select(Common, n, feature, summary) %>%
   pivot_wider(names_from = feature, values_from = summary)
 ##
 
@@ -162,10 +162,10 @@ MeanD_all <- fishdata %>%
     names_from = stat,
     values_from = value
   ) %>%
-  mutate(summary = sprintf("%.1f ± %.1f", D_mean, D_sd)) %>%
-  select(Common, n, feature, summary) %>%
+  mutate(summary = sprintf("%.2f ± %.2f", D_mean, D_sd)) %>%
+  dplyr::select(Common, n, feature, summary) %>%
   pivot_wider(names_from = feature, values_from = summary)%>%
-  select(!c(n,freq_flatness))%>%
+  dplyr::select(!c(n,freq_flatness))%>%
   pivot_longer(-Common, names_to = "feature", values_to = "summary") %>%
   pivot_wider(names_from = Common, values_from = summary)%>%
   rename(
@@ -205,8 +205,8 @@ MeanG <- fishdata %>%
     names_from = stat,
     values_from = value
   ) %>%
-  mutate(summary = sprintf("%.1f ± %.1f", D_mean, D_sd)) %>%
-  select(Common, n, feature, summary) %>%
+  mutate(summary = sprintf("%.2f ± %.2f", D_mean, D_sd)) %>%
+  dplyr::select(Common, n, feature, summary) %>%
   pivot_wider(names_from = feature, values_from = summary)
 
 #grunts - all features
@@ -235,10 +235,10 @@ MeanG_all <- fishdata %>%
     names_from = stat,
     values_from = value
   ) %>%
-  mutate(summary = sprintf("%.1f ± %.1f", D_mean, D_sd)) %>%
-  select(Common, n, feature, summary) %>%
+  mutate(summary = sprintf("%.2f ± %.2f", D_mean, D_sd)) %>%
+  dplyr::select(Common, n, feature, summary) %>%
   pivot_wider(names_from = feature, values_from = summary)%>%
-  select(!c(n,freq_flatness))%>%
+  dplyr::select(!c(n,freq_flatness))%>%
   pivot_longer(-Common, names_to = "feature", values_to = "summary") %>%
   pivot_wider(names_from = Common, values_from = summary)%>%
   rename(
@@ -275,8 +275,8 @@ MeanE <- fishdata %>%
     names_from = stat,
     values_from = value
   ) %>%
-  mutate(summary = sprintf("%.1f ± %.1f", D_mean, D_sd)) %>%
-  select(Common, n, feature, summary) %>%
+  mutate(summary = sprintf("%.2f ± %.2f", D_mean, D_sd)) %>%
+  dplyr::select(Common, n, feature, summary) %>%
   pivot_wider(names_from = feature, values_from = summary)
 
 #other sounds - all features
@@ -305,10 +305,10 @@ MeanE_all <- fishdata %>%
     names_from = stat,
     values_from = value
   ) %>%
-  mutate(summary = sprintf("%.1f ± %.1f", D_mean, D_sd)) %>%
-  select(Common, n, feature, summary) %>%
+  mutate(summary = sprintf("%.2f ± %.2f", D_mean, D_sd)) %>%
+  dplyr::select(Common, n, feature, summary) %>%
   pivot_wider(names_from = feature, values_from = summary)%>%
-  select(!c(n,freq_flatness))%>%
+  dplyr::select(!c(n,freq_flatness))%>%
   pivot_longer(-Common, names_to = "feature", values_to = "summary") %>%
   pivot_wider(names_from = Common, values_from = summary)%>%
   rename(
@@ -393,7 +393,7 @@ set_flextable_defaults(
 knock_flextable <- flextable(knock_table)
 knock_flextable <- colformat_double(
   x = knock_flextable,
-  big.mark = ",", digits = 2, na_str = "N/A"
+  big.mark = ",", digits = 4, na_str = "N/A"
 )
 knock_flextable  <- line_spacing(knock_flextable , space = 1.5, part = "all")
 # knock_flextable <- add_header_row(knock_flextable,
@@ -422,7 +422,7 @@ knock_flextableALL <- flextable(knock_flextableALL)
 knock_flextableALL
 knock_flextableALL <- colformat_double(
   x = knock_flextableALL,
-  big.mark = ",", digits = 2, na_str = "N/A"
+  big.mark = ",", digits = 4, na_str = "N/A"
 )
 knock_flextableALL  <- line_spacing(knock_flextableALL , space = 1.5, part = "all")
 # knock_flextable <- add_header_row(knock_flextable,
