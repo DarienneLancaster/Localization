@@ -271,7 +271,7 @@ pred<-ggplot(umap_df, aes(V1, V2, color = Predicted, fill = Predicted, shape = S
   stat_ellipse(level = 0.70, type = "norm", geom = "path", size = 1, show.legend = FALSE) +
   scale_color_manual(values = custom_colors) +
   scale_fill_manual(values = custom_colors) +
-  labs(title = "Random Forest Grunt Predictions",
+  labs(title = "Random forest grunt predictions",
        x = "UMAP 1", y = "UMAP 2") +
   theme_classic()+
   theme(legend.position = "none")
@@ -284,7 +284,7 @@ true<-ggplot(umap_df, aes(V1, V2, color = True, fill = True, shape = Site)) +
   stat_ellipse(level = 0.70, type = "norm", geom = "path", size = 1, show.legend = FALSE) +
   scale_color_manual(values = custom_colors) +
   scale_fill_manual(values = custom_colors) +
-  labs(title = "True Species Grunt Classifications",
+  labs(title = "Manual classification via video review",
        x = "UMAP 1", y = "UMAP 2") +
   theme_classic()
 
@@ -1929,7 +1929,7 @@ pred <- ggplot(umap_df, aes(V1, V2, color = Predicted, fill = Predicted, shape =
   stat_ellipse(aes(group = Predicted), level = 0.70, type = "norm", geom = "path", size = 1, show.legend = FALSE) +
   scale_color_manual(values = custom_colors) +
   scale_fill_manual(values = custom_colors) +
-  labs(title = "Random Forest Predictions",
+  labs(title = "Random forest knock predictions",
        x = "UMAP 1", y = "UMAP 2") +
   theme_classic()+
   theme(legend.position = "none")
@@ -1941,7 +1941,7 @@ true<-ggplot(umap_df, aes(V1, V2, color = True, fill = True, shape = Site)) +
   stat_ellipse(aes(group = True), level = 0.70, type = "norm", geom = "path", size = 1, show.legend = FALSE) +
   scale_color_manual(values = custom_colors) +
   scale_fill_manual(values = custom_colors) +
-  labs(title = "True Species Classifications",
+  labs(title = "Manual classification via video review",
        x = "UMAP 1", y = "UMAP 2") +
   theme_classic()
 
