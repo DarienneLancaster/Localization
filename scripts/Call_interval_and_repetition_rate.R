@@ -81,8 +81,8 @@ fishdata99 <- fishdata44 %>%
   group_by(fishID) %>%
   mutate(
     Sequence_ID = cumsum(
-      Begin.Time..s. > lag(End, default = first(End)) + 5 | is.na(lag(End))
-    ) + 5  # Incremental sequence for each group
+      Begin.Time..s. > lag(End, default = first(End)) + 2 | is.na(lag(End))
+    ) + 2  # Incremental sequence for each group
   ) %>%
   ungroup()
 
@@ -98,6 +98,86 @@ fishdata98 <- fishdata99 %>%
   ) %>%
   ungroup()
 
+#################################################
+#NOTE - how to determing call sequence time cut off (e.g. 1 sec, 5 sec)
+#calculate mean (sd) time between all calls made by unique fish (also calculate by species)
+#calculate time between each call within a call sequence (call Interval)
+SeqThresh <- fishdata99 %>%
+  group_by(fishID) %>%
+  mutate(
+    Seq_thresh = ifelse(
+      is.na(lag(End)),  # If lag() returns NA (i.e., first row in group)
+      NA,                          
+      Begin.Time..s. - lag(End)  # Otherwise, subtract Begin.Time..s. from previous row
+    )
+  ) %>%
+  ungroup()
+
+Thresh <- SeqThresh %>%
+  group_by(Common, fishID) %>%
+  summarise(
+    mean_thresh = mean(Seq_thresh, na.rm = TRUE),
+    sd_thresh = sd(Seq_thresh, na.rm = TRUE),
+    .groups = "drop"
+  )%>%
+  filter(Common != "Kelp Greenling")%>%
+  filter(Common != "other")
+
+Seq_Thresh_outliers<-ggplot(Thresh, aes(x = Common, y = mean_thresh, fill = Common)) +
+  geom_boxplot(color = "black", alpha = 0.7) +
+  scale_fill_brewer(palette = "Set2") +  # Or use your custom colors
+  labs(
+    title = "Time between calls for individual fish by species",
+    x = "Species",
+    y = "Time between calls (s)"
+  ) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none")
+Seq_Thresh_outliers
+
+ggsave("figures/CH2/Call_Interval_Threshold_Selection_withoutliersBOXPLOT.png", plot = Seq_Thresh_outliers, width = 10, height = 10, dpi = 300)
+
+Thresh <- SeqThresh %>%
+  group_by(Common, fishID) %>%
+  summarise(
+    mean_thresh = mean(Seq_thresh, na.rm = TRUE),
+    sd_thresh = sd(Seq_thresh, na.rm = TRUE),
+    .groups = "drop"
+  )%>%
+  filter(mean_thresh < 20)%>%
+  filter(Common != "Kelp Greenling")%>%
+  filter(Common != "other")
+  
+
+Seq_Thresh_NOoutliers<-ggplot(Thresh, aes(x = Common, y = mean_thresh, fill = Common)) +
+  geom_boxplot(color = "black", alpha = 0.7) +
+  scale_fill_brewer(palette = "Set2") +  # Or use your custom colors
+  labs(
+    title = "Time between calls for individual fish by species (<20 seconds)",
+    x = "Species",
+    y = "Time between calls (s)"
+  ) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none")
+Seq_Thresh_NOoutliers
+
+ggsave("figures/CH2/Call_Interval_Threshold_Selection_NOoutliersBOXPLOT_lessthan20s.png", plot = Seq_Thresh_NOoutliers, width = 10, height = 10, dpi = 300)
+
+
+MeanInt <- Thresh %>%
+  filter(mean_thresh <20)%>%
+  group_by(Common)%>%
+  summarise(
+    mean_interval = mean(mean_thresh, na.rm = TRUE),
+    sd_interval = sd(sd_thresh, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+MeanInt_flex<-flextable(MeanInt)
+MeanInt_flex
+save_as_image(x = MeanInt_flex, path = "figures/CH2/Mean_call_interval_outliersabove20sremoved.png")
 
 #calculate how many calls are repeated within a sequence
 fishdata998 <- fishdata98 %>%
@@ -112,7 +192,7 @@ fishdata001 <- fishdata98 %>%
 #join number of fish call data to main data
 fishdata999<-left_join(fishdata98, fishdata998, by = c("fishID", "Sequence_ID"))%>%
   mutate(Sequence_Reps = count) %>%
-  select(-count) # Remove the intermediate 'count' column, if not needed
+  dplyr::select(-count) # Remove the intermediate 'count' column, if not needed
 
 #join number of grunts and drums to main data
 fishdata002<-left_join(fishdata999, fishdata001, by = c("fishID", "Sequence_ID"))
@@ -156,11 +236,14 @@ ggplot(fishdata000, aes(x = Sequence_Reps)) +
 lp("purrr")
 lp("stringr")
 lp("lubridate")
+lp("hms")
 
 #convert tottime to time and then change to seconds
-CallDeets <- CallDeets %>%
+#there is a negative time value in one KG entry which will cause time conversion issues if you remove the KG filter
+CallDeets <- fishdata000 %>%
+  filter(Species != "decagrammus")%>%
+  filter(Common != "other")%>%
   mutate(tottime = as.numeric(as_hms(tottime)))
-
 
 # Define columns to summarize
 summary_cols <- c("Sequence_Reps","d_count","g_count",  "e_count",  "C_Interval_mean", "C_Interval_sd", "tottime")
@@ -228,7 +311,7 @@ calldeets_flextable  <- set_table_properties(calldeets_flextable , align = "righ
 calldeets_flextable <- theme_vanilla(calldeets_flextable)
 calldeets_flextable <- width(calldeets_flextable, width = 1.2)
 calldeets_flextable
-save_as_image(x = calldeets_flextable, path = "figures/CH2/Call_Details_Table.png")
+save_as_image(x = calldeets_flextable, path = "figures/CH2/Call_Details_Table2.png")
 
 ##########################
 #create box plots of call details
@@ -270,6 +353,11 @@ CI<- ggplot(CallDeets, aes(x = Common, y = C_Interval_mean, fill = Common)) +
   )
 CI
 
+#All species Call Interval
+pairwise.wilcox.test(CallDeets$C_Interval_mean, CallDeets$Common, p.adjust.method = "BH")
+# nothing significant
+
+
 #call repetition
 CR<- ggplot(CallDeets, aes(x = Common, y = Sequence_Reps, fill = Common)) +
   geom_boxplot(varwidth = TRUE, color = "black",  outlier.shape = NA, alpha = 0.7) +
@@ -294,6 +382,9 @@ CR<- ggplot(CallDeets, aes(x = Common, y = Sequence_Reps, fill = Common)) +
     legend.position = "none"
   )
 CR
+#All species Call Interval
+pairwise.wilcox.test(CallDeets$Sequence_Reps, CallDeets$Common, p.adjust.method = "BH")
+# nothing significant
 
 # number knocks
 Knum<- ggplot(CallDeets, aes(x = Common, y = d_count, fill = Common)) +
@@ -320,6 +411,10 @@ Knum<- ggplot(CallDeets, aes(x = Common, y = d_count, fill = Common)) +
   )
 Knum
 
+#All species knocks
+pairwise.wilcox.test(CallDeets$d_count, CallDeets$Common, p.adjust.method = "BH")
+# Lingcod and Quillback rockfish have significantly more knock sounds than Black rockfish
+
 #number grunts
 Gnum<- ggplot(CallDeets, aes(x = Common, y = g_count, fill = Common)) +
   geom_boxplot(varwidth = TRUE, color = "black",  outlier.shape = NA, alpha = 0.7) +
@@ -345,7 +440,10 @@ Gnum<- ggplot(CallDeets, aes(x = Common, y = g_count, fill = Common)) +
   )
 Gnum
 
-
+#All species grunts
+pairwise.wilcox.test(CallDeets$g_count, CallDeets$Common, p.adjust.method = "BH")
+# Black rockfish have significantly more grunts than than all species,
+#Copper rockfish have significantly more grunts than Canary and Pile perch
 
 lp("patchwork")
 lp("cowplot")
@@ -462,33 +560,12 @@ plot(M1)
 # like the Residual vs. fitted plot - again outliers and small datasets can have issues with this)
 # Residuals vs Leverage - helps identify influential outliers (in this example point 7 is almost worrisome but it's not past the dashed lines so probably okay to include)
 
-#####calculate residuals and add to dataframe
-
-residuals <- residuals(M1)
-TF2 <- CallDeets1 %>%
-  dplyr::mutate(resid = residuals)
-
-## plot residuals vs predictors (looking for flat line with lm)
-
-E1<-ggplot(TF2) +
-  geom_point(aes(x = Activity,
-                 y = resid)) +
-  geom_smooth(aes(x = Activity,
-                  y = resid),
-              method = "lm")
-
-lp("gridExtra")
-lp("DHARMa")
-resVpred<-grid.arrange(E1,  nrow = 2, respect=TRUE)
 
 #check model fit with DHARMa tests
 r <- simulateResiduals(M1, n = 1000, plot = TRUE)  #If there are issues with resid vs pred quantile plot they will show up in red on this plot
 
 ####################################
 #Copper
-
-#Quillback
-
 
 levels(as.factor(CallDeets$Activity))
 
@@ -543,25 +620,6 @@ plot(M1)
 # Scale-Location plot - plots fitted values against square root of standardized residuals (looking again for even scattering around a straight middle line 
 # like the Residual vs. fitted plot - again outliers and small datasets can have issues with this)
 # Residuals vs Leverage - helps identify influential outliers (in this example point 7 is almost worrisome but it's not past the dashed lines so probably okay to include)
-
-#####calculate residuals and add to dataframe
-
-residuals <- residuals(M1)
-TF2 <- CallDeets1 %>%
-  dplyr::mutate(resid = residuals)
-
-## plot residuals vs predictors (looking for flat line with lm)
-
-E1<-ggplot(TF2) +
-  geom_point(aes(x = Activity,
-                 y = resid)) +
-  geom_smooth(aes(x = Activity,
-                  y = resid),
-              method = "lm")
-
-lp("gridExtra")
-lp("DHARMa")
-resVpred<-grid.arrange(E1,  nrow = 2, respect=TRUE)
 
 #check model fit with DHARMa tests
 r <- simulateResiduals(M1, n = 1000, plot = TRUE)  #If there are issues with resid vs pred quantile plot they will show up in red on this plot
@@ -619,6 +677,13 @@ G_BEHA_C<- ggplot(CallDeets2, aes(x = Activity, y = g_count, fill = Activity)) +
   )
 G_BEHA_C
 
+#test if there are significant differences in number of grunts across behaviours
+
+#Copper Grunts 
+pairwise.wilcox.test(CallDeets2$g_count, CallDeets2$Activity, p.adjust.method = "BH")
+# significantly more grunts during flight than during No Activity and Feeding
+#significantly more grunts during chasing than during no activity
+
 #number grunts
 K_BEHA_C<- ggplot(CallDeets2, aes(x = Activity, y = d_count, fill = Activity)) +
   geom_boxplot(varwidth = TRUE, color = "black",  outlier.shape = NA, alpha = 0.7) +
@@ -644,7 +709,11 @@ K_BEHA_C<- ggplot(CallDeets2, aes(x = Activity, y = d_count, fill = Activity)) +
   )
 K_BEHA_C
 
-#number grunts
+#Copper Knocks
+pairwise.wilcox.test(CallDeets2$d_count, CallDeets2$Activity, p.adjust.method = "BH")
+# significantly more knocks during Flight and No activity than during chasing 
+
+#number call reps
 Rep_BEHA_C<- ggplot(CallDeets2, aes(x = Activity, y = Sequence_Reps, fill = Activity)) +
   geom_boxplot(varwidth = TRUE, color = "black",  outlier.shape = NA, alpha = 0.7) +
   geom_point(
@@ -668,6 +737,10 @@ Rep_BEHA_C<- ggplot(CallDeets2, aes(x = Activity, y = Sequence_Reps, fill = Acti
     legend.position = "none"
   )
 Rep_BEHA_C
+
+#Copper call reps
+pairwise.wilcox.test(CallDeets2$Sequence_Reps, CallDeets2$Activity, p.adjust.method = "BH")
+# significantly more call reps during flight than during feeding
 
 #number grunts
 INT_BEHA_C<- ggplot(CallDeets2, aes(x = Activity, y = C_Interval_mean, fill = Activity)) +
@@ -693,6 +766,19 @@ INT_BEHA_C<- ggplot(CallDeets2, aes(x = Activity, y = C_Interval_mean, fill = Ac
     legend.position = "none"
   )
 INT_BEHA_C
+
+#Copper call reps
+
+#remove any activity groups with less than 2 observations
+CallDeets2_filtered <- CallDeets2 %>%
+  group_by(Activity) %>%
+  filter(n() >= 2) %>%
+  ungroup()
+
+pairwise.wilcox.test(CallDeets2_filtered$C_Interval_mean, 
+                     CallDeets2_filtered$Activity, 
+                     p.adjust.method = "BH")
+#no significant differences
 
 ####################
 #behaviour vs call patterns for QB
@@ -746,6 +832,11 @@ G_BEHA_Q<- ggplot(CallDeets3, aes(x = Activity, y = g_count, fill = Activity)) +
   )
 G_BEHA_Q
 
+#Quillback grunts
+pairwise.wilcox.test(CallDeets3$g_count, CallDeets3$Activity, p.adjust.method = "BH")
+# significantly more grunts during flight and feeding than no activity
+
+
 #number knocks
 K_BEHA_Q<- ggplot(CallDeets3, aes(x = Activity, y = d_count, fill = Activity)) +
   geom_boxplot(varwidth = TRUE, color = "black",  outlier.shape = NA, alpha = 0.7) +
@@ -770,6 +861,10 @@ K_BEHA_Q<- ggplot(CallDeets3, aes(x = Activity, y = d_count, fill = Activity)) +
     legend.position = "none"
   )
 K_BEHA_Q
+
+#Quillback knocks
+pairwise.wilcox.test(CallDeets3$d_count, CallDeets3$Activity, p.adjust.method = "BH")
+# nothing significant
 
 #number reps
 Rep_BEHA_Q<- ggplot(CallDeets3, aes(x = Activity, y = Sequence_Reps, fill = Activity)) +
@@ -796,6 +891,11 @@ Rep_BEHA_Q<- ggplot(CallDeets3, aes(x = Activity, y = Sequence_Reps, fill = Acti
   )
 Rep_BEHA_Q
 
+#Quillback call reps
+pairwise.wilcox.test(CallDeets3$Sequence_Reps, CallDeets3$Activity, p.adjust.method = "BH")
+# nothing significant
+
+
 #call interval
 INT_BEHA_Q<- ggplot(CallDeets3, aes(x = Activity, y = C_Interval_mean, fill = Activity)) +
   geom_boxplot(varwidth = TRUE, color = "black",  outlier.shape = NA, alpha = 0.7) +
@@ -821,6 +921,17 @@ INT_BEHA_Q<- ggplot(CallDeets3, aes(x = Activity, y = C_Interval_mean, fill = Ac
   )
 INT_BEHA_Q
 
+#Quillback interval
+#remove any activity groups with less than 2 observations
+CallDeets3_filtered <- CallDeets3 %>%
+  group_by(Activity) %>%
+  filter(n() >= 2) %>%
+  ungroup()
+
+pairwise.wilcox.test(CallDeets3_filtered$C_Interval_mean, 
+                     CallDeets3_filtered$Activity, 
+                     p.adjust.method = "BH")
+#nothing significant 
 
 lp("patchwork")
 lp("cowplot")
@@ -884,30 +995,6 @@ INT_BEHA_O<- ggplot(CallDeets4, aes(x = Activity, y = C_Interval_mean, fill = Ac
   )
 INT_BEHA_O
 
-#test if there are significant differences in number of grunts across behaviours
-
-#Copper Grunts 
-pairwise.wilcox.test(CallDeets2$g_count, CallDeets2$Activity, p.adjust.method = "BH")
-# significantly more grunts during flight than during No Activity and Feeding
-
-#Quillback Grunts 
-pairwise.wilcox.test(CallDeets3$g_count, CallDeets3$Activity, p.adjust.method = "BH")
-
-#test if there are significant differences in number of Knocks across behaviours
-
-#Copper Knocks
-pairwise.wilcox.test(CallDeets2$d_count, CallDeets2$Activity, p.adjust.method = "BH")
-
-#Quillback Knocks
-pairwise.wilcox.test(CallDeets3$d_count, CallDeets3$Activity, p.adjust.method = "BH")
-
-#test if there are significant differences in number of call reps across behaviours
-
-#Copper Call Rep
-pairwise.wilcox.test(CallDeets2$Sequence_Reps, CallDeets2$Activity, p.adjust.method = "BH")
-
-#Quillback Call Rep
-pairwise.wilcox.test(CallDeets3$Sequence_Reps, CallDeets3$Activity, p.adjust.method = "BH")
 
 ###################################
 #Percent behaviour type by species
@@ -977,3 +1064,19 @@ ggsave("figures/CH2/Percentage_Behaviour_barplot.png", plot = Beha_Bar, width = 
 #   )
 # 
 # Beha_Bar
+
+
+####################################
+#how many flight instances are conspecific vs other
+
+Flight<-CallDeets%>%
+  mutate(
+    Activity = if_else(Activity == "" | is.na(Activity), "No activity", Activity),
+    Activity = str_replace(Activity, "Chase other", "Chase"),
+    Activity = str_replace(Activity, "Chase conspecific", "Chase"),
+    Activity = str_replace(Activity, "Guarding bait", "Flight"),
+    Activity = str_replace(Activity, "Passing", "No activity"),
+    Activity = str_replace(Activity, "No activity", "No activity"),
+    Activity = str_replace(Activity, "Attracted", "Approach"))%>%
+  #filter(Species == "pinniger")
+  filter(Activity == "Flight")
