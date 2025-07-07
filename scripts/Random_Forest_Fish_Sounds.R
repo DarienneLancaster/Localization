@@ -191,12 +191,17 @@ overall_stats
 class_stats <- as.data.frame(conf_mat_TEST$byClass)
 class_stats
 
+class_counts <- test %>%
+  count(Common) %>%
+  rename(`Knock Class` = Common, n = n)
+
+class_stats$n <- class_counts$n 
 
 # 3. Add row names as a new column for clarity
 class_stats$Class <- rownames(class_stats)
 rownames(class_stats) <- NULL  # optional: reset row names
 class_stats<-class_stats%>%
-  select(-Sensitivity, -Specificity, -`Pos Pred Value`, -`Neg Pred Value`)%>%
+  dplyr::select(-Sensitivity, -Specificity, -`Pos Pred Value`, -`Neg Pred Value`)%>%
   mutate(Class = str_replace(Class, "^Class:", "")) %>%
   rename('F1 Score' = F1, 'Grunt Class' = Class)
 
@@ -1782,12 +1787,17 @@ overall_stats
 class_stats <- as.data.frame(conf_mat_TEST$byClass)
 class_stats
 
+class_counts <- test %>%
+  count(Common) %>%
+  rename(`Knock Class` = Common, n = n)
+
+class_stats$n <- class_counts$n 
 
 # 3. Add row names as a new column for clarity
 class_stats$Class <- rownames(class_stats)
 rownames(class_stats) <- NULL  # optional: reset row names
 class_stats<-class_stats%>%
-  select(-Sensitivity, -Specificity, -`Pos Pred Value`, -`Neg Pred Value`)%>%
+  dplyr::select(-Sensitivity, -Specificity, -`Pos Pred Value`, -`Neg Pred Value`)%>%
   mutate(Class = str_replace(Class, "^Class:", "")) %>%
   rename('F1 Score' = F1, 'Knock Class' = Class)
 
