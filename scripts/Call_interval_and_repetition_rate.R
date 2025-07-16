@@ -30,6 +30,7 @@ fishdata$Common<- ifelse(fishdata$Species == "caurinus", "Copper rockfish",
                                                                    ifelse(fishdata$Species == "vacca", "Pile Perch", "other"))))))))
 
 
+
 ###############################
 #calculate call sequences (link together calls from the same fish <1 second apart as a call sequence)
 str(fishdata)
@@ -179,6 +180,88 @@ MeanInt_flex<-flextable(MeanInt)
 MeanInt_flex
 save_as_image(x = MeanInt_flex, path = "figures/CH2/Mean_call_interval_outliersabove20sremoved.png")
 
+#######
+#assign number to each call sequentially within a sequence
+
+Call_Num<- fishdata98%>%
+  filter(ID_confidence != 3)%>%
+  group_by(fishID, Sequence_ID)%>%
+  mutate(call_num = row_number()) %>%
+  ungroup()
+
+###
+#calculate mean and sd of call intervals by species for each call within a sequence (e.g. call 1, call 2, etc...)
+#calculate mean and sd of call interval for each call sequence
+Call_Num_Sum <- Call_Num %>%
+  filter(ID_confidence != 3)%>%
+  group_by(Common, call_num) %>%
+  summarize(C_Interval_mean = mean(Call_Interval, na.rm = TRUE), C_Interval_sd = sd(Call_Interval, na.rm = TRUE))
+
+Call_Num1<- Call_Num%>%
+  filter(!(call_num > 5))
+
+Call_Num1$call_num<-as.factor(Call_Num1$call_num)
+
+
+
+##
+library(ggplot2)
+library(ggpubr) #allows you to do wilcoxon pairwise comparisons in the plot
+
+#################
+#plot of call interval vs. call number within sequence for each species
+DD <- ggplot(Call_Num1, aes(x = call_num, y = Call_Interval, fill = call_num)) +
+  geom_boxplot(varwidth = TRUE, color = "black", outlier.shape = NA, alpha = 0.7) +
+  stat_compare_means(method = "wilcox.test", 
+                     comparisons = combn(levels(Call_Num1$call_num), 2, simplify = FALSE),
+                     label = "p.signif") +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  ) +
+  facet_wrap(~ Common)
+
+DD
+
+ggsave("figures/CH2/CallNumbervsCallIntervalbySpecies_Boxplots.png", plot = DD, width = 10, height = 10, dpi = 300)
+
+##
+
+#count how many grunts and knocks per call number
+percent_t <- Call_Num %>%
+  group_by(Common, call_num, t) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  mutate(total = sum(count), .by = c(Common, call_num)) %>%
+  mutate(percent = (count / total) * 100)%>%
+  filter(!(call_num >10))
+
+GK<-ggplot(percent_t, aes(x = factor(call_num), y = percent, fill = t)) +
+  geom_bar(stat = "identity", position = "stack", color = "black") +
+  facet_wrap(~ Common) +
+  theme_classic() +
+  labs(
+    x = "Call Number",
+    y = "Percentage",
+    fill = "t",
+    title = "Distribution of call types per Call Number by species"
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+GK
+ggsave("figures/CH2/CallNumbervsCallTypebySpecies_PercentBar.png", plot = GK, width = 10, height = 10, dpi = 300)
+
+Call_Num_GK <- Call_Num %>%
+  group_by(Common, call_num, t) %>%
+  count(name = "occurrences") %>%
+  ungroup()
+
+CoppG<- Call_Num_GK%>%
+  filter(Common == "Copper rockfish")
+
+
+
 #calculate how many calls are repeated within a sequence
 fishdata998 <- fishdata98 %>%
   group_by(fishID, Sequence_ID) %>%
@@ -327,7 +410,7 @@ custom_colors <- c(
 )
 
 #Call interval
-
+str(CallDeets)
 
 CI<- ggplot(CallDeets, aes(x = Common, y = C_Interval_mean, fill = Common)) +
   geom_boxplot(varwidth = TRUE, color = "black", outlier.shape = NA, alpha = 0.7) +
@@ -511,7 +594,7 @@ CallDeets_qb <- CallDeets %>%
     Activity = if_else(Activity == "" | is.na(Activity), "No activity", Activity),
     Activity = str_replace(Activity, "Chase other", "Chase"),
     Activity = str_replace(Activity, "Chase conspecific", "Chase"),
-    Activity = str_replace(Activity, "Guarding bait", "Flight"),
+    Activity = str_replace(Activity, "Guarding bait", "Fleeing"),
     Activity = str_replace(Activity, "Passing", "A No activity"),
     Activity = str_replace(Activity, "No activity", "A No activity"),
     Activity = str_replace(Activity, "Attracted", "Approach"))%>%
@@ -574,7 +657,7 @@ CallDeets_cop <- CallDeets %>%
     Activity = if_else(Activity == "" | is.na(Activity), "No activity", Activity),
     Activity = str_replace(Activity, "Chase other", "Chase"),
     Activity = str_replace(Activity, "Chase conspecific", "Chase"),
-    Activity = str_replace(Activity, "Guarding bait", "Flight"),
+    Activity = str_replace(Activity, "Guarding bait", "Fleeing"),
     Activity = str_replace(Activity, "Passing", "A No activity"),
     Activity = str_replace(Activity, "No activity", "A No activity"),
     Activity = str_replace(Activity, "Attracted", "Approach"))%>%
@@ -633,7 +716,7 @@ CallDeets2 <- CallDeets %>%
     Activity = if_else(Activity == "" | is.na(Activity), "No activity", Activity),
     Activity = str_replace(Activity, "Chase other", "Chase"),
     Activity = str_replace(Activity, "Chase conspecific", "Chase"),
-    Activity = str_replace(Activity, "Guarding bait", "Flight"),
+    Activity = str_replace(Activity, "Guarding bait", "Fleeing"),
     Activity = str_replace(Activity, "Passing", "No activity"),
     Activity = str_replace(Activity, "No activity", "No activity"),
     Activity = str_replace(Activity, "Attracted", "Approach"))%>%
@@ -642,7 +725,7 @@ CallDeets2 <- CallDeets %>%
 # Define custom colors for species
 custom_colors_BEHAV <- c(
   "Chase" = "#003399",   
-  "Flight" = "#FF6600", 
+  "Fleeing" = "#FF6600", 
   "No activity" = "#33CC99",
   "Approach" = "#33CCFF",
   "Feeding" = "#FFCC00",
@@ -650,7 +733,7 @@ custom_colors_BEHAV <- c(
 )
 
 ####
-#definite trend of more grunts when in flight (being chased for Coppers and Quillbacks, doesn't really show up for other species)
+#definite trend of more grunts when in Fleeing (being chased for Coppers and Quillbacks, doesn't really show up for other species)
 
 #number grunts
 G_BEHA_C<- ggplot(CallDeets2, aes(x = Activity, y = g_count, fill = Activity)) +
@@ -681,7 +764,7 @@ G_BEHA_C
 
 #Copper Grunts 
 pairwise.wilcox.test(CallDeets2$g_count, CallDeets2$Activity, p.adjust.method = "BH")
-# significantly more grunts during flight than during No Activity and Feeding
+# significantly more grunts during Fleeing than during No Activity and Feeding
 #significantly more grunts during chasing than during no activity
 
 #number grunts
@@ -711,7 +794,7 @@ K_BEHA_C
 
 #Copper Knocks
 pairwise.wilcox.test(CallDeets2$d_count, CallDeets2$Activity, p.adjust.method = "BH")
-# significantly more knocks during Flight and No activity than during chasing 
+# significantly more knocks during Fleeing and No activity than during chasing 
 
 #number call reps
 Rep_BEHA_C<- ggplot(CallDeets2, aes(x = Activity, y = Sequence_Reps, fill = Activity)) +
@@ -740,7 +823,7 @@ Rep_BEHA_C
 
 #Copper call reps
 pairwise.wilcox.test(CallDeets2$Sequence_Reps, CallDeets2$Activity, p.adjust.method = "BH")
-# significantly more call reps during flight than during feeding
+# significantly more call reps during Fleeing than during feeding
 
 #number grunts
 INT_BEHA_C<- ggplot(CallDeets2, aes(x = Activity, y = C_Interval_mean, fill = Activity)) +
@@ -788,7 +871,7 @@ CallDeets3 <- CallDeets %>%
     Activity = if_else(Activity == "" | is.na(Activity), "No activity", Activity),
     Activity = str_replace(Activity, "Chase other", "Chase"),
     Activity = str_replace(Activity, "Chase conspecific", "Chase"),
-    Activity = str_replace(Activity, "Guarding bait", "Flight"),
+    Activity = str_replace(Activity, "Guarding bait", "Fleeing"),
     Activity = str_replace(Activity, "Passing", "No activity"),
     Activity = str_replace(Activity, "No activity", "No activity"),
     Activity = str_replace(Activity, "Attracted", "Approach"))%>%
@@ -797,7 +880,7 @@ CallDeets3 <- CallDeets %>%
 # Define custom colors for species
 custom_colors_BEHAV <- c(
   "Chase" = "#003399",   
-  "Flight" = "#FF6600", 
+  "Fleeing" = "#FF6600", 
   "No activity" = "#33CC99",
   "Approach" = "#33CCFF",
   "Feeding" = "#FFCC00",
@@ -805,7 +888,7 @@ custom_colors_BEHAV <- c(
 )
 
 ####
-#definite trend of more grunts when in flight (being chased for Coppers and Quillbacks, doesn't really show up for other species)
+#definite trend of more grunts when in Fleeing (being chased for Coppers and Quillbacks, doesn't really show up for other species)
 
 #number grunts
 G_BEHA_Q<- ggplot(CallDeets3, aes(x = Activity, y = g_count, fill = Activity)) +
@@ -834,7 +917,7 @@ G_BEHA_Q
 
 #Quillback grunts
 pairwise.wilcox.test(CallDeets3$g_count, CallDeets3$Activity, p.adjust.method = "BH")
-# significantly more grunts during flight and feeding than no activity
+# significantly more grunts during Fleeing and feeding than no activity
 
 
 #number knocks
@@ -964,7 +1047,7 @@ CallDeets4 <- CallDeets %>%
     Activity = if_else(Activity == "" | is.na(Activity), "No activity", Activity),
     Activity = str_replace(Activity, "Chase other", "Chase"),
     Activity = str_replace(Activity, "Chase conspecific", "Chase"),
-    Activity = str_replace(Activity, "Guarding bait", "Flight"),
+    Activity = str_replace(Activity, "Guarding bait", "Fleeing"),
     Activity = str_replace(Activity, "Passing", "No activity"),
     Activity = str_replace(Activity, "No activity", "No activity"),
     Activity = str_replace(Activity, "Attracted", "Approach"))%>%
@@ -1004,7 +1087,7 @@ CallDeets_all <- CallDeets %>%
     Activity = if_else(Activity == "" | is.na(Activity), "No activity", Activity),
     Activity = str_replace(Activity, "Chase other", "Chase"),
     Activity = str_replace(Activity, "Chase conspecific", "Chase"),
-    Activity = str_replace(Activity, "Guarding bait", "Flight"),
+    Activity = str_replace(Activity, "Guarding bait", "Fleeing"),
     Activity = str_replace(Activity, "Passing", "No activity"),
     Activity = str_replace(Activity, "No activity", "No activity"),
     Activity = str_replace(Activity, "Attracted", "Approach"))
@@ -1019,7 +1102,7 @@ CallDeets_all <- CallDeets %>%
 
 custom_colors_BEHAV <- c(
   "Chase" = "#003399",   
-  "Flight" = "#FF6600", 
+  "Fleeing" = "#FF6600", 
   "No activity" = "#33CC99",
   "Approach" = "#33CCFF",
   "Feeding" = "#FFCC00"
@@ -1067,16 +1150,16 @@ ggsave("figures/CH2/Percentage_Behaviour_barplot.png", plot = Beha_Bar, width = 
 
 
 ####################################
-#how many flight instances are conspecific vs other
+#how many Fleeing instances are conspecific vs other
 
-Flight<-CallDeets%>%
+Fleeing<-CallDeets%>%
   mutate(
     Activity = if_else(Activity == "" | is.na(Activity), "No activity", Activity),
     Activity = str_replace(Activity, "Chase other", "Chase"),
     Activity = str_replace(Activity, "Chase conspecific", "Chase"),
-    Activity = str_replace(Activity, "Guarding bait", "Flight"),
+    Activity = str_replace(Activity, "Guarding bait", "Fleeing"),
     Activity = str_replace(Activity, "Passing", "No activity"),
     Activity = str_replace(Activity, "No activity", "No activity"),
     Activity = str_replace(Activity, "Attracted", "Approach"))%>%
   #filter(Species == "pinniger")
-  filter(Activity == "Flight")
+  filter(Activity == "Fleeing")
