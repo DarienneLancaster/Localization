@@ -30,6 +30,98 @@ fishdata$Common<- ifelse(fishdata$Species == "caurinus", "Copper rockfish",
                                                                    ifelse(fishdata$Species == "vacca", "Pile Perch", "other"))))))))
 
 ##################################################################
+info<-fishdata%>%
+  filter(Activity == "Guarding bait")%>%
+  distinct(fishID, .keep_all = TRUE)%>%
+  filter(fishID == "0014_20220823")
+
+info2<-fishdata%>%
+  filter(Common == "Copper rockfish")%>%
+  filter(ID_confidence == 1|2)%>%
+  #distinct(fishID, .keep_all = TRUE)%>%
+  filter(mean_length == min(mean_length, na.rm = TRUE))
+
+###############
+#check for significant difference between quillback and copper frequency features
+
+#truncate all coppers to be less than 229mm (QB max length)
+
+#knocks ttest
+
+C_QB<-fishdata%>%
+  filter(
+    (Common == "Quillback rockfish" & mean_length < 229) |
+      (Common == "Copper rockfish" & mean_length < 229)
+  ) %>%
+  filter(ID_confidence %in% c(1, 2))%>%
+  filter(t == "d")
+
+
+# Unpaired (independent) t-test
+t.test(freq_pct25 ~ Common, data = C_QB, subset = Common %in% c("Quillback rockfish", "Copper rockfish"))
+
+custom_colors <- c(
+  "Quillback rockfish" = "#FF6600", 
+  "Copper rockfish" = "#33CC99"
+)
+
+ttest_knocks <- ggplot(C_QB[C_QB$Common %in% c("Quillback rockfish", "Copper rockfish"), ], 
+                       aes(x = Common, y = freq_pct25, fill = Common)) +
+  geom_boxplot(alpha = 0.5, outlier.shape = NA) +
+  geom_jitter(aes(color = Common), width = 0.2, alpha = 0.5) +
+  labs(
+    title = "Welch's t test for knocks",
+    x = "",
+    y = "Frequency 25%"
+  ) +
+  theme_classic() +
+  theme(legend.position = "none") +  #  Removes the legend
+  scale_fill_manual(values = custom_colors) +
+  scale_color_manual(values = custom_colors)
+ttest_knocks
+ggsave("figures/CH2/ttest_CQB_knocks.png", plot = ttest_knocks, width = 10, height = 6, dpi = 300)
+
+#################
+
+
+#grunts ttest
+C_QB<-fishdata%>%
+  filter(
+    (Common == "Quillback rockfish" & mean_length < 229) |
+      (Common == "Copper rockfish" & mean_length < 229)
+  ) %>%
+  filter(ID_confidence %in% c(1, 2))%>%
+  filter(t == "g")
+
+
+
+
+# Unpaired (independent) t-test
+t.test(freq_pct25 ~ Common, data = C_QB, subset = Common %in% c("Quillback rockfish", "Copper rockfish"))
+
+custom_colors <- c(
+  "Quillback rockfish" = "#FF6600", 
+  "Copper rockfish" = "#33CC99"
+)
+
+ttest_grunts <- ggplot(C_QB[C_QB$Common %in% c("Quillback rockfish", "Copper rockfish"), ], 
+                       aes(x = Common, y = freq_pct25, fill = Common)) +
+  geom_boxplot(alpha = 0.5, outlier.shape = NA) +
+  geom_jitter(aes(color = Common), width = 0.2, alpha = 0.5) +
+  labs(
+    title = "Welch's t test for grunts",
+    x = "",
+    y = "Frequency 25%"
+  ) +
+  theme_classic() +
+  theme(legend.position = "none") +  #  Removes the legend
+  scale_fill_manual(values = custom_colors) +
+  scale_color_manual(values = custom_colors)
+ttest_grunts 
+ggsave("figures/CH2/ttest_CQB_grunts.png", plot = ttest_grunts, width = 10, height = 6, dpi = 300)
+
+
+
 ###look at length vs sound characteristics by fish species############
 lp("dplyr")
 
