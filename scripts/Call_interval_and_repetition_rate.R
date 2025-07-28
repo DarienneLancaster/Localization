@@ -310,6 +310,197 @@ ggplot(fishdata000, aes(x = Sequence_Reps)) +
   coord_cartesian(ylim = c(0, 10)) +  # Fix y-axis range from 0 to 8
   theme_classic()
 
+##################################################################################
+#####################################################################################
+#try random forest for fish patterns to see if random forest can group by species based on pattern/interval characteristics
+#######################
+lp("randomForest")
+lp("caret")
+
+#RESULTS - extremely low accuracy and F1 scores for this model (basically call pattern and interval cannot predict species)
+
+#remove other and vermillion (not enough samples, only 2)
+fishdata0 <- fishdata000 %>%
+  filter(Common != "other", Common != "Vermillion rockfish")
+
+
+numSpecies<-fishdata0 %>%
+  count(Species) %>%
+  arrange(desc(n))  # Optional: sort by count
+numSpecies
+
+fishdata1<-fishdata0%>%
+  dplyr::select(fishID,Common, Site, Sequence_ID, Sequence_Reps:C_Interval_sd)
+
+
+#random forest version
+fishdata2<-fishdata1%>%
+  dplyr::select(fishID, Common, Site, Sequence_ID, Sequence_Reps:C_Interval_sd)%>%
+  mutate(Common = as.factor(Common))%>%
+  drop_na()%>%
+  ungroup()
+
+# Split the data into training and test sets
+set.seed(123)  # For reproducibility
+train_index <- createDataPartition(fishdata2$Common, p = 0.7, list = FALSE)  #70% training, 30% testing
+train_wExtra <- fishdata2[train_index, ] #includes Site and fishID #
+test_wExtra <- fishdata2[-train_index, ] #includes Site and fishID #
+
+train<- train_wExtra%>%
+  dplyr::select(!Site)%>%
+  dplyr::select(!fishID)
+test<- test_wExtra%>%
+  dplyr::select(!Site)%>%
+  dplyr::select(!fishID)
+
+###
+set.seed(123)  # For reproducibility
+
+# Train the Random Forest model
+rf_model <- randomForest(Common ~ ., data = train, ntree = 2000, importance=TRUE)
+
+# Print the model summary
+print(rf_model)
+
+#View confusion matrix
+conf_matrix <- rf_model$confusion
+
+#Convert to data frame
+conf_df <- as.data.frame(conf_matrix)
+
+#Add row names as a new column for clarity
+conf_df$'Actual Class' <- rownames(conf_df)
+conf_df<-conf_df%>%
+  rename(Error=class.error)
+rownames(conf_df) <- NULL  # optional: reset row names
+
+#Reorder columns to show actual class first
+conf_df <- conf_df[, c(ncol(conf_df), 1:(ncol(conf_df)-1))]
+print(conf_df)
+
+
+set_flextable_defaults(
+  font.size = 10, theme_fun = theme_vanilla,
+  padding = 3,
+  background.color = "white")
+
+conf_df_flextable <- flextable(conf_df)
+conf_df_flextable <- colformat_double(
+  x = conf_df_flextable,
+  big.mark = ",", digits = 2, na_str = "N/A"
+)
+
+conf_df_flextable  <- line_spacing(conf_df_flextable , space = 1.5, part = "all")
+conf_df_flextable  <- set_table_properties(conf_df_flextable, align = "right", layout = "autofit")
+conf_df_flextable <- theme_vanilla(conf_df_flextable)
+conf_df_flextable
+save_as_image(x = conf_df_flextable, path = "figures/CH2/rf_TRAINING_CALLPATTERN_confusion_matrix.png")
+
+# Set up side-by-side plotting area
+par(mfrow = c(1, 2))
+
+# Plot 1: Accuracy importance
+varImpPlot(rf_model, type = 1, main = "")
+
+# Plot 2: Gini importance
+varImpPlot(rf_model, type = 2, main = "")
+
+# Reset plotting layout
+par(mfrow = c(1, 1))
+# 
+# #######################################################
+# #create variable importance plots in ggplot
+# #############
+
+# Extract and format importance data
+imp <- randomForest::importance(rf_model)
+imp_df <- as.data.frame(imp)
+imp_df$Variable <- rownames(imp_df)
+
+# Plot using ggplot2 with spaced/rotated labels
+p1<-ggplot(imp_df, aes(x = reorder(Variable, MeanDecreaseGini), y = MeanDecreaseGini)) +
+  geom_col(fill = "deepskyblue4") +
+  coord_flip() +
+  labs(x = "Sound Features", y = "Mean Decrease Gini") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Plot 2: Mean Decrease Accuracy
+p2 <- ggplot(imp_df, aes(x = reorder(Variable, MeanDecreaseAccuracy), y = MeanDecreaseAccuracy)) +
+  geom_col(fill = "deepskyblue4") +
+  coord_flip() +
+  labs(x = "", y = "Mean Decrease Accuracy") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Combine and display side by side
+combined_plot <- p1 + p2  # patchwork combines them
+print(combined_plot)
+ggsave("figures/CH2/RF_CALLPATTERNS_Train_Variable_Importance.png", plot = combined_plot, width = 10, height = 6, dpi = 300)
+# 
+# 
+# ##############################################################################################################
+# # Test the Random Forest model
+# #############
+rf_preds <- predict(rf_model, newdata = test)
+# Get confusion matrix
+conf_mat_TEST <- confusionMatrix(rf_preds, test$Common)
+
+# View full summary
+print(conf_mat_TEST)
+
+#may need to make tables later of model validation results for paper
+overall_stats <- as.data.frame(t(conf_mat_TEST$overall))
+overall_stats
+class_stats <- as.data.frame(conf_mat_TEST$byClass)
+class_stats
+
+class_counts <- test %>%
+  count(Common) %>%
+  rename(`Knock Class` = Common, n = n)
+
+class_stats$n <- class_counts$n
+
+# 3. Add row names as a new column for clarity
+class_stats$Class <- rownames(class_stats)
+rownames(class_stats) <- NULL  # optional: reset row names
+class_stats<-class_stats%>%
+  dplyr::select(-Sensitivity, -Specificity, -`Pos Pred Value`, -`Neg Pred Value`)%>%
+  mutate(Class = str_replace(Class, "^Class:", "")) %>%
+  rename('F1 Score' = F1, 'Grunt Class' = Class)
+
+
+# 4. Reorder columns to show actual class first
+class_stats <- class_stats[, c(ncol(class_stats), 1:(ncol(class_stats)-1))]
+print(class_stats)
+
+
+set_flextable_defaults(
+  font.size = 10, theme_fun = theme_vanilla,
+  padding = 3,
+  background.color = "white")
+
+class_stats_flextable <- flextable(class_stats)
+class_stats_flextable <- colformat_double(
+  x = class_stats_flextable,
+  big.mark = ",", digits = 2, na_str = "N/A"
+)
+
+class_stats_flextable  <- line_spacing(class_stats_flextable , space = 1.5, part = "all")
+# countFS_table_flextable <- add_header_row(countFS_table_flextable,
+#                      colwidths = c(1, 8),
+#                      values = c("", "Sound Features")
+# )
+class_stats_flextable  <- set_table_properties(class_stats_flextable, align = "right", layout = "autofit")
+class_stats_flextable <- theme_vanilla(class_stats_flextable)
+class_stats_flextable
+save_as_image(x = class_stats_flextable, path = "figures/CH2/rf_TEST_CALLPATTERN_confusion_matrix.png")
+
+############################################################################################################
+############################################################################################################
+
+
+
 
 #############################################################################
 #Summary table of Call interval, repetition rate, # grunts, # knocks, time in FOV
@@ -331,11 +522,15 @@ CallDeets <- fishdata000 %>%
 # Define columns to summarize
 summary_cols <- c("Sequence_Reps","d_count","g_count",  "e_count",  "C_Interval_mean", "C_Interval_sd", "tottime")
 
+#combine fishID and SequenceID into one for grouping purposes
+
+CallDeets$fishID_Seq <- paste(CallDeets$fishID, CallDeets$Sequence_ID, sep = "_")
 
 summary_table <- CallDeets %>%
   group_by(Common) %>%
   summarise(
-    n_fish = n_distinct(fishID),  # 🔢 Count unique fishID per Common
+    n_fish = n_distinct(fishID),
+    n_fishseq = n_distinct(fishID_Seq),  # Count unique fishID per Common
     across(all_of(summary_cols),
            list(mean = ~mean(.x, na.rm = TRUE),
                 sd = ~sd(.x, na.rm = TRUE)),
@@ -352,7 +547,7 @@ summary_table <- CallDeets %>%
                 },
                 .names = "{str_remove(.col, '_mean')}")) %>%
   # Select Common, unique fish count, and the formatted ± columns
-  dplyr::select(Common, n_fish, all_of(summary_cols))
+  dplyr::select(Common, n_fish, n_fishseq, all_of(summary_cols))
 
 # View result
 print(summary_table)
@@ -370,7 +565,8 @@ calldeets_table<- summary_table%>%
     "Call interval (mean)" = C_Interval_mean,
     "Call interval (standard deviation)" = C_Interval_sd,
     "Species" = Common,
-    "n" = "n_fish",
+    "Total fish" = "n_fish",
+    "Total call sequences" = "n_fishseq",
     "Time on camera (s)" = "tottime" 
   )
 
@@ -643,7 +839,7 @@ plot(M1)
 # like the Residual vs. fitted plot - again outliers and small datasets can have issues with this)
 # Residuals vs Leverage - helps identify influential outliers (in this example point 7 is almost worrisome but it's not past the dashed lines so probably okay to include)
 
-
+lp("DHARMa")
 #check model fit with DHARMa tests
 r <- simulateResiduals(M1, n = 1000, plot = TRUE)  #If there are issues with resid vs pred quantile plot they will show up in red on this plot
 
@@ -734,10 +930,32 @@ custom_colors_BEHAV <- c(
 
 ####
 #definite trend of more grunts when in Fleeing (being chased for Coppers and Quillbacks, doesn't really show up for other species)
+CallDeets2$Activity<-as.factor(CallDeets2$Activity)
 
-#number grunts
-G_BEHA_C<- ggplot(CallDeets2, aes(x = Activity, y = g_count, fill = Activity)) +
-  geom_boxplot(varwidth = TRUE, color = "black",  outlier.shape = NA, alpha = 0.7) +
+##
+
+# Create all pairwise combinations
+pairwise_comparisons <- combn(levels(CallDeets2$Activity), 2, simplify = FALSE)
+
+# Run Wilcoxon tests for each pair and keep only significant ones
+sig_comparisons <- lapply(pairwise_comparisons, function(pair) {
+  test_result <- wilcox.test(
+    g_count ~ Activity,
+    data = CallDeets2 %>% filter(Activity %in% pair)
+  )
+  if (test_result$p.value < 0.05) return(pair) else return(NULL)
+}) %>% 
+  purrr::compact()  # Remove NULLs (non-significant)
+
+# Now plot with only significant brackets
+G_BEHA_C <- ggplot(CallDeets2, aes(x = Activity, y = g_count, fill = Activity)) +
+  geom_boxplot(varwidth = TRUE, color = "black", outlier.shape = NA, alpha = 0.7) +
+  stat_compare_means(
+    method = "wilcox.test", 
+    comparisons = sig_comparisons,
+    label = "p.signif",
+    step.increase = 0.1  # Adjust this to move brackets closer
+  ) +
   geom_point(
     aes(color = Activity),
     position = position_jitter(width = 0.1),
@@ -747,7 +965,7 @@ G_BEHA_C<- ggplot(CallDeets2, aes(x = Activity, y = g_count, fill = Activity)) +
     show.legend = FALSE
   ) +
   scale_fill_manual(values = custom_colors_BEHAV) +
-  scale_color_manual(values = custom_colors_BEHAV) +  # color points same as fill
+  scale_color_manual(values = custom_colors_BEHAV) +
   labs(
     title = "Copper",
     x = "",
@@ -758,7 +976,9 @@ G_BEHA_C<- ggplot(CallDeets2, aes(x = Activity, y = g_count, fill = Activity)) +
     axis.text.x = element_text(angle = 45, hjust = 1),
     legend.position = "none"
   )
+
 G_BEHA_C
+##
 
 #test if there are significant differences in number of grunts across behaviours
 
@@ -767,9 +987,30 @@ pairwise.wilcox.test(CallDeets2$g_count, CallDeets2$Activity, p.adjust.method = 
 # significantly more grunts during Fleeing than during No Activity and Feeding
 #significantly more grunts during chasing than during no activity
 
-#number grunts
-K_BEHA_C<- ggplot(CallDeets2, aes(x = Activity, y = d_count, fill = Activity)) +
-  geom_boxplot(varwidth = TRUE, color = "black",  outlier.shape = NA, alpha = 0.7) +
+#number knocks
+#################################################
+
+# Create all pairwise combinations
+pairwise_comparisons <- combn(levels(CallDeets2$Activity), 2, simplify = FALSE)
+
+# Run Wilcoxon tests for each pair and keep only significant ones
+sig_comparisons <- lapply(pairwise_comparisons, function(pair) {
+  test_result <- wilcox.test(
+    d_count ~ Activity,
+    data = CallDeets2 %>% filter(Activity %in% pair)
+  )
+  if (test_result$p.value < 0.05) return(pair) else return(NULL)
+}) %>% 
+  purrr::compact()  # Remove NULLs (non-significant)
+
+# Now plot with only significant brackets
+K_BEHA_C <- ggplot(CallDeets2, aes(x = Activity, y = d_count, fill = Activity)) +
+  geom_boxplot(varwidth = TRUE, color = "black", outlier.shape = NA, alpha = 0.7) +
+  stat_compare_means(
+    method = "wilcox.test", 
+    comparisons = sig_comparisons,
+    label = "p.signif"
+  ) +
   geom_point(
     aes(color = Activity),
     position = position_jitter(width = 0.1),
@@ -779,7 +1020,7 @@ K_BEHA_C<- ggplot(CallDeets2, aes(x = Activity, y = d_count, fill = Activity)) +
     show.legend = FALSE
   ) +
   scale_fill_manual(values = custom_colors_BEHAV) +
-  scale_color_manual(values = custom_colors_BEHAV) +  # color points same as fill
+  scale_color_manual(values = custom_colors_BEHAV) +
   labs(
     title = "",
     x = "",
@@ -790,15 +1031,40 @@ K_BEHA_C<- ggplot(CallDeets2, aes(x = Activity, y = d_count, fill = Activity)) +
     axis.text.x = element_text(angle = 45, hjust = 1),
     legend.position = "none"
   )
+
 K_BEHA_C
+##
 
 #Copper Knocks
 pairwise.wilcox.test(CallDeets2$d_count, CallDeets2$Activity, p.adjust.method = "BH")
 # significantly more knocks during Fleeing and No activity than during chasing 
 
-#number call reps
-Rep_BEHA_C<- ggplot(CallDeets2, aes(x = Activity, y = Sequence_Reps, fill = Activity)) +
-  geom_boxplot(varwidth = TRUE, color = "black",  outlier.shape = NA, alpha = 0.7) +
+#############################################################################
+
+
+##
+
+# Create all pairwise combinations
+pairwise_comparisons <- combn(levels(CallDeets2$Activity), 2, simplify = FALSE)
+
+# Run Wilcoxon tests for each pair and keep only significant ones
+sig_comparisons <- lapply(pairwise_comparisons, function(pair) {
+  test_result <- wilcox.test(
+    Sequence_Reps ~ Activity,
+    data = CallDeets2 %>% filter(Activity %in% pair)
+  )
+  if (test_result$p.value < 0.05) return(pair) else return(NULL)
+}) %>% 
+  purrr::compact()  # Remove NULLs (non-significant)
+
+# Now plot with only significant brackets
+Rep_BEHA_C <- ggplot(CallDeets2, aes(x = Activity, y = Sequence_Reps, fill = Activity)) +
+  geom_boxplot(varwidth = TRUE, color = "black", outlier.shape = NA, alpha = 0.7) +
+  stat_compare_means(
+    method = "wilcox.test", 
+    comparisons = sig_comparisons,
+    label = "p.signif"
+  ) +
   geom_point(
     aes(color = Activity),
     position = position_jitter(width = 0.1),
@@ -808,7 +1074,7 @@ Rep_BEHA_C<- ggplot(CallDeets2, aes(x = Activity, y = Sequence_Reps, fill = Acti
     show.legend = FALSE
   ) +
   scale_fill_manual(values = custom_colors_BEHAV) +
-  scale_color_manual(values = custom_colors_BEHAV) +  # color points same as fill
+  scale_color_manual(values = custom_colors_BEHAV) +
   labs(
     title = "",
     x = "",
@@ -819,13 +1085,18 @@ Rep_BEHA_C<- ggplot(CallDeets2, aes(x = Activity, y = Sequence_Reps, fill = Acti
     axis.text.x = element_text(angle = 45, hjust = 1),
     legend.position = "none"
   )
+
 Rep_BEHA_C
+##
+
 
 #Copper call reps
 pairwise.wilcox.test(CallDeets2$Sequence_Reps, CallDeets2$Activity, p.adjust.method = "BH")
 # significantly more call reps during Fleeing than during feeding
 
-#number grunts
+########################################################################
+
+#call interval
 INT_BEHA_C<- ggplot(CallDeets2, aes(x = Activity, y = C_Interval_mean, fill = Activity)) +
   geom_boxplot(varwidth = TRUE, color = "black",  outlier.shape = NA, alpha = 0.7) +
   geom_point(
@@ -850,18 +1121,15 @@ INT_BEHA_C<- ggplot(CallDeets2, aes(x = Activity, y = C_Interval_mean, fill = Ac
   )
 INT_BEHA_C
 
-#Copper call reps
+#remove Approach as level because there is no call interval becasue only ever one call for this behaviour
+CallDeets_noApproach<-CallDeets2%>%
+  filter(Activity != "Approach")
+levels(as.factor(CallDeets_noApproach$Activity))
 
-#remove any activity groups with less than 2 observations
-CallDeets2_filtered <- CallDeets2 %>%
-  group_by(Activity) %>%
-  filter(n() >= 2) %>%
-  ungroup()
+#Copper call interval
+pairwise.wilcox.test(CallDeets_noApproach$C_Interval_mean, CallDeets_noApproach$Activity, p.adjust.method = "BH")
+#nothing significant
 
-pairwise.wilcox.test(CallDeets2_filtered$C_Interval_mean, 
-                     CallDeets2_filtered$Activity, 
-                     p.adjust.method = "BH")
-#no significant differences
 
 ####################
 #behaviour vs call patterns for QB
@@ -890,9 +1158,32 @@ custom_colors_BEHAV <- c(
 ####
 #definite trend of more grunts when in Fleeing (being chased for Coppers and Quillbacks, doesn't really show up for other species)
 
-#number grunts
-G_BEHA_Q<- ggplot(CallDeets3, aes(x = Activity, y = g_count, fill = Activity)) +
-  geom_boxplot(varwidth = TRUE, color = "black",  outlier.shape = NA, alpha = 0.7) +
+# Create all pairwise combinations
+pairwise_comparisons <- combn(levels(CallDeets3$Activity), 2, simplify = FALSE)
+
+# Run Wilcoxon tests for each pair and keep only significant ones
+sig_comparisons <- lapply(pairwise_comparisons, function(pair) {
+  subset_data <- CallDeets3 %>%
+    filter(Activity %in% pair) %>%
+    droplevels()  # Drop unused levels
+  
+  # Only run test if both levels are present with at least one value each
+  if (n_distinct(subset_data$Activity) == 2) {
+    test_result <- wilcox.test(g_count ~ Activity, data = subset_data)
+    if (test_result$p.value < 0.05) return(pair)
+  }
+  return(NULL)
+}) %>% purrr::compact()
+
+# Now plot with only significant brackets
+G_BEHA_Q <- ggplot(CallDeets3, aes(x = Activity, y = g_count, fill = Activity)) +
+  geom_boxplot(varwidth = TRUE, color = "black", outlier.shape = NA, alpha = 0.7) +
+  stat_compare_means(
+    method = "wilcox.test", 
+    comparisons = sig_comparisons,
+    label = "p.signif",
+    step.increase = 0.1  # Adjust this to move brackets closer
+  ) +
   geom_point(
     aes(color = Activity),
     position = position_jitter(width = 0.1),
@@ -902,7 +1193,7 @@ G_BEHA_Q<- ggplot(CallDeets3, aes(x = Activity, y = g_count, fill = Activity)) +
     show.legend = FALSE
   ) +
   scale_fill_manual(values = custom_colors_BEHAV) +
-  scale_color_manual(values = custom_colors_BEHAV) +  # color points same as fill
+  scale_color_manual(values = custom_colors_BEHAV) +
   labs(
     title = "Quillback",
     x = "",
@@ -913,12 +1204,14 @@ G_BEHA_Q<- ggplot(CallDeets3, aes(x = Activity, y = g_count, fill = Activity)) +
     axis.text.x = element_text(angle = 45, hjust = 1),
     legend.position = "none"
   )
+
 G_BEHA_Q
+
 
 #Quillback grunts
 pairwise.wilcox.test(CallDeets3$g_count, CallDeets3$Activity, p.adjust.method = "BH")
 # significantly more grunts during Fleeing and feeding than no activity
-
+########################################################################################
 
 #number knocks
 K_BEHA_Q<- ggplot(CallDeets3, aes(x = Activity, y = d_count, fill = Activity)) +
@@ -1006,10 +1299,10 @@ INT_BEHA_Q
 
 #Quillback interval
 #remove any activity groups with less than 2 observations
-CallDeets3_filtered <- CallDeets3 %>%
-  group_by(Activity) %>%
-  filter(n() >= 2) %>%
-  ungroup()
+ #remove Approach as level because there is no call interval becasue only ever one call for this behaviour
+CallDeets3_filtered<-CallDeets3%>%
+  filter(Activity != "Approach")
+levels(as.factor(CallDeets3_filtered$Activity))
 
 pairwise.wilcox.test(CallDeets3_filtered$C_Interval_mean, 
                      CallDeets3_filtered$Activity, 
@@ -1020,8 +1313,7 @@ lp("patchwork")
 lp("cowplot")
 
 # Combine plots
-CallPat_Beha_CQB <- ( G_BEHA_Q|K_BEHA_Q|Rep_BEHA_Q|INT_BEHA_Q) /
-  ( G_BEHA_C|K_BEHA_C|Rep_BEHA_C|INT_BEHA_C) +
+CallPat_Beha_CQB <-( G_BEHA_C|K_BEHA_C|Rep_BEHA_C|INT_BEHA_C) /( G_BEHA_Q|K_BEHA_Q|Rep_BEHA_Q|INT_BEHA_Q) +
   plot_layout(guides = "collect") & 
   theme(legend.position = "")
 
@@ -1036,7 +1328,7 @@ CallPat_Beha_CQBfinal <- ggdraw() +
   draw_plot(CallPat_Beha_CQB, x = 0.05, y = 0.05, width = 0.9, height = 0.9)
 
 CallPat_Beha_CQBfinal
-ggsave("figures/CH2/CallPatterns_Behaviour_QB_C_Boxplots.png", plot = CallPat_Beha_CQBfinal, width = 10, height = 6, dpi = 300)
+ggsave("figures/CH2/CallPatterns_Behaviour_QB_C_Boxplots.png", plot = CallPat_Beha_CQBfinal, width = 12, height = 10, dpi = 300)
 
 
 #################
@@ -1093,12 +1385,11 @@ CallDeets_all <- CallDeets %>%
     Activity = str_replace(Activity, "Attracted", "Approach"))
 
 
-# Step 1: Prepare data by calculating percentages
+# Step 1: Prepare data by counting behaviour by species
   activity_summary <- CallDeets_all %>%
-  group_by(Common, Activity) %>%
-  summarise(count = n(), .groups = "drop") %>%
-  group_by(Common) %>%
-  mutate(percentage = count / sum(count) * 100)
+  group_by(Activity) %>%
+  summarise(count = n(), .groups = "drop") 
+
 
 custom_colors_BEHAV <- c(
   "Chase" = "#003399",   
@@ -1109,13 +1400,13 @@ custom_colors_BEHAV <- c(
 )
 
 # Step 2: Plot stacked bar chart with custom colors
-Beha_Bar <- ggplot(activity_summary, aes(x = Common, y = percentage, fill = Activity)) +
+Beha_Bar <- ggplot(activity_summary, aes(x = Common, y = count, fill = Activity)) +
   geom_bar(stat = "identity", position = "stack", color = "black", alpha =0.7) +
   scale_fill_manual(values = custom_colors_BEHAV) +
   labs(
     title = "",
     x = "Species",
-    y = "Behavoiur (%)",
+    y = "Calling sequences (count)",
     fill = "Behaviour"  # <-- This renames the legend title
   ) +
   theme_classic() +
@@ -1124,7 +1415,7 @@ Beha_Bar <- ggplot(activity_summary, aes(x = Common, y = percentage, fill = Acti
   )
 
 Beha_Bar
-ggsave("figures/CH2/Percentage_Behaviour_barplot.png", plot = Beha_Bar, width = 10, height = 6, dpi = 300)
+ggsave("figures/CH2/Count_Behaviour_barplot.png", plot = Beha_Bar, width = 10, height = 6, dpi = 300)
   
 # if you want sample size for each bar use this code. 
 
