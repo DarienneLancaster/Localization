@@ -503,6 +503,118 @@ ggsave("figures/CH2/Length_Freq_gruntsLMplot.png", plot = G_length_final, width 
 #add in repetition rate, call interval as predictors based on behaviour
 #change behaviour names to be more descriptive
 
+############
+#Quillback - Grunts
+#############
+
+
+lp("umap")
+
+#create dataframe for UMAP behaviour plotting
+lp("dplyr")
+
+Behav_UMAP<-fishdata%>%
+  filter(t == "g", ID_confidence == 1|2,  Selection != 3030, str_detect(Species, "maliger"))%>%
+  dplyr::select(Common, Activity, Site, mean_length, freq_peak:time_centroid, High.Freq..Hz., Low.Freq..Hz.)%>%
+  mutate(Activity = if_else(Activity == "" | is.na(Activity), "No activity", Activity))%>%
+  mutate(
+    Activity = if_else(Activity == "" | is.na(Activity), "No activity", Activity),
+    Activity = str_replace(Activity, "Chase other", "Chase"),
+    Activity = str_replace(Activity, "Chase conspecific", "Chase"),
+    Activity = str_replace(Activity, "Guarding bait", "Flight"),
+    Activity = str_replace(Activity, "Passing", "No activity"),
+    Activity = str_replace(Activity, "No activity", "No activity"),
+    Activity = str_replace(Activity, "Attracted", "Approach"))%>%
+  dplyr::select(-freq_flatness)
+
+str(Behav_UMAP)
+
+# Extract feature matrix (excluding response)
+X_test <- Behav_UMAP[, !(names(Behav_UMAP) %in% c("Common", "Activity", "Site", "mean_length"))]
+X_test
+
+set.seed(57)
+# Run UMAP
+umap_result <- umap(X_test)
+
+# Create a dataframe for plotting
+umap_df <- as.data.frame(umap_result$layout)
+umap_df$Activity<-Behav_UMAP$Activity
+umap_df$Site<-Behav_UMAP$Site
+umap_df$mean_length<-Behav_UMAP$mean_length
+umap_df$freq_bandwidth<-Behav_UMAP$freq_bandwidth
+
+#bin freq_bandwidth
+umap_df<- umap_df %>%
+  mutate(Frequency_Bandwidth = case_when(
+    freq_bandwidth <= 400 ~ "400 Hz or less",
+    freq_bandwidth <= 600 ~ "600 Hz or less",
+    freq_bandwidth <= 800 ~ "800 Hz or less",
+    freq_bandwidth > 800  ~ "800 Hz or more"
+  ))
+
+
+
+#umap_df$True <- test$Common
+# umap_df$Site<-test_wExtra$Site
+# umap_df$fishID<- test_wExtra$fishID
+levels(as.factor(umap_df$Activity))
+
+# Define custom colors for species
+custom_colors <- c(
+  "Chase" = "#003399",   
+  "Flight" = "#FF6600", 
+  "No activity" = "#33CC99",
+  "Approach" = "#33CCFF",
+  "Feeding" = "#FFCC00",
+  "Pile Perch" = "#9900CC" 
+)
+
+par(mfrow = c(1, 2))
+
+###########
+
+#Predicted values plot (shows how the Random Forest classified fish sounds)
+Behaviour_QB_Grunts <- ggplot(umap_df, aes(V1, V2, color = Activity, fill = Activity, shape = Frequency_Bandwidth)) +
+  geom_point(alpha = 0.8, size = 2) +
+  stat_ellipse(aes(group = Activity), level = 0.70, type = "norm", geom = "polygon", alpha = 0.1, color = NA, show.legend = FALSE) +
+  stat_ellipse(aes(group = Activity), level = 0.70, type = "norm", geom = "path", size = 1, show.legend = FALSE) +
+  scale_colour_manual(values = custom_colors) +
+  scale_fill_manual(values = custom_colors) +
+  labs(title = "Quillback Grunts",
+       x = "UMAP 1", y = "UMAP 2") +
+  theme_classic()+
+  theme(legend.position = "right")
+Behaviour_QB_Grunts
+ggsave("figures/CH2/UMAP_QB_Grunts_Behaviour.png", plot = Behaviour_QB_Grunts , width = 10, height = 6, dpi = 300)
+
+##
+#IF YOU SEE A TREND IN THE UMAP PLOT USE THIS CODE TO CHECK WHICH VARIABLE IS MOST LIKELY PULLING POINTS APART
+
+#Combine original variables with UMAP coordinates
+umap_combined <- cbind(X_test, UMAP1 = umap_result$layout[,1], UMAP2 = umap_result$layout[,2])
+
+# Correlation with UMAP dimensions
+cor_UMAP1 <- sapply(X_test, function(x) cor(x, umap_result$layout[,1], method = "spearman"))
+cor_UMAP2 <- sapply(X_test, function(x) cor(x, umap_result$layout[,2], method = "spearman"))
+
+# Combine into a single data frame
+cor_df <- data.frame(Variable = names(X_test),
+                     UMAP1_corr = cor_UMAP1,
+                     UMAP2_corr = cor_UMAP2)
+
+# Order by strongest correlation
+cor_df <- cor_df[order(abs(cor_df$UMAP1_corr) + abs(cor_df$UMAP2_corr), decreasing = TRUE), ]
+print(cor_df)
+#for QB Grunts largest correlation is with Frequency Bandwidth (Fleeing is associated loosely with larger bandwidth in calls)
+#examined mean_length relationship to bandwidth and it's not related
+#all large bandwidth (>800) fleeing sounds come from the same individual so interpret with caution
+
+
+############
+#Quillback - Knocks
+#############
+
 
 lp("umap")
 
@@ -524,11 +636,11 @@ Behav_UMAP<-fishdata%>%
   dplyr::select(-freq_flatness)
 
 
-  
-
 # Extract feature matrix (excluding response)
 X_test <- Behav_UMAP[, !(names(Behav_UMAP) %in% c("Common", "Activity", "Site", "mean_length"))]
 X_test
+
+set.seed(57)
 # Run UMAP
 umap_result <- umap(X_test)
 
@@ -537,6 +649,19 @@ umap_df <- as.data.frame(umap_result$layout)
 umap_df$Activity<-Behav_UMAP$Activity
 umap_df$Site<-Behav_UMAP$Site
 umap_df$mean_length<-Behav_UMAP$mean_length
+umap_df$freq_bandwidth<-Behav_UMAP$freq_bandwidth
+
+#bin freq_bandwidth
+umap_df<- umap_df %>%
+  mutate(Frequency_Bandwidth = case_when(
+    freq_bandwidth <= 400 ~ "400 Hz or less",
+    freq_bandwidth <= 600 ~ "600 Hz or less",
+    freq_bandwidth <= 800 ~ "800 Hz or less",
+    freq_bandwidth > 800  ~ "800 Hz or more"
+  ))
+
+
+
 #umap_df$True <- test$Common
 # umap_df$Site<-test_wExtra$Site
 # umap_df$fishID<- test_wExtra$fishID
@@ -553,20 +678,535 @@ custom_colors <- c(
 )
 
 par(mfrow = c(1, 2))
+
 ###########
 
 #Predicted values plot (shows how the Random Forest classified fish sounds)
-Behaviour_QB <- ggplot(umap_df, aes(V1, V2, color = Activity, fill = Activity, shape = Site)) +
+Behaviour_QB_Knocks <- ggplot(umap_df, aes(V1, V2, color = Activity, fill = Activity, shape = Frequency_Bandwidth)) +
   geom_point(alpha = 0.8, size = 2) +
   stat_ellipse(aes(group = Activity), level = 0.70, type = "norm", geom = "polygon", alpha = 0.1, color = NA, show.legend = FALSE) +
   stat_ellipse(aes(group = Activity), level = 0.70, type = "norm", geom = "path", size = 1, show.legend = FALSE) +
-  scale_color_manual(values = custom_colors) +
+  scale_colour_manual(values = custom_colors) +
   scale_fill_manual(values = custom_colors) +
-  labs(title = "Quillback Grunts",
+  labs(title = "Quillback Knocks",
        x = "UMAP 1", y = "UMAP 2") +
   theme_classic()+
   theme(legend.position = "right")
-Behaviour_QB
+Behaviour_QB_Knocks
+ggsave("figures/CH2/UMAP_QB_Knocks_Behaviour.png", plot = Behaviour_QB_Knocks , width = 10, height = 6, dpi = 300)
+##
+#IF YOU SEE A TREND IN THE UMAP PLOT USE THIS CODE TO CHECK WHICH VARIABLE IS MOST LIKELY PULLING POINTS APART
+
+#Combine original variables with UMAP coordinates
+umap_combined <- cbind(X_test, UMAP1 = umap_result$layout[,1], UMAP2 = umap_result$layout[,2])
+
+# Correlation with UMAP dimensions
+cor_UMAP1 <- sapply(X_test, function(x) cor(x, umap_result$layout[,1], method = "spearman"))
+cor_UMAP2 <- sapply(X_test, function(x) cor(x, umap_result$layout[,2], method = "spearman"))
+
+# Combine into a single data frame
+cor_df <- data.frame(Variable = names(X_test),
+                     UMAP1_corr = cor_UMAP1,
+                     UMAP2_corr = cor_UMAP2)
+
+# Order by strongest correlation
+cor_df <- cor_df[order(abs(cor_df$UMAP1_corr) + abs(cor_df$UMAP2_corr), decreasing = TRUE), ]
+print(cor_df)
+#for QB Grunts largest correlation is with Frequency Bandwidth (Feeding never seems to have very low or very high frequency bandwidths - but lots of overlap)
+
+#combine QB plots into one
+
+lp("patchwork")
+lp("cowplot")
+
+# Combine plots
+QB_UMAP_combined <- (Behaviour_QB_Grunts|Behaviour_QB_Knocks ) +
+  plot_layout(guides = "collect") & 
+  theme(legend.position = "right")
+QB_UMAP_combined
+
+ggsave("figures/CH2/QB_UMAP_combined_Behaviour.png", plot = QB_UMAP_combined, width = 10, height = 6, dpi = 300)
+
+
+
+############
+#Copper - Knocks
+#############
+
+
+lp("umap")
+
+#create dataframe for UMAP behaviour plotting
+lp("dplyr")
+
+Behav_UMAP<-fishdata%>%
+  filter(t == "d", ID_confidence == 1|2,  Selection != 3030, str_detect(Species, "caurinus"))%>%
+  dplyr::select(Common, Activity, Site, mean_length, freq_peak:time_centroid, High.Freq..Hz., Low.Freq..Hz.)%>%
+  mutate(Activity = if_else(Activity == "" | is.na(Activity), "No activity", Activity))%>%
+  mutate(
+    Activity = if_else(Activity == "" | is.na(Activity), "No activity", Activity),
+    Activity = str_replace(Activity, "Chase other", "Chase"),
+    Activity = str_replace(Activity, "Chase conspecific", "Chase"),
+    Activity = str_replace(Activity, "Guarding bait", "Flight"),
+    Activity = str_replace(Activity, "Passing", "No activity"),
+    Activity = str_replace(Activity, "No activity", "No activity"),
+    Activity = str_replace(Activity, "Attracted", "Approach"))%>%
+  dplyr::select(-freq_flatness)
+
+
+# Extract feature matrix (excluding response)
+X_test <- Behav_UMAP[, !(names(Behav_UMAP) %in% c("Common", "Activity", "Site", "mean_length"))]
+X_test
+
+set.seed(57)
+# Run UMAP
+umap_result <- umap(X_test)
+
+# Create a dataframe for plotting
+umap_df <- as.data.frame(umap_result$layout)
+umap_df$Activity<-Behav_UMAP$Activity
+umap_df$Site<-Behav_UMAP$Site
+umap_df$mean_length<-Behav_UMAP$mean_length
+umap_df$freq_bandwidth<-Behav_UMAP$freq_bandwidth
+
+#bin freq_bandwidth
+umap_df<- umap_df %>%
+  mutate(Frequency_Bandwidth = case_when(
+    freq_bandwidth <= 400 ~ "400 Hz or less",
+    freq_bandwidth <= 600 ~ "600 Hz or less",
+    freq_bandwidth <= 800 ~ "800 Hz or less",
+    freq_bandwidth > 800  ~ "800 Hz or more"
+  ))
+
+
+
+#umap_df$True <- test$Common
+# umap_df$Site<-test_wExtra$Site
+# umap_df$fishID<- test_wExtra$fishID
+levels(as.factor(umap_df$Activity))
+
+# Define custom colors for species
+custom_colors <- c(
+  "Chase" = "#003399",   
+  "Flight" = "#FF6600", 
+  "No activity" = "#33CC99",
+  "Approach" = "#33CCFF",
+  "Feeding" = "#FFCC00",
+  "Pile Perch" = "#9900CC" 
+)
+
+par(mfrow = c(1, 2))
+
+###########
+
+#Predicted values plot (shows how the Random Forest classified fish sounds)
+Behaviour_Cop_Knocks <- ggplot(umap_df, aes(V1, V2, color = Activity, fill = Activity)) +
+  geom_point(alpha = 0.8, size = 2) +
+  stat_ellipse(aes(group = Activity), level = 0.70, type = "norm", geom = "polygon", alpha = 0.1, color = NA, show.legend = FALSE) +
+  stat_ellipse(aes(group = Activity), level = 0.70, type = "norm", geom = "path", size = 1, show.legend = FALSE) +
+  scale_colour_manual(values = custom_colors) +
+  scale_fill_manual(values = custom_colors) +
+  labs(title = "Copper Knocks",
+       x = "UMAP 1", y = "UMAP 2") +
+  theme_classic()+
+  theme(legend.position = "right")
+Behaviour_Cop_Knocks
+ggsave("figures/CH2/UMAP_Cop_Knocks_Behaviour.png", plot = Behaviour_Cop_Knocks , width = 10, height = 6, dpi = 300)
+##
+#NO TRENDS- TOO MUCH OVERLAP - Add to Supp data
+
+############
+#Copper - Grunts
+#############
+
+
+lp("umap")
+
+#create dataframe for UMAP behaviour plotting
+lp("dplyr")
+
+Behav_UMAP<-fishdata%>%
+  filter(t == "g", ID_confidence == 1|2,  Selection != 3030, str_detect(Species, "caurinus"))%>%
+  dplyr::select(Common, Activity, Site, mean_length, freq_peak:time_centroid, High.Freq..Hz., Low.Freq..Hz.)%>%
+  mutate(Activity = if_else(Activity == "" | is.na(Activity), "No activity", Activity))%>%
+  mutate(
+    Activity = if_else(Activity == "" | is.na(Activity), "No activity", Activity),
+    Activity = str_replace(Activity, "Chase other", "Chase"),
+    Activity = str_replace(Activity, "Chase conspecific", "Chase"),
+    Activity = str_replace(Activity, "Guarding bait", "Flight"),
+    Activity = str_replace(Activity, "Passing", "No activity"),
+    Activity = str_replace(Activity, "No activity", "No activity"),
+    Activity = str_replace(Activity, "Attracted", "Approach"))%>%
+  dplyr::select(-freq_flatness)
+
+
+# Extract feature matrix (excluding response)
+X_test <- Behav_UMAP[, !(names(Behav_UMAP) %in% c("Common", "Activity", "Site", "mean_length"))]
+X_test
+
+set.seed(57)
+# Run UMAP
+umap_result <- umap(X_test)
+
+# Create a dataframe for plotting
+umap_df <- as.data.frame(umap_result$layout)
+umap_df$Activity<-Behav_UMAP$Activity
+umap_df$Site<-Behav_UMAP$Site
+umap_df$mean_length<-Behav_UMAP$mean_length
+umap_df$freq_bandwidth<-Behav_UMAP$freq_bandwidth
+
+#bin freq_bandwidth
+umap_df<- umap_df %>%
+  mutate(Frequency_Bandwidth = case_when(
+    freq_bandwidth <= 400 ~ "400 Hz or less",
+    freq_bandwidth <= 600 ~ "600 Hz or less",
+    freq_bandwidth <= 800 ~ "800 Hz or less",
+    freq_bandwidth > 800  ~ "800 Hz or more"
+  ))
+
+
+
+#umap_df$True <- test$Common
+# umap_df$Site<-test_wExtra$Site
+# umap_df$fishID<- test_wExtra$fishID
+levels(as.factor(umap_df$Activity))
+
+# Define custom colors for species
+custom_colors <- c(
+  "Chase" = "#003399",   
+  "Flight" = "#FF6600", 
+  "No activity" = "#33CC99",
+  "Approach" = "#33CCFF",
+  "Feeding" = "#FFCC00",
+  "Pile Perch" = "#9900CC" 
+)
+
+par(mfrow = c(1, 2))
+
+###########
+
+#Predicted values plot (shows how the Random Forest classified fish sounds)
+Behaviour_Cop_Grunts  <- ggplot(umap_df, aes(V1, V2, color = Activity, fill = Activity)) +
+  geom_point(alpha = 0.8, size = 2) +
+  stat_ellipse(aes(group = Activity), level = 0.70, type = "norm", geom = "polygon", alpha = 0.1, color = NA, show.legend = FALSE) +
+  stat_ellipse(aes(group = Activity), level = 0.70, type = "norm", geom = "path", size = 1, show.legend = FALSE) +
+  scale_colour_manual(values = custom_colors) +
+  scale_fill_manual(values = custom_colors) +
+  labs(title = "Copper Grunts",
+       x = "UMAP 1", y = "UMAP 2") +
+  theme_classic()+
+  theme(legend.position = "none")
+Behaviour_Cop_Grunts 
+ggsave("figures/CH2/UMAP_Cop_Grunts_Behaviour.png", plot = Behaviour_Cop_Grunts , width = 10, height = 6, dpi = 300)
+##
+#NO TRENDS- TOO MUCH OVERLAP - Add to Supp data
+
+#combine Copper plots into one
+
+lp("patchwork")
+lp("cowplot")
+
+# Combine plots
+Cop_UMAP_combined <- (Behaviour_Cop_Grunts|Behaviour_Cop_Knocks ) +
+  theme(legend.position = "right")
+Cop_UMAP_combined
+
+ggsave("figures/CH2/Copper_UMAP_combined_Behaviour.png", plot = Cop_UMAP_combined, width = 10, height = 6, dpi = 300)
+
+
+############
+#Canary - Knocks
+#############
+
+
+lp("umap")
+
+#create dataframe for UMAP behaviour plotting
+lp("dplyr")
+
+Behav_UMAP<-fishdata%>%
+  filter(t == "d", ID_confidence == 1|2,  Selection != 3030, str_detect(Species, "pinniger"))%>%
+  dplyr::select(Common, Activity, Site, mean_length, freq_peak:time_centroid, High.Freq..Hz., Low.Freq..Hz.)%>%
+  mutate(Activity = if_else(Activity == "" | is.na(Activity), "No activity", Activity))%>%
+  mutate(
+    Activity = if_else(Activity == "" | is.na(Activity), "No activity", Activity),
+    Activity = str_replace(Activity, "Chase other", "Chase"),
+    Activity = str_replace(Activity, "Chase conspecific", "Chase"),
+    Activity = str_replace(Activity, "Guarding bait", "Flight"),
+    Activity = str_replace(Activity, "Passing", "No activity"),
+    Activity = str_replace(Activity, "No activity", "No activity"),
+    Activity = str_replace(Activity, "Attracted", "Approach"))%>%
+  dplyr::select(-freq_flatness)
+
+
+# Extract feature matrix (excluding response)
+X_test <- Behav_UMAP[, !(names(Behav_UMAP) %in% c("Common", "Activity", "Site", "mean_length"))]
+X_test
+
+set.seed(57)
+# Run UMAP
+umap_result <- umap(X_test)
+
+# Create a dataframe for plotting
+umap_df <- as.data.frame(umap_result$layout)
+umap_df$Activity<-Behav_UMAP$Activity
+umap_df$Site<-Behav_UMAP$Site
+umap_df$mean_length<-Behav_UMAP$mean_length
+umap_df$freq_bandwidth<-Behav_UMAP$freq_bandwidth
+
+#bin freq_bandwidth
+umap_df<- umap_df %>%
+  mutate(Frequency_Bandwidth = case_when(
+    freq_bandwidth <= 400 ~ "400 Hz or less",
+    freq_bandwidth <= 600 ~ "600 Hz or less",
+    freq_bandwidth <= 800 ~ "800 Hz or less",
+    freq_bandwidth > 800  ~ "800 Hz or more"
+  ))
+
+
+
+#umap_df$True <- test$Common
+# umap_df$Site<-test_wExtra$Site
+# umap_df$fishID<- test_wExtra$fishID
+levels(as.factor(umap_df$Activity))
+
+# Define custom colors for species
+custom_colors <- c(
+  "Chase" = "#003399",   
+  "Flight" = "#FF6600", 
+  "No activity" = "#33CC99",
+  "Approach" = "#33CCFF",
+  "Feeding" = "#FFCC00",
+  "Pile Perch" = "#9900CC" 
+)
+
+par(mfrow = c(1, 2))
+
+###########
+
+#Predicted values plot (shows how the Random Forest classified fish sounds)
+Behaviour_Can_Knocks <- ggplot(umap_df, aes(V1, V2, color = Activity, fill = Activity)) +
+  geom_point(alpha = 0.8, size = 2) +
+  stat_ellipse(aes(group = Activity), level = 0.70, type = "norm", geom = "polygon", alpha = 0.1, color = NA, show.legend = FALSE) +
+  stat_ellipse(aes(group = Activity), level = 0.70, type = "norm", geom = "path", size = 1, show.legend = FALSE) +
+  scale_colour_manual(values = custom_colors) +
+  scale_fill_manual(values = custom_colors) +
+  labs(title = "Canary Knocks",
+       x = "UMAP 1", y = "UMAP 2") +
+  theme_classic()+
+  theme(legend.position = "right")
+Behaviour_Can_Knocks
+ggsave("figures/CH2/UMAP_Black_Knocks_Behaviour.png", plot = Behaviour_Can_Knocks , width = 10, height = 6, dpi = 300)
+##
+#NO TRENDS- TOO MUCH OVERLAP - Add to Supp data
+#IF YOU SEE A TREND IN THE UMAP PLOT USE THIS CODE TO CHECK WHICH VARIABLE IS MOST LIKELY PULLING POINTS APART
+
+#Combine original variables with UMAP coordinates
+umap_combined <- cbind(X_test, UMAP1 = umap_result$layout[,1], UMAP2 = umap_result$layout[,2])
+
+# Correlation with UMAP dimensions
+cor_UMAP1 <- sapply(X_test, function(x) cor(x, umap_result$layout[,1], method = "spearman"))
+cor_UMAP2 <- sapply(X_test, function(x) cor(x, umap_result$layout[,2], method = "spearman"))
+
+# Combine into a single data frame
+cor_df <- data.frame(Variable = names(X_test),
+                     UMAP1_corr = cor_UMAP1,
+                     UMAP2_corr = cor_UMAP2)
+
+# Order by strongest correlation
+cor_df <- cor_df[order(abs(cor_df$UMAP1_corr) + abs(cor_df$UMAP2_corr), decreasing = TRUE), ]
+print(cor_df)
+
+############
+#Copper - Grunts
+#############
+
+
+lp("umap")
+
+#create dataframe for UMAP behaviour plotting
+lp("dplyr")
+
+Behav_UMAP<-fishdata%>%
+  filter(t == "g", ID_confidence == 1|2,  Selection != 3030, str_detect(Species, "melanops"))%>%
+  dplyr::select(Common, Activity, Site, mean_length, freq_peak:time_centroid, High.Freq..Hz., Low.Freq..Hz.)%>%
+  mutate(Activity = if_else(Activity == "" | is.na(Activity), "No activity", Activity))%>%
+  mutate(
+    Activity = if_else(Activity == "" | is.na(Activity), "No activity", Activity),
+    Activity = str_replace(Activity, "Chase other", "Chase"),
+    Activity = str_replace(Activity, "Chase conspecific", "Chase"),
+    Activity = str_replace(Activity, "Guarding bait", "Flight"),
+    Activity = str_replace(Activity, "Passing", "No activity"),
+    Activity = str_replace(Activity, "No activity", "No activity"),
+    Activity = str_replace(Activity, "Attracted", "Approach"))%>%
+  dplyr::select(-freq_flatness)
+
+
+# Extract feature matrix (excluding response)
+X_test <- Behav_UMAP[, !(names(Behav_UMAP) %in% c("Common", "Activity", "Site", "mean_length"))]
+X_test
+
+set.seed(57)
+# Run UMAP
+umap_result <- umap(X_test)
+
+# Create a dataframe for plotting
+umap_df <- as.data.frame(umap_result$layout)
+umap_df$Activity<-Behav_UMAP$Activity
+umap_df$Site<-Behav_UMAP$Site
+umap_df$mean_length<-Behav_UMAP$mean_length
+umap_df$Frequency_75<-Behav_UMAP$freq_pct75
+umap_df$Frequency_25<-Behav_UMAP$freq_pct25
+
+#bin freq_bandwidth
+umap_df<- umap_df %>%
+  mutate(Length = case_when(
+    mean_length <= 250 ~ "250 mm or less",
+    mean_length  > 250  ~ "250 mm or more"
+  ))
+
+#bin freq_bandwidth
+umap_df<- umap_df %>%
+  mutate(Frequency_75 = case_when(
+    Frequency_75 <= 400 ~ "400 Hz or less",
+    Frequency_75  > 400  ~ "400 Hz or more"
+  ))
+
+
+
+#umap_df$True <- test$Common
+# umap_df$Site<-test_wExtra$Site
+# umap_df$fishID<- test_wExtra$fishID
+levels(as.factor(umap_df$Activity))
+
+# Define custom colors for Activity
+custom_colors <- c(
+  "Chase" = "#003399",   
+  "Flight" = "#FF6600", 
+  "No activity" = "#33CC99",
+  "Approach" = "#33CCFF",
+  "Feeding" = "#FFCC00",
+  "Pile Perch" = "#9900CC" 
+)
+
+# Define custom colors for Length
+custom_colors_L <- c(
+  "200 mm or less" = "#003399",   
+  "250 mm or less" = "#FF6600", 
+  "300 mm or less" = "#33CC99",
+  "250 mm or more" =  "#FFCC00"
+)
+
+# Define custom colors for F75
+custom_colors_F75 <- c(
+  "400 Hz or less" = "#003399",   
+  "250 mm or less" = "#FF6600", 
+  "400 Hz or more" = "#33CC99",
+  "250 mm or more" =  "#FFCC00"
+)
+
+
+
+par(mfrow = c(1, 2))
+
+###########
+
+#Predicted values plot (shows how the Random Forest classified fish sounds)
+Behaviour_Black_Grunts_length  <- ggplot(umap_df, aes(V1, V2, color = Length, fill =Length)) +
+  geom_point(alpha = 0.8, size = 2) +
+  stat_ellipse(aes(group = Length), level = 0.70, type = "norm", geom = "polygon", alpha = 0.1, color = NA, show.legend = FALSE) +
+  stat_ellipse(aes(group = Length), level = 0.70, type = "norm", geom = "path", size = 1, show.legend = FALSE) +
+  scale_colour_manual(values = custom_colors_L) +
+  scale_fill_manual(values = custom_colors_L) +
+  labs(title = "Black Grunts - Fish Length",
+       x = "UMAP 1", y = "UMAP 2") +
+  theme_classic()+
+  theme(legend.position = "right")
+Behaviour_Black_Grunts_length 
+
+#Predicted values plot (shows how the Random Forest classified fish sounds)
+Behaviour_Black_Grunts_F75  <- ggplot(umap_df, aes(V1, V2, color = Frequency_75, fill =Frequency_75)) +
+  geom_point(alpha = 0.8, size = 2) +
+  stat_ellipse(aes(group = Frequency_75), level = 0.70, type = "norm", geom = "polygon", alpha = 0.1, color = NA, show.legend = FALSE) +
+  stat_ellipse(aes(group = Frequency_75), level = 0.70, type = "norm", geom = "path", size = 1, show.legend = FALSE) +
+  scale_colour_manual(values = custom_colors_F75) +
+  scale_fill_manual(values = custom_colors_F75) +
+  labs(title = "Frequency 75%",
+       x = "UMAP 1", y = "UMAP 2") +
+  theme_classic()+
+  theme(legend.position = "right")
+Behaviour_Black_Grunts_F75 
+
+Behaviour_Black_Grunts  <- ggplot(umap_df, aes(V1, V2, color = Activity, fill = Activity)) +
+  geom_point(alpha = 0.8, size = 2) +
+  stat_ellipse(aes(group = Activity), level = 0.70, type = "norm", geom = "polygon", alpha = 0.1, color = NA, show.legend = FALSE) +
+  stat_ellipse(aes(group = Activity), level = 0.70, type = "norm", geom = "path", size = 1, show.legend = FALSE) +
+  scale_colour_manual(values = custom_colors) +
+  scale_fill_manual(values = custom_colors) +
+  labs(title = "Behaviour",
+       x = "UMAP 1", y = "UMAP 2") +
+  theme_classic()+
+  theme(legend.position = "right")
+Behaviour_Black_Grunts 
+
+Behaviour_Black_Gruntsbw  <- ggplot(umap_df, aes(V1, V2, color = Frequency_25, fill = Frequency_25)) +
+  geom_point(alpha = 0.8, size = 2) +
+  stat_ellipse(aes(group = Activity), level = 0.70, type = "norm", geom = "polygon", alpha = 0.1, color = NA, show.legend = FALSE) +
+  stat_ellipse(aes(group = Activity), level = 0.70, type = "norm", geom = "path", size = 1, show.legend = FALSE) +
+  #scale_colour_manual(values = custom_colors) +
+  #scale_fill_manual(values = custom_colors) +
+  labs(title = "Behaviour",
+       x = "UMAP 1", y = "UMAP 2") +
+  theme_classic()+
+  theme(legend.position = "right")
+Behaviour_Black_Gruntsbw 
+
+#combine Copper plots into one
+
+lp("patchwork")
+lp("cowplot")
+
+# Combine plots
+Black_UMAP_combined <- (Behaviour_Black_Grunts_length|Behaviour_Black_Grunts_F75 | Behaviour_Black_Grunts  ) +
+  theme(legend.position = "right")
+Black_UMAP_combined 
+
+ggsave("figures/CH2/Black_UMAP_combined_Behaviour.png", plot = Black_UMAP_combined , width = 10, height = 6, dpi = 300)
+
+#TRENDS - F75 higher for larger fish and for aggressive approaching sounds
+
+#Combine original variables with UMAP coordinates
+umap_combined <- cbind(X_test, UMAP1 = umap_result$layout[,1], UMAP2 = umap_result$layout[,2])
+
+# Correlation with UMAP dimensions
+cor_UMAP1 <- sapply(X_test, function(x) cor(x, umap_result$layout[,1], method = "spearman"))
+cor_UMAP2 <- sapply(X_test, function(x) cor(x, umap_result$layout[,2], method = "spearman"))
+
+# Combine into a single data frame
+cor_df <- data.frame(Variable = names(X_test),
+                     UMAP1_corr = cor_UMAP1,
+                     UMAP2_corr = cor_UMAP2)
+
+# Order by strongest correlation
+cor_df <- cor_df[order(abs(cor_df$UMAP1_corr) + abs(cor_df$UMAP2_corr), decreasing = TRUE), ]
+print(cor_df)
+
+#combine Copper plots into one
+
+lp("patchwork")
+lp("cowplot")
+
+# Combine plots
+Cop_UMAP_combined <- (Behaviour_Cop_Grunts|Behaviour_Cop_Knocks ) +
+  theme(legend.position = "right")
+Cop_UMAP_combined
+
+ggsave("figures/CH2/Copper_UMAP_combined_Behaviour.png", plot = Cop_UMAP_combined, width = 10, height = 6, dpi = 300)
+
+
+
+
+
 
 ###Seeing if two groups are length related between Flight and 
 # #Predicted values plot (shows how the Random Forest classified fish sounds)
