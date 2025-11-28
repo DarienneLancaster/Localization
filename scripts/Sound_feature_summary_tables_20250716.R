@@ -331,6 +331,11 @@ knock_flextable <- width(knock_flextable, width = 1.2)
 knock_flextable
 save_as_image(x = knock_flextable, path = "figures/knock_table.png")
 
+lp('officer')
+
+save_as_docx(`Knock table` = knock_flextable,
+             path = "figures/Table2_knock_table.docx")
+
 #knock table ALL FEATURES
 
 set_flextable_defaults(
@@ -391,6 +396,9 @@ grunt_flextable <- width(grunt_flextable, width = 1.2)
 grunt_flextable
 save_as_image(x = grunt_flextable, path = "figures/grunt_table.png")
 
+save_as_docx(`Table 3` = grunt_flextable,
+             path = "figures/Table3_grunt_table.docx")
+
 #grunt table ALL FEATURES
 
 set_flextable_defaults(
@@ -447,6 +455,9 @@ other_flextable <- theme_vanilla(other_flextable)
 other_flextable <- width(other_flextable, width = 1.2)
 other_flextable
 save_as_image(x = other_flextable, path = "figures/other_table.png")
+
+save_as_docx(`Table 4` = other_flextable,
+             path = "figures/Table4_other_table.docx")
 
 #Other sounds table - ALL FEATURES
 set_flextable_defaults(
