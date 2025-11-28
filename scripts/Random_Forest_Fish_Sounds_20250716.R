@@ -228,6 +228,10 @@ class_stats_flextable <- theme_vanilla(class_stats_flextable)
 class_stats_flextable
 save_as_image(x = class_stats_flextable, path = "figures/rf_grunt_TEST_RESULTS_confusion_matrix.png")
 
+lp("officer")
+save_as_docx(`Table 5` = class_stats_flextable,
+             path = "figures/Table5_RF_Grunt_results.docx")
+
 
 ###
 ################################################################################
@@ -625,6 +629,8 @@ K_class_stats_flextable <- theme_vanilla(class_stats_flextable)
 K_class_stats_flextable
 save_as_image(x = K_class_stats_flextable, path = "figures/rf_knock_TEST_RESULTS_confusion_matrix.png")
 
+save_as_docx(`Table 3` = K_class_stats_flextable,
+             path = "figures/Table3_RF_Knock_results.docx")
 ################################################################################
 #UMAP data visualization
 ###########
