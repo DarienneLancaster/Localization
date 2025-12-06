@@ -591,12 +591,13 @@ print(measure_cor)
 # 
 measurements <- ggplot(dup_meas, aes(x = mean_lengthEM, y = mean_lengthIJ)) +
   geom_point(color = "deepskyblue") +
-  labs(title = "a)") +
+  labs(title = "") +
   sm_statCorr(corr_method="pearson", color = "deepskyblue3", linetype = "dashed")+
-  labs(x = "EM", y = "IJ")+
+  labs(x = "EventMeasure length (mm)", y = "ImageJ length (mm)")+
   theme_bw()+
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 measurements 
+ggsave("figures/CH2/EM_ImageJ_lengths_pearsonsPLOT.png", plot = measurements, width = 10, height = 6, dpi = 300)
 
 #############################################################################################
 ###create new dataframe with fish measurements joined to sound data
