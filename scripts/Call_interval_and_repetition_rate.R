@@ -20,11 +20,11 @@ lp("flextable")
 fishdata<-read.csv("wdata/Sound_Species_Behaviour_Length_wPyFeatures_20250616.csv", header = TRUE)
 
 #create new column with species common names
-fishdata$Common<- ifelse(fishdata$Species == "caurinus", "Copper rockfish",
-                         ifelse(fishdata$Species == "maliger", "Quillback rockfish",
-                                ifelse(fishdata$Species == "pinniger", "Canary rockfish",
-                                       ifelse(fishdata$Species == "miniatus", "Vermillion rockfish",
-                                              ifelse(fishdata$Species == "melanops", "Black rockfish",
+fishdata$Common<- ifelse(fishdata$Species == "caurinus", "Copper Rockfish",
+                         ifelse(fishdata$Species == "maliger", "Quillback Rockfish",
+                                ifelse(fishdata$Species == "pinniger", "Canary Rockfish",
+                                       ifelse(fishdata$Species == "miniatus", "Vermillion Rockfish",
+                                              ifelse(fishdata$Species == "melanops", "Black Rockfish",
                                                      ifelse(fishdata$Species == "elongatus", "Lingcod",
                                                             ifelse(fishdata$Species == "decagrammus", "Kelp Greenling",
                                                                    ifelse(fishdata$Species == "vacca", "Pile Perch", "other"))))))))
@@ -258,7 +258,7 @@ Call_Num_GK <- Call_Num %>%
   ungroup()
 
 CoppG<- Call_Num_GK%>%
-  filter(Common == "Copper rockfish")
+  filter(Common == "Copper Rockfish")
 
 
 
@@ -321,7 +321,7 @@ lp("caret")
 
 #remove other and vermillion (not enough samples, only 2)
 fishdata0 <- fishdata000 %>%
-  filter(Common != "other", Common != "Vermillion rockfish", Common != "Kelp Greenling")
+  filter(Common != "other", Common != "Vermillion Rockfish", Common != "Kelp Greenling")
 
 
 numSpecies<-fishdata0 %>%
@@ -402,6 +402,7 @@ par(mfrow = c(1, 2))
 
 # Plot 1: Accuracy importance
 varImpPlot(rf_model, type = 1, main = "")
+
 
 # Plot 2: Gini importance
 varImpPlot(rf_model, type = 2, main = "")
@@ -598,11 +599,11 @@ save_as_image(x = calldeets_flextable, path = "figures/CH2/Call_Details_Table2.p
 
 # Define custom colors for species
 custom_colors <- c(
-  "Black rockfish" = "#003399",   
-  "Quillback rockfish" = "#FF6600", 
-  "Copper rockfish" = "#33CC99",
+  "Black Rockfish" = "#003399",   
+  "Quillback Rockfish" = "#FF6600", 
+  "Copper Rockfish" = "#33CC99",
   "Lingcod" = "#33CCFF",
-  "Canary rockfish" = "#FFCC00",
+  "Canary Rockfish" = "#FFCC00",
   "Pile Perch" = "#9900CC" 
 )
 
@@ -628,8 +629,16 @@ CI<- ggplot(CallDeets, aes(x = Common, y = C_Interval_mean, fill = Common)) +
   ) +
   theme_classic() +
   theme(
+    title = element_text(size = 16),
     axis.text.x = element_text(angle = 45, hjust = 1),
     legend.position = "none"
+  )+
+  annotate(
+    "text",
+    x = -Inf, y = Inf,
+    label = "a)",
+    hjust = -0.5, vjust = 1.5,
+    size = 6
   )
 CI
 
@@ -712,8 +721,16 @@ CR<- ggplot(CallDeets, aes(x = Common, y = Sequence_Reps, fill = Common)) +
   ) +
   theme_classic() +
   theme(
+    title = element_text(size = 16),
     axis.text.x = element_text(angle = 45, hjust = 1),
     legend.position = "none"
+  )+
+  annotate(
+    "text",
+    x = -Inf, y = Inf,
+    label = "b)",
+    hjust = -0.5, vjust = 1.5,
+    size = 6
   )
 CR
 
@@ -797,8 +814,16 @@ Knum<- ggplot(CallDeets, aes(x = Common, y = d_count, fill = Common)) +
   ) +
   theme_classic() +
   theme(
+    title = element_text(size = 16),
     axis.text.x = element_text(angle = 45, hjust = 1),
     legend.position = "none"
+  )+
+annotate(
+    "text",
+    x = -Inf, y = Inf,
+    label = "c)",
+    hjust = -0.5, vjust = 1.5,
+    size = 6
   )
 Knum
 
@@ -806,7 +831,7 @@ kruskal.test(d_count ~ Common, data = CallDeets)
 
 #All species knocks
 pw<-pairwise.wilcox.test(CallDeets$d_count, CallDeets$Common, p.adjust.method = "BH")
-# Lingcod and Quillback rockfish have significantly more knock sounds than Black rockfish
+# Lingcod and Quillback Rockfish have significantly more knock sounds than Black Rockfish
 
 # Set Flextable defaults (your settings)
 set_flextable_defaults(
@@ -877,8 +902,16 @@ Gnum<- ggplot(CallDeets, aes(x = Common, y = g_count, fill = Common)) +
   ) +
   theme_classic() +
   theme(
+    title = element_text(size = 16),
     axis.text.x = element_text(angle = 45, hjust = 1),
     legend.position = "none"
+  )+
+annotate(
+    "text",
+    x = -Inf, y = Inf,
+    label = "d)",
+    hjust = -0.5, vjust = 1.5,
+    size = 6
   )
 Gnum
 
@@ -936,8 +969,8 @@ pw_ft
 
 save_as_image(x = pw_ft, path = "figures/CH2/WilcoxonPValues_GruntCount.png")
 
-# Black rockfish have significantly more grunts than than all species,
-#Copper rockfish have significantly more grunts than Canary and Pile perch
+# Black Rockfish have significantly more grunts than than all species,
+#Copper Rockfish have significantly more grunts than Canary and Pile perch
 
 lp("patchwork")
 lp("cowplot")
@@ -954,7 +987,7 @@ All_calldeetsfinal <- ggdraw() +
   # Shared y-axis label (rotated)
   draw_label("", angle = 90, x = 0.03, y = 0.5, vjust = 0.5) +
   # Shared x-axis label (centered at bottom)
-  draw_label("Species", angle = 0, x = 0.48, y = 0.02, vjust = 0.5) +
+  draw_label("", angle = 0, x = 0.48, y = 0.02, vjust = 0.5) +
   # Combined plot
   draw_plot(All_calldeets, x = 0.05, y = 0.05, width = 0.9, height = 0.9)
 
@@ -1191,7 +1224,7 @@ G_BEHA_C <- ggplot(CallDeets2, aes(x = Activity, y = g_count, fill = Activity)) 
   scale_fill_manual(values = custom_colors_BEHAV) +
   scale_color_manual(values = custom_colors_BEHAV) +
   labs(
-    title = "Copper",
+    title = "Copper Rockfish",
     x = "",
     y = "Grunt (count)"
   ) +
@@ -1199,6 +1232,13 @@ G_BEHA_C <- ggplot(CallDeets2, aes(x = Activity, y = g_count, fill = Activity)) 
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1),
     legend.position = "none"
+  )+
+  annotate(
+    "text",
+    x = -Inf, y = Inf,
+    label = "a)",
+    hjust = -0.5, vjust = 1.5,
+    size = 6
   )
 
 G_BEHA_C
@@ -1305,6 +1345,13 @@ K_BEHA_C <- ggplot(CallDeets2, aes(x = Activity, y = d_count, fill = Activity)) 
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1),
     legend.position = "none"
+  ) +
+  annotate(
+    "text",
+    x = -Inf, y = Inf,
+    label = "b)",
+    hjust = -0.5, vjust = 1.5,
+    size = 6
   )
 
 K_BEHA_C
@@ -1408,15 +1455,73 @@ Rep_BEHA_C <- ggplot(CallDeets2, aes(x = Activity, y = Sequence_Reps, fill = Act
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1),
     legend.position = "none"
+  )+
+  annotate(
+    "text",
+    x = -Inf, y = Inf,
+    label = "c)",
+    hjust = -0.5, vjust = 1.5,
+    size = 6
   )
 
 Rep_BEHA_C
 ##
-
+kruskal.test(Sequence_Reps ~ Activity, data = CallDeets2)
 
 #Copper call reps
-pairwise.wilcox.test(CallDeets2$Sequence_Reps, CallDeets2$Activity, p.adjust.method = "BH")
+pw<-pairwise.wilcox.test(CallDeets2$Sequence_Reps, CallDeets2$Activity, p.adjust.method = "BH")
 # significantly more call reps during Fleeing than during feeding
+
+# Set Flextable defaults (your settings)
+set_flextable_defaults(
+  font.size = 10,
+  theme_fun = theme_vanilla,
+  padding = 3,
+  background.color = "white"
+)
+
+# Extract matrix
+mat <- pw$p.value
+
+# Convert to a data frame for flextable
+df <- data.frame(
+  Comparison = rownames(mat),
+  mat,
+  check.names = FALSE
+)
+
+pw_ft <- flextable(df)
+
+# number formatting
+pw_ft <- colformat_double(
+  x = pw_ft,
+  big.mark = ",",
+  digits = 2,
+  na_str = "N/A"
+)
+
+
+# spacing
+pw_ft <- line_spacing(pw_ft, space = 1.5, part = "all")
+
+# table properties
+pw_ft <- set_table_properties(
+  pw_ft,
+  align = "right",
+  layout = "autofit"
+)
+
+# theme
+pw_ft <- theme_vanilla(pw_ft)
+
+# column widths
+pw_ft <- width(pw_ft, width = 1.2)
+
+pw_ft
+
+save_as_image(x = pw_ft, path = "figures/CH2/WilcoxonPValues_RepCount_Copper_Behaviour.png")
+
+
 
 ########################################################################
 
@@ -1442,6 +1547,13 @@ INT_BEHA_C<- ggplot(CallDeets2, aes(x = Activity, y = C_Interval_mean, fill = Ac
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1),
     legend.position = "none"
+  ) +
+  annotate(
+    "text",
+    x = -Inf, y = Inf,
+    label = "d)",
+    hjust = -0.5, vjust = 1.5,
+    size = 6
   )
 INT_BEHA_C
 
@@ -1450,10 +1562,60 @@ CallDeets_noApproach<-CallDeets2%>%
   filter(Activity != "Approach")
 levels(as.factor(CallDeets_noApproach$Activity))
 
-#Copper call interval
-pairwise.wilcox.test(CallDeets_noApproach$C_Interval_mean, CallDeets_noApproach$Activity, p.adjust.method = "BH")
-#nothing significant
+kruskal.test(C_Interval_mean ~ Activity, data = CallDeets2)
 
+#Copper call reps
+pw<-pairwise.wilcox.test(CallDeets2$C_Interval_mean, CallDeets2$Activity, p.adjust.method = "BH")
+# significantly more call reps during Fleeing than during feeding
+
+# Set Flextable defaults (your settings)
+set_flextable_defaults(
+  font.size = 10,
+  theme_fun = theme_vanilla,
+  padding = 3,
+  background.color = "white"
+)
+
+# Extract matrix
+mat <- pw$p.value
+
+# Convert to a data frame for flextable
+df <- data.frame(
+  Comparison = rownames(mat),
+  mat,
+  check.names = FALSE
+)
+
+pw_ft <- flextable(df)
+
+# number formatting
+pw_ft <- colformat_double(
+  x = pw_ft,
+  big.mark = ",",
+  digits = 2,
+  na_str = "N/A"
+)
+
+
+# spacing
+pw_ft <- line_spacing(pw_ft, space = 1.5, part = "all")
+
+# table properties
+pw_ft <- set_table_properties(
+  pw_ft,
+  align = "right",
+  layout = "autofit"
+)
+
+# theme
+pw_ft <- theme_vanilla(pw_ft)
+
+# column widths
+pw_ft <- width(pw_ft, width = 1.2)
+
+pw_ft
+
+save_as_image(x = pw_ft, path = "figures/CH2/WilcoxonPValues_CallInterval_Copper_Behaviour.png")
 
 ####################
 #behaviour vs call patterns for QB
@@ -1519,7 +1681,7 @@ G_BEHA_Q <- ggplot(CallDeets3, aes(x = Activity, y = g_count, fill = Activity)) 
   scale_fill_manual(values = custom_colors_BEHAV) +
   scale_color_manual(values = custom_colors_BEHAV) +
   labs(
-    title = "Quillback",
+    title = "Quillback Rockfish",
     x = "",
     y = "Grunt (count)"
   ) +
@@ -1527,14 +1689,72 @@ G_BEHA_Q <- ggplot(CallDeets3, aes(x = Activity, y = g_count, fill = Activity)) 
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1),
     legend.position = "none"
+  )+
+  annotate(
+    "text",
+    x = -Inf, y = Inf,
+    label = "e)",
+    hjust = -0.5, vjust = 1.5,
+    size = 6
   )
 
 G_BEHA_Q
 
 
+kruskal.test(g_count ~ Activity, data = CallDeets3)
+
 #Quillback grunts
-pairwise.wilcox.test(CallDeets3$g_count, CallDeets3$Activity, p.adjust.method = "BH")
+pw<-pairwise.wilcox.test(CallDeets3$g_count, CallDeets3$Activity, p.adjust.method = "BH")
 # significantly more grunts during Fleeing and feeding than no activity
+
+# Set Flextable defaults (your settings)
+set_flextable_defaults(
+  font.size = 10,
+  theme_fun = theme_vanilla,
+  padding = 3,
+  background.color = "white"
+)
+
+# Extract matrix
+mat <- pw$p.value
+
+# Convert to a data frame for flextable
+df <- data.frame(
+  Comparison = rownames(mat),
+  mat,
+  check.names = FALSE
+)
+
+pw_ft <- flextable(df)
+
+# number formatting
+pw_ft <- colformat_double(
+  x = pw_ft,
+  big.mark = ",",
+  digits = 2,
+  na_str = "N/A"
+)
+
+
+# spacing
+pw_ft <- line_spacing(pw_ft, space = 1.5, part = "all")
+
+# table properties
+pw_ft <- set_table_properties(
+  pw_ft,
+  align = "right",
+  layout = "autofit"
+)
+
+# theme
+pw_ft <- theme_vanilla(pw_ft)
+
+# column widths
+pw_ft <- width(pw_ft, width = 1.2)
+
+pw_ft
+
+save_as_image(x = pw_ft, path = "figures/CH2/WilcoxonPValues_Grunts_Quillback_Behaviour.png")
 ########################################################################################
 
 #number knocks
@@ -1559,12 +1779,70 @@ K_BEHA_Q<- ggplot(CallDeets3, aes(x = Activity, y = d_count, fill = Activity)) +
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1),
     legend.position = "none"
+  )+
+  annotate(
+    "text",
+    x = -Inf, y = Inf,
+    label = "f)",
+    hjust = -0.5, vjust = 1.5,
+    size = 6
   )
 K_BEHA_Q
 
-#Quillback knocks
-pairwise.wilcox.test(CallDeets3$d_count, CallDeets3$Activity, p.adjust.method = "BH")
-# nothing significant
+kruskal.test(d_count ~ Activity, data = CallDeets3)
+
+#Quillback grunts
+pw<-pairwise.wilcox.test(CallDeets3$d_count, CallDeets3$Activity, p.adjust.method = "BH")
+# significantly more grunts during Fleeing and feeding than no activity
+
+# Set Flextable defaults (your settings)
+set_flextable_defaults(
+  font.size = 10,
+  theme_fun = theme_vanilla,
+  padding = 3,
+  background.color = "white"
+)
+
+# Extract matrix
+mat <- pw$p.value
+
+# Convert to a data frame for flextable
+df <- data.frame(
+  Comparison = rownames(mat),
+  mat,
+  check.names = FALSE
+)
+
+pw_ft <- flextable(df)
+
+# number formatting
+pw_ft <- colformat_double(
+  x = pw_ft,
+  big.mark = ",",
+  digits = 2,
+  na_str = "N/A"
+)
+
+
+# spacing
+pw_ft <- line_spacing(pw_ft, space = 1.5, part = "all")
+
+# table properties
+pw_ft <- set_table_properties(
+  pw_ft,
+  align = "right",
+  layout = "autofit"
+)
+
+# theme
+pw_ft <- theme_vanilla(pw_ft)
+
+# column widths
+pw_ft <- width(pw_ft, width = 1.2)
+
+pw_ft
+
+save_as_image(x = pw_ft, path = "figures/CH2/WilcoxonPValues_Knocks_Quillback_Behaviour.png")
 
 #number reps
 Rep_BEHA_Q<- ggplot(CallDeets3, aes(x = Activity, y = Sequence_Reps, fill = Activity)) +
@@ -1588,12 +1866,70 @@ Rep_BEHA_Q<- ggplot(CallDeets3, aes(x = Activity, y = Sequence_Reps, fill = Acti
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1),
     legend.position = "none"
+  )+
+  annotate(
+    "text",
+    x = -Inf, y = Inf,
+    label = "g)",
+    hjust = -0.5, vjust = 1.5,
+    size = 6
   )
 Rep_BEHA_Q
 
-#Quillback call reps
-pairwise.wilcox.test(CallDeets3$Sequence_Reps, CallDeets3$Activity, p.adjust.method = "BH")
-# nothing significant
+kruskal.test(Sequence_Reps ~ Activity, data = CallDeets3)
+
+#Quillback grunts
+pw<-pairwise.wilcox.test(CallDeets3$Sequence_Reps, CallDeets3$Activity, p.adjust.method = "BH")
+# significantly more grunts during Fleeing and feeding than no activity
+
+# Set Flextable defaults (your settings)
+set_flextable_defaults(
+  font.size = 10,
+  theme_fun = theme_vanilla,
+  padding = 3,
+  background.color = "white"
+)
+
+# Extract matrix
+mat <- pw$p.value
+
+# Convert to a data frame for flextable
+df <- data.frame(
+  Comparison = rownames(mat),
+  mat,
+  check.names = FALSE
+)
+
+pw_ft <- flextable(df)
+
+# number formatting
+pw_ft <- colformat_double(
+  x = pw_ft,
+  big.mark = ",",
+  digits = 2,
+  na_str = "N/A"
+)
+
+
+# spacing
+pw_ft <- line_spacing(pw_ft, space = 1.5, part = "all")
+
+# table properties
+pw_ft <- set_table_properties(
+  pw_ft,
+  align = "right",
+  layout = "autofit"
+)
+
+# theme
+pw_ft <- theme_vanilla(pw_ft)
+
+# column widths
+pw_ft <- width(pw_ft, width = 1.2)
+
+pw_ft
+
+save_as_image(x = pw_ft, path = "figures/CH2/WilcoxonPValues_CallReps_Quillback_Behaviour.png")
 
 
 #call interval
@@ -1618,19 +1954,71 @@ INT_BEHA_Q<- ggplot(CallDeets3, aes(x = Activity, y = C_Interval_mean, fill = Ac
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1),
     legend.position = "none"
+  )+
+  annotate(
+    "text",
+    x = -Inf, y = Inf,
+    label = "h)",
+    hjust = -0.5, vjust = 1.5,
+    size = 6
   )
 INT_BEHA_Q
 
-#Quillback interval
-#remove any activity groups with less than 2 observations
- #remove Approach as level because there is no call interval becasue only ever one call for this behaviour
-CallDeets3_filtered<-CallDeets3%>%
-  filter(Activity != "Approach")
-levels(as.factor(CallDeets3_filtered$Activity))
+kruskal.test(C_Interval_mean ~ Activity, data = CallDeets3)
 
-pairwise.wilcox.test(CallDeets3_filtered$C_Interval_mean, 
-                     CallDeets3_filtered$Activity, 
-                     p.adjust.method = "BH")
+#Quillback grunts
+pw<-pairwise.wilcox.test(CallDeets3$C_Interval_mean, CallDeets3$Activity, p.adjust.method = "BH")
+# significantly more grunts during Fleeing and feeding than no activity
+
+# Set Flextable defaults (your settings)
+set_flextable_defaults(
+  font.size = 10,
+  theme_fun = theme_vanilla,
+  padding = 3,
+  background.color = "white"
+)
+
+# Extract matrix
+mat <- pw$p.value
+
+# Convert to a data frame for flextable
+df <- data.frame(
+  Comparison = rownames(mat),
+  mat,
+  check.names = FALSE
+)
+
+pw_ft <- flextable(df)
+
+# number formatting
+pw_ft <- colformat_double(
+  x = pw_ft,
+  big.mark = ",",
+  digits = 2,
+  na_str = "N/A"
+)
+
+
+# spacing
+pw_ft <- line_spacing(pw_ft, space = 1.5, part = "all")
+
+# table properties
+pw_ft <- set_table_properties(
+  pw_ft,
+  align = "right",
+  layout = "autofit"
+)
+
+# theme
+pw_ft <- theme_vanilla(pw_ft)
+
+# column widths
+pw_ft <- width(pw_ft, width = 1.2)
+
+pw_ft
+
+save_as_image(x = pw_ft, path = "figures/CH2/WilcoxonPValues_CallInterval_Quillback_Behaviour.png")
+
 #nothing significant 
 
 #######################################
@@ -1670,56 +2058,63 @@ CallDeetsB <- droplevels(CallDeetsB)
 # Create all pairwise combinations
 pairwise_comparisons <- combn(levels(CallDeetsB$Activity), 2, simplify = FALSE)
 
-# Run Wilcoxon tests for each pair and keep only significant ones
-sig_comparisons <- lapply(pairwise_comparisons, function(pair) {
-  subset_data <- CallDeetsB %>%
-    filter(Activity %in% pair) %>%
-    droplevels()  # Drop unused levels
-  
-  # Only run test if both levels are present with at least one value each
-  if (n_distinct(subset_data$Activity) == 2) {
-    test_result <- wilcox.test(g_count ~ Activity, data = subset_data)
-    if (test_result$p.value < 0.05) return(pair)
-  }
-  return(NULL)
-}) %>% purrr::compact()
-
-# Now plot with only significant brackets
-G_BEHA_B<- ggplot(CallDeetsB, aes(x = Activity, y = g_count, fill = Activity)) +
-  geom_boxplot(varwidth = TRUE, color = "black", outlier.shape = NA, alpha = 0.7) +
-  stat_compare_means(
-    method = "wilcox.test", 
-    comparisons = sig_comparisons,
-    label = "p.signif",
-    step.increase = 0.1  # Adjust this to move brackets closer
-  ) +
-  geom_point(
-    aes(color = Activity),
-    position = position_jitter(width = 0.1),
-    size = 1,
-    alpha = 0.3,
-    shape = 21,
-    show.legend = FALSE
-  ) +
-  scale_fill_manual(values = custom_colors_BEHAV) +
-  scale_color_manual(values = custom_colors_BEHAV) +
-  labs(
-    title = "Canary",
-    x = "",
-    y = "Grunt (count)"
-  ) +
-  theme_classic() +
-  theme(
-    axis.text.x = element_text(angle = 45, hjust = 1),
-    legend.position = "none"
-  )
-
-G_BEHA_B
-
-
-#Black grunts
-pairwise.wilcox.test(CallDeetsB$g_count, CallDeetsB$Activity, p.adjust.method = "BH")
-# Nothing significant
+# # Run Wilcoxon tests for each pair and keep only significant ones
+# sig_comparisons <- lapply(pairwise_comparisons, function(pair) {
+#   subset_data <- CallDeetsB %>%
+#     filter(Activity %in% pair) %>%
+#     droplevels()  # Drop unused levels
+#   
+#   # Only run test if both levels are present with at least one value each
+#   if (n_distinct(subset_data$Activity) == 2) {
+#     test_result <- wilcox.test(g_count ~ Activity, data = subset_data)
+#     if (test_result$p.value < 0.05) return(pair)
+#   }
+#   return(NULL)
+# }) %>% purrr::compact()
+# 
+# # Now plot with only significant brackets
+# G_BEHA_B<- ggplot(CallDeetsB, aes(x = Activity, y = g_count, fill = Activity)) +
+#   geom_boxplot(varwidth = TRUE, color = "black", outlier.shape = NA, alpha = 0.7) +
+#   stat_compare_means(
+#     method = "wilcox.test", 
+#     comparisons = sig_comparisons,
+#     label = "p.signif",
+#     step.increase = 0.1  # Adjust this to move brackets closer
+#   ) +
+#   geom_point(
+#     aes(color = Activity),
+#     position = position_jitter(width = 0.1),
+#     size = 1,
+#     alpha = 0.3,
+#     shape = 21,
+#     show.legend = FALSE
+#   ) +
+#   scale_fill_manual(values = custom_colors_BEHAV) +
+#   scale_color_manual(values = custom_colors_BEHAV) +
+#   labs(
+#     title = "Canary",
+#     x = "",
+#     y = "Grunt (count)"
+#   ) +
+#   theme_classic() +
+#   theme(
+#     axis.text.x = element_text(angle = 45, hjust = 1),
+#     legend.position = "none"
+#   )+
+#   annotate(
+#     "text",
+#     x = -Inf, y = Inf,
+#     label = "i)",
+#     hjust = -0.5, vjust = 1.5,
+#     size = 6
+#   )
+# 
+# G_BEHA_B
+# 
+# 
+# #Black grunts
+# pairwise.wilcox.test(CallDeetsB$g_count, CallDeetsB$Activity, p.adjust.method = "BH")
+# # Nothing significant
 ############
 #KNOCKS
 ###############
@@ -1762,7 +2157,7 @@ K_BEHA_B<- ggplot(CallDeetsB, aes(x = Activity, y = d_count, fill = Activity)) +
   scale_fill_manual(values = custom_colors_BEHAV) +
   scale_color_manual(values = custom_colors_BEHAV) +
   labs(
-    title = "",
+    title = "Canary Rockfish",
     x = "",
     y = "Knock (count)"
   ) +
@@ -1770,14 +2165,71 @@ K_BEHA_B<- ggplot(CallDeetsB, aes(x = Activity, y = d_count, fill = Activity)) +
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1),
     legend.position = "none"
+  )+
+  annotate(
+    "text",
+    x = -Inf, y = Inf,
+    label = "i)",
+    hjust = -0.5, vjust = 1.5,
+    size = 6
   )
 
 K_BEHA_B
 
+kruskal.test(d_count ~ Activity, data = CallDeetsB)
 
-#Black grunts
-pairwise.wilcox.test(CallDeetsB$d_count, CallDeetsB$Activity, p.adjust.method = "BH")
-# Nothing significant
+#Canary knocks
+pw<-pairwise.wilcox.test(CallDeetsB$d_count, CallDeetsB$Activity, p.adjust.method = "BH")
+# significantly more grunts during Fleeing and feeding than no activity
+
+# Set Flextable defaults (your settings)
+set_flextable_defaults(
+  font.size = 10,
+  theme_fun = theme_vanilla,
+  padding = 3,
+  background.color = "white"
+)
+
+# Extract matrix
+mat <- pw$p.value
+
+# Convert to a data frame for flextable
+df <- data.frame(
+  Comparison = rownames(mat),
+  mat,
+  check.names = FALSE
+)
+
+pw_ft <- flextable(df)
+
+# number formatting
+pw_ft <- colformat_double(
+  x = pw_ft,
+  big.mark = ",",
+  digits = 2,
+  na_str = "N/A"
+)
+
+
+# spacing
+pw_ft <- line_spacing(pw_ft, space = 1.5, part = "all")
+
+# table properties
+pw_ft <- set_table_properties(
+  pw_ft,
+  align = "right",
+  layout = "autofit"
+)
+
+# theme
+pw_ft <- theme_vanilla(pw_ft)
+
+# column widths
+pw_ft <- width(pw_ft, width = 1.2)
+
+pw_ft
+
+save_as_image(x = pw_ft, path = "figures/CH2/WilcoxonPValues_Knocks_Canary_Behaviour.png")
 
 ############
 #Call Repetition
@@ -1829,14 +2281,72 @@ Rep_BEHA_B<- ggplot(CallDeetsB, aes(x = Activity, y = Sequence_Reps, fill = Acti
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1),
     legend.position = "none"
+  )+
+  annotate(
+    "text",
+    x = -Inf, y = Inf,
+    label = "j)",
+    hjust = -0.5, vjust = 1.5,
+    size = 6
   )
 
 Rep_BEHA_B
 
 
-#Black grunts
-pairwise.wilcox.test(CallDeetsB$Sequence_Reps, CallDeetsB$Activity, p.adjust.method = "BH")
-# Nothing significant
+kruskal.test(Sequence_Reps ~ Activity, data = CallDeetsB)
+
+#Canary knocks
+pw<-pairwise.wilcox.test(CallDeetsB$Sequence_Reps, CallDeetsB$Activity, p.adjust.method = "BH")
+# significantly more grunts during Fleeing and feeding than no activity
+
+# Set Flextable defaults (your settings)
+set_flextable_defaults(
+  font.size = 10,
+  theme_fun = theme_vanilla,
+  padding = 3,
+  background.color = "white"
+)
+
+# Extract matrix
+mat <- pw$p.value
+
+# Convert to a data frame for flextable
+df <- data.frame(
+  Comparison = rownames(mat),
+  mat,
+  check.names = FALSE
+)
+
+pw_ft <- flextable(df)
+
+# number formatting
+pw_ft <- colformat_double(
+  x = pw_ft,
+  big.mark = ",",
+  digits = 2,
+  na_str = "N/A"
+)
+
+
+# spacing
+pw_ft <- line_spacing(pw_ft, space = 1.5, part = "all")
+
+# table properties
+pw_ft <- set_table_properties(
+  pw_ft,
+  align = "right",
+  layout = "autofit"
+)
+
+# theme
+pw_ft <- theme_vanilla(pw_ft)
+
+# column widths
+pw_ft <- width(pw_ft, width = 1.2)
+
+pw_ft
+
+save_as_image(x = pw_ft, path = "figures/CH2/WilcoxonPValues_CallRep_Canary_Behaviour.png")
 
 ############
 #Call Interval
@@ -1888,9 +2398,18 @@ Int_BEHA_B<- ggplot(CallDeetsB, aes(x = Activity, y = C_Interval_mean, fill = Ac
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1),
     legend.position = "none"
+  )+
+  annotate(
+    "text",
+    x = -Inf, y = Inf,
+    label = "k)",
+    hjust = -0.5, vjust = 1.5,
+    size = 6
   )
 
 Int_BEHA_B
+
+kruskal.test(C_Interval_mean ~ Activity, data = CallDeetsB)
 
 #Black call interval
 pairwise.wilcox.test(CallDeetsB$C_Interval_mean, CallDeetsB$Activity, p.adjust.method = "BH")
@@ -1903,8 +2422,8 @@ lp("patchwork")
 lp("cowplot")
 
 # Combine plots
-CallPat_Beha_CQB <-( G_BEHA_C|K_BEHA_C|Rep_BEHA_C|INT_BEHA_C) /( G_BEHA_Q|K_BEHA_Q|Rep_BEHA_Q|INT_BEHA_Q)/
-  ( G_BEHA_B|K_BEHA_B|Rep_BEHA_B|Int_BEHA_B)+
+CallPat_Beha_CQB <-(G_BEHA_C|K_BEHA_C|Rep_BEHA_C|INT_BEHA_C) /(G_BEHA_Q|K_BEHA_Q|Rep_BEHA_Q|INT_BEHA_Q)/
+  (K_BEHA_B|Rep_BEHA_B|Int_BEHA_B)+
   plot_layout(guides = "collect") & 
   theme(legend.position = "")
 
@@ -1914,12 +2433,12 @@ CallPat_Beha_CQBCanfinal <- ggdraw() +
   # Shared y-axis label (rotated)
   draw_label("", angle = 90, x = 0.03, y = 0.5, vjust = 0.5) +
   # Shared x-axis label (centered at bottom)
-  draw_label("Behaviour", angle = 0, x = 0.48, y = 0.02, vjust = 0.5) +
+  draw_label("", angle = 0, x = 0.48, y = 0.02, vjust = 0.5) +
   # Combined plot
   draw_plot(CallPat_Beha_CQB, x = 0.05, y = 0.05, width = 0.9, height = 0.9)
 
 CallPat_Beha_CQBCanfinal
-ggsave("figures/CH2/CallPatterns_Behaviour_QB_C_Boxplots.png", plot = CallPat_Beha_CQBCanfinal, width = 15, height = 15, dpi = 300)
+ggsave("figures/CH2/CallPatterns_Behaviour_QB_Cop_Can_Boxplots.png", plot = CallPat_Beha_CQBCanfinal, width = 15, height = 15, dpi = 300)
 
 
 #################
@@ -2372,7 +2891,7 @@ Beha_Bar <- ggplot(activity_summary, aes(x = Common, y = count, fill = Activity)
   scale_fill_manual(values = custom_colors_BEHAV) +
   labs(
     title = "",
-    x = "Species",
+    x = "",
     y = "Calling sequences (count)",
     fill = "Behaviour"  # <-- This renames the legend title
   ) +
