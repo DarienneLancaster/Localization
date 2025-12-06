@@ -20,11 +20,11 @@ lp("flextable")
 fishdata<-read.csv("wdata/Sound_Species_Behaviour_Length_wPyFeatures_20250616.csv", header = TRUE)
 
 #create new column with species common names
-fishdata$Common<- ifelse(fishdata$Species == "caurinus", "Copper rockfish",
-                         ifelse(fishdata$Species == "maliger", "Quillback rockfish",
-                                ifelse(fishdata$Species == "pinniger", "Canary rockfish",
-                                       ifelse(fishdata$Species == "miniatus", "Vermillion rockfish",
-                                              ifelse(fishdata$Species == "melanops", "Black rockfish",
+fishdata$Common<- ifelse(fishdata$Species == "caurinus", "Copper Rockfish",
+                         ifelse(fishdata$Species == "maliger", "Quillback Rockfish",
+                                ifelse(fishdata$Species == "pinniger", "Canary Rockfish",
+                                       ifelse(fishdata$Species == "miniatus", "Vermillion Rockfish",
+                                              ifelse(fishdata$Species == "melanops", "Black Rockfish",
                                                      ifelse(fishdata$Species == "elongatus", "Lingcod",
                                                             ifelse(fishdata$Species == "decagrammus", "Kelp Greenling",
                                                                    ifelse(fishdata$Species == "vacca", "Pile Perch", "other"))))))))
@@ -36,7 +36,7 @@ info<-fishdata%>%
   filter(fishID == "0014_20220823")
 
 info2<-fishdata%>%
-  filter(Common == "Copper rockfish")%>%
+  filter(Common == "Copper Rockfish")%>%
   filter(ID_confidence == 1|2)%>%
   #distinct(fishID, .keep_all = TRUE)%>%
   filter(mean_length == min(mean_length, na.rm = TRUE))
@@ -50,27 +50,27 @@ info2<-fishdata%>%
 
 C_QB<-fishdata%>%
   filter(
-    (Common == "Quillback rockfish" & mean_length < 229) |
-      (Common == "Copper rockfish" & mean_length < 229)
+    (Common == "Quillback Rockfish" & mean_length < 229) |
+      (Common == "Copper Rockfish" & mean_length < 229)
   ) %>%
   filter(ID_confidence %in% c(1, 2))%>%
   filter(t == "d")
 
 
 # Unpaired (independent) t-test
-t.test(freq_pct25 ~ Common, data = C_QB, subset = Common %in% c("Quillback rockfish", "Copper rockfish"))
+t.test(freq_pct25 ~ Common, data = C_QB, subset = Common %in% c("Quillback Rockfish", "Copper Rockfish"))
 
 custom_colors <- c(
-  "Quillback rockfish" = "#FF6600", 
-  "Copper rockfish" = "#33CC99"
+  "Quillback Rockfish" = "#FF6600", 
+  "Copper Rockfish" = "#33CC99"
 )
 
-ttest_knocks <- ggplot(C_QB[C_QB$Common %in% c("Quillback rockfish", "Copper rockfish"), ], 
+ttest_knocks <- ggplot(C_QB[C_QB$Common %in% c("Quillback Rockfish", "Copper Rockfish"), ], 
                        aes(x = Common, y = freq_pct25, fill = Common)) +
   geom_boxplot(alpha = 0.5, outlier.shape = NA) +
   geom_jitter(aes(color = Common), width = 0.2, alpha = 0.5) +
   labs(
-    title = "Welch's t test for knocks",
+    title = "Welch t test - knocks",
     x = "",
     y = "Frequency 25%"
   ) +
@@ -87,8 +87,8 @@ ggsave("figures/CH2/ttest_CQB_knocks.png", plot = ttest_knocks, width = 10, heig
 #grunts ttest
 C_QB<-fishdata%>%
   filter(
-    (Common == "Quillback rockfish" & mean_length < 229) |
-      (Common == "Copper rockfish" & mean_length < 229)
+    (Common == "Quillback Rockfish" & mean_length < 229) |
+      (Common == "Copper Rockfish" & mean_length < 229)
   ) %>%
   filter(ID_confidence %in% c(1, 2))%>%
   filter(t == "g")
@@ -97,19 +97,19 @@ C_QB<-fishdata%>%
 
 
 # Unpaired (independent) t-test
-t.test(freq_pct25 ~ Common, data = C_QB, subset = Common %in% c("Quillback rockfish", "Copper rockfish"))
+t.test(freq_pct25 ~ Common, data = C_QB, subset = Common %in% c("Quillback Rockfish", "Copper Rockfish"))
 
 custom_colors <- c(
-  "Quillback rockfish" = "#FF6600", 
-  "Copper rockfish" = "#33CC99"
+  "Quillback Rockfish" = "#FF6600", 
+  "Copper Rockfish" = "#33CC99"
 )
 
-ttest_grunts <- ggplot(C_QB[C_QB$Common %in% c("Quillback rockfish", "Copper rockfish"), ], 
+ttest_grunts <- ggplot(C_QB[C_QB$Common %in% c("Quillback Rockfish", "Copper Rockfish"), ], 
                        aes(x = Common, y = freq_pct25, fill = Common)) +
   geom_boxplot(alpha = 0.5, outlier.shape = NA) +
   geom_jitter(aes(color = Common), width = 0.2, alpha = 0.5) +
   labs(
-    title = "Welch's t test for grunts",
+    title = "Welch t test - grunts",
     x = "",
     y = "Frequency 25%"
   ) +
@@ -154,38 +154,139 @@ length_knocks_PP<-fishdata%>%
   filter(t == "d", ID_confidence == 1|2,  Selection != 3030, str_detect(Species, "vacca"))
 
 
+###############################
+#run loop for all four knock frequency variables 
 
-#copper
-CK<-lm(freq_pct50~mean_length, data = length_knocks_CP)
-summary(CK)
+#---------------------------------------------------
+# 1. Define species datasets and variable names
+#---------------------------------------------------
 
-#quillback
-QBK<-lm(freq_pct50~mean_length, data = length_knocks_QB)
-summary(QBK)
+species_data <- list(
+  "Copper Rockfish"    = length_knocks_CP,
+  "Quillback Rockfish" = length_knocks_QB,
+  "Canary Rockfish"    = length_knocks_CA,
+  "Black Rockfish"     = length_knocks_BL,
+  "Lingcod"            = length_knocks_L,
+  "Pile Perch"         = length_knocks_PP
+)
 
-#canary
-CAK<-lm(freq_pct50~mean_length, data = length_knocks_CA)
-summary(CAK)
+response_vars <- c("freq_pct50", "freq_pct25", "freq_pct75", "freq_peak")
 
-#black
-BLK<-lm(freq_pct50~mean_length, data = length_knocks_BL)
-summary(BLK)
+#---------------------------------------------------
+# 2. Fit all models: each species × each response variable
+#---------------------------------------------------
 
-#ling
-LK<-lm(freq_pct50~mean_length, data = length_knocks_L)
-summary(LK)
+all_models <- expand_grid(
+  Species = names(species_data),
+  Response = response_vars
+) %>%
+  mutate(
+    Model = map2(
+      Species, Response,
+      ~ lm(formula(paste0(.y, " ~ mean_length")), data = species_data[[.x]])
+    )
+  )
 
-#pile perch
-PPK<-lm(freq_pct50~mean_length, data = length_knocks_PP)
-summary(PPK)
+#---------------------------------------------------
+# 3. Convert all model results into a clean summary table
+#---------------------------------------------------
+
+model_summary <- all_models %>%
+  mutate(
+    Tidy = map(Model, ~ tidy(.x) %>% filter(term == "mean_length"))
+  ) %>%
+  unnest(Tidy) %>%
+  select(Species, Response, estimate, std.error, statistic, p.value)
+
+#---------------------------------------------------
+# 4. Format the table (rounding + p-value rules)
+#---------------------------------------------------
+
+model_summary <- model_summary %>%
+  rename(
+    Estimate        = estimate,
+    `Standard Error` = std.error,
+    `t value`       = statistic,
+    `p value`       = p.value
+  ) %>%
+  mutate(
+    Estimate         = round(Estimate, 3),
+    `Standard Error` = round(`Standard Error`, 3),
+    `t value`        = round(`t value`, 3),
+    `p value`        = ifelse(
+      `p value` < 0.01,
+      "<0.01",
+      sprintf("%.3f", round(`p value`, 3))
+    )
+  )
+
+#---------------------------------------------------
+# 5. Build a flextable with section headers for each variable
+#---------------------------------------------------
+
+# Sort alphabetically by response variable
+model_summary <- model_summary %>%
+  arrange(Response, Species)
+
+# Rename response variables
+model_summary <- model_summary %>%
+  mutate(Response = case_when(
+    Response == "freq_pct50" ~ "Frequency 50%",
+    Response == "freq_pct25" ~ "Frequency 25%",
+    Response == "freq_pct75" ~ "Frequency 75%",
+    Response == "freq_peak"  ~ "Peak frequency",
+    TRUE ~ Response  # keep any other values unchanged
+  )) %>%
+  arrange(Response, Species)  # sort alphabetically
+
+
+# Build flextable
+ft <- flextable(model_summary)
+
+
+# Build flextable
+ft <- flextable(model_summary) %>%
+  theme_booktabs() %>%
+  autofit() %>%
+  separate_header() %>%
+  set_header_labels(
+    Species = "Species",
+    Response = "Response Variable",
+    Estimate = "Estimate",
+    `Standard Error` = "Standard Error",
+    `t value` = "t value",
+    `p value` = "p value"
+  ) %>%
+  merge_v(j = "Response") %>%
+  valign(j = "Response", valign = "top") %>%
+  bold(i = ~ !duplicated(Response), j = "Response", bold = TRUE) %>%
+  # Add horizontal lines after each response variable grouping
+  hline(i = ~ duplicated(Response) & !duplicated(Response, fromLast = TRUE), border = fp_border(color="black", width = 1))
+
+
+
+ft
+save_as_image(x = ft, path = "figures/CH2/LM_Results_Knocks_AllVars_Length.png")
+
+# Create Word document
+doc <- read_docx() %>%
+  body_add_par("Model Summary Table", style = "heading 1") %>%
+  body_add_flextable(ft) %>%
+  body_add_par("", style = "Normal")  # adds spacing
+
+# Save editable Word document
+print(doc, target = "figures/CH2/LM_Results_Knocks_AllVars_Length.docx")
+
+################################
+
 
 # Define custom colors for species
 custom_colors <- c(
-  "Black rockfish" = "#003399",   
-  "Quillback rockfish" = "#FF6600", 
-  "Copper rockfish" = "#33CC99",
+  "Black Rockfish" = "#003399",   
+  "Quillback Rockfish" = "#FF6600", 
+  "Copper Rockfish" = "#33CC99",
   "Lingcod" = "#33CCFF",
-  "Canary rockfish" = "#FFCC00",
+  "Canary Rockfish" = "#FFCC00",
   "Pile Perch" = "#9900CC" 
 )
 
@@ -218,7 +319,14 @@ knocks_all_50 <- ggplot(length_knocks_all_linetype, aes(x = mean_length, y = fre
   ) +
   scale_color_manual(name = "Species", values = custom_colors) +  # apply custom colors and rename legend
   guides(linetype = "none") +             
-  theme_classic()
+  theme_classic()+
+  annotate(
+    "text",
+    x = -Inf, y = Inf,
+    label = "a)",
+    hjust = -0.5, vjust = 1.5,
+    size = 6
+  )
 
 knocks_all_50
 
@@ -246,7 +354,14 @@ knocks_all_peak <- ggplot(length_knocks_all_linetype, aes(x = mean_length, y = f
   ) +
   scale_color_manual(name = "Species", values = custom_colors) +  # apply custom colors and rename legend
   guides(linetype = "none") +             
-  theme_classic()
+  theme_classic()+
+  annotate(
+    "text",
+    x = -Inf, y = Inf,
+    label = "b)",
+    hjust = -0.5, vjust = 1.5,
+    size = 6
+  )
 
 knocks_all_peak
 
@@ -274,7 +389,14 @@ knocks_all_25 <- ggplot(length_knocks_all_linetype, aes(x = mean_length, y = fre
   ) +
   scale_color_manual(name = "Species", values = custom_colors) +  # apply custom colors and rename legend
   guides(linetype = "none") +             
-  theme_classic()
+  theme_classic()+
+  annotate(
+    "text",
+    x = -Inf, y = Inf,
+    label = "c)",
+    hjust = -0.5, vjust = 1.5,
+    size = 6
+  )
 
 knocks_all_25
 
@@ -302,7 +424,14 @@ knocks_all_75 <- ggplot(length_knocks_all_linetype, aes(x = mean_length, y = fre
   ) +
   scale_color_manual(name = "Species", values = custom_colors) +  # apply custom colors and rename legend
   guides(linetype = "none") +             
-  theme_classic()
+  theme_classic()+
+  annotate(
+    "text",
+    x = -Inf, y = Inf,
+    label = "d)",
+    hjust = -0.5, vjust = 1.5,
+    size = 6
+  )
 
 knocks_all_75
 
@@ -340,20 +469,154 @@ length_grunts_all<-fishdata%>%
   filter(!is.na(mean_length)) %>%
   filter(t == "g", ID_confidence == 1,  Selection != 3030, str_detect(Species, "caurinus|maliger|melanops"))
 
+length_grunts_CP<-fishdata%>%
+  filter(!is.na(mean_length)) %>%
+  filter(t == "g", ID_confidence == 1|2,  Selection != 3030, str_detect(Species, "caurinus"))
+
+length_grunts_QB<-fishdata%>%
+  filter(!is.na(mean_length)) %>%
+  filter(t == "g", ID_confidence == 1|2,  Selection != 3030, str_detect(Species, "maliger"))
+
+
+length_grunts_BL<-fishdata%>%
+  filter(!is.na(mean_length)) %>%
+  filter(t == "g", ID_confidence == 1|2,  Selection != 3030, str_detect(Species, "melanops"))
+
 
 ##
 lp('purrr')
 lp('broom')
 
+
+###############################
+#run loop for all four grunt frequency variables 
+
+#---------------------------------------------------
+# 1. Define species datasets and variable names
+#---------------------------------------------------
+
+species_data <- list(
+  "Copper Rockfish"    = length_grunts_CP,
+  "Quillback Rockfish" = length_grunts_QB,
+  "Black Rockfish"     = length_grunts_BL
+)
+
+response_vars <- c("freq_pct50", "freq_pct25", "freq_pct75", "freq_peak")
+
+#---------------------------------------------------
+# 2. Fit all models: each species × each response variable
+#---------------------------------------------------
+all_models <- expand_grid(
+  Species = names(species_data),
+  Response = response_vars
+) %>%
+  mutate(
+    Model = map2(
+      Species, Response,
+      ~ lm(formula(paste0(.y, " ~ mean_length")), data = species_data[[.x]])
+    )
+  )
+
+
+#---------------------------------------------------
+# 3. Convert all model results into a clean summary table
+#---------------------------------------------------
+
+model_summary <- all_models %>%
+  mutate(
+    Tidy = map(Model, ~ tidy(.x) %>% filter(term == "mean_length"))
+  ) %>%
+  unnest(Tidy) %>%
+  select(Species, Response, estimate, std.error, statistic, p.value)
+
+#---------------------------------------------------
+# 4. Format the table (rounding + p-value rules)
+#---------------------------------------------------
+
+model_summary <- model_summary %>%
+  rename(
+    Estimate        = estimate,
+    `Standard Error` = std.error,
+    `t value`       = statistic,
+    `p value`       = p.value
+  ) %>%
+  mutate(
+    Estimate         = round(Estimate, 3),
+    `Standard Error` = round(`Standard Error`, 3),
+    `t value`        = round(`t value`, 3),
+    `p value`        = ifelse(
+      `p value` < 0.01,
+      "<0.01",
+      sprintf("%.3f", round(`p value`, 3))
+    )
+  )
+
+#---------------------------------------------------
+# 5. Build a flextable with section headers for each variable
+#---------------------------------------------------
+
+# Sort alphabetically by response variable
+model_summary <- model_summary %>%
+  arrange(Response, Species)
+
+# Rename response variables
+model_summary <- model_summary %>%
+  mutate(Response = case_when(
+    Response == "freq_pct50" ~ "Frequency 50%",
+    Response == "freq_pct25" ~ "Frequency 25%",
+    Response == "freq_pct75" ~ "Frequency 75%",
+    Response == "freq_peak"  ~ "Peak frequency",
+    TRUE ~ Response  # keep any other values unchanged
+  )) %>%
+  arrange(Response, Species)  # sort alphabetically
+
+
+# Build flextable
+ft <- flextable(model_summary)
+
+
+# Build flextable
+ft <- flextable(model_summary) %>%
+  theme_booktabs() %>%
+  autofit() %>%
+  separate_header() %>%
+  set_header_labels(
+    Species = "Species",
+    Response = "Response Variable",
+    Estimate = "Estimate",
+    `Standard Error` = "Standard Error",
+    `t value` = "t value",
+    `p value` = "p value"
+  ) %>%
+  merge_v(j = "Response") %>%
+  valign(j = "Response", valign = "top") %>%
+  bold(i = ~ !duplicated(Response), j = "Response", bold = TRUE) %>%
+  # Add horizontal lines after each response variable grouping
+  hline(i = ~ duplicated(Response) & !duplicated(Response, fromLast = TRUE), border = fp_border(color="black", width = 1))
+
+
+
+ft
+save_as_image(x = ft, path = "figures/CH2/LM_Results_Grunts_AllVars_Length.png")
+
+# Create Word document
+doc <- read_docx() %>%
+  body_add_par("Model Summary Table", style = "heading 1") %>%
+  body_add_flextable(ft) %>%
+  body_add_par("", style = "Normal")  # adds spacing
+
+# Save editable Word document
+print(doc, target = "figures/CH2/LM_Results_Grunts_AllVars_Length.docx")
+
 #Linear regression Frequency 50% vs all species (GRUNTS)
 
 # Define custom colors for species
 custom_colors <- c(
-  "Black rockfish" = "#003399",   
-  "Quillback rockfish" = "#FF6600", 
-  "Copper rockfish" = "#33CC99",
+  "Black Rockfish" = "#003399",   
+  "Quillback Rockfish" = "#FF6600", 
+  "Copper Rockfish" = "#33CC99",
   "Lingcod" = "#33CCFF",
-  "Canary rockfish" = "#FFCC00",
+  "Canary Rockfish" = "#FFCC00",
   "Pile Perch" = "#9900CC" 
 )
 
@@ -379,7 +642,14 @@ grunts_all_50 <- ggplot(length_grunts_all_linetype, aes(x = mean_length, y = fre
     x = "",
     y = "Frequency 50% (Hz)"
   ) +
-  theme_classic()
+  theme_classic()+
+  annotate(
+    "text",
+    x = -Inf, y = Inf,
+    label = "a)",
+    hjust = -0.5, vjust = 1.5,
+    size = 6
+  )
 
 grunts_all_50
 
@@ -407,7 +677,14 @@ grunts_all_peak <- ggplot(length_grunts_all_linetype, aes(x = mean_length, y = f
   ) +
   scale_color_manual(name = "Species", values = custom_colors) +  # apply custom colors and rename legend
   guides(linetype = "none") +             
-  theme_classic()
+  theme_classic()+
+  annotate(
+    "text",
+    x = -Inf, y = Inf,
+    label = "b)",
+    hjust = -0.5, vjust = 1.5,
+    size = 6
+  )
 
 grunts_all_peak
 
@@ -435,7 +712,14 @@ grunts_all_25 <- ggplot(length_grunts_all_linetype, aes(x = mean_length, y = fre
   ) +
   scale_color_manual(name = "Species", values = custom_colors) +  # apply custom colors and rename legend
   guides(linetype = "none") +             
-  theme_classic()
+  theme_classic()+
+  annotate(
+    "text",
+    x = -Inf, y = Inf,
+    label = "c)",
+    hjust = -0.5, vjust = 1.5,
+    size = 6
+  )
 
 grunts_all_25
 
@@ -463,7 +747,14 @@ grunts_all_75 <- ggplot(length_grunts_all_linetype, aes(x = mean_length, y = fre
   ) +
   scale_color_manual(name = "Species", values = custom_colors) +  # apply custom colors and rename legend
   guides(linetype = "none") +             
-  theme_classic()
+  theme_classic()+
+  annotate(
+    "text",
+    x = -Inf, y = Inf,
+    label = "d)",
+    hjust = -0.5, vjust = 1.5,
+    size = 6
+  )
 
 grunts_all_75
 
@@ -497,11 +788,6 @@ ggsave("figures/CH2/Length_Freq_gruntsLMplot.png", plot = G_length_final, width 
 #try UMAP data visualization
 ###########
 
-
-#NOTES to self
-
-#add in repetition rate, call interval as predictors based on behaviour
-#change behaviour names to be more descriptive
 
 ############
 #Quillback - Grunts
@@ -547,11 +833,13 @@ umap_df$freq_bandwidth<-Behav_UMAP$freq_bandwidth
 #bin freq_bandwidth
 umap_df<- umap_df %>%
   mutate(Frequency_Bandwidth = case_when(
-    freq_bandwidth <= 400 ~ "400 Hz or less",
-    freq_bandwidth <= 600 ~ "600 Hz or less",
-    freq_bandwidth <= 800 ~ "800 Hz or less",
-    freq_bandwidth > 800  ~ "800 Hz or more"
-  ))
+    freq_bandwidth <= 400 ~ "<400 Hz",
+    freq_bandwidth <= 600 ~ "400 to <600 Hz",
+    freq_bandwidth <= 800 ~ "600 to <800 Hz",
+    freq_bandwidth > 800  ~ "≥800 Hz"
+  ),
+  Frequency_Bandwidth = factor(Frequency_Bandwidth,
+                               levels = c("<400 Hz", "400 to <600 Hz", "600 to <800 Hz", "≥800 Hz")))
 
 
 
@@ -574,20 +862,21 @@ par(mfrow = c(1, 2))
 
 ###########
 
-#Predicted values plot (shows how the Random Forest classified fish sounds)
 Behaviour_QB_Grunts <- ggplot(umap_df, aes(V1, V2, color = Activity, fill = Activity, shape = Frequency_Bandwidth)) +
   geom_point(alpha = 0.8, size = 2) +
   stat_ellipse(aes(group = Activity), level = 0.70, type = "norm", geom = "polygon", alpha = 0.1, color = NA, show.legend = FALSE) +
   stat_ellipse(aes(group = Activity), level = 0.70, type = "norm", geom = "path", size = 1, show.legend = FALSE) +
   scale_colour_manual(values = custom_colors) +
   scale_fill_manual(values = custom_colors) +
-  labs(title = "Quillback Grunts",
-       x = "UMAP 1", y = "UMAP 2") +
-  theme_classic()+
+  labs(title = "Quillback Rockfish Grunts",
+       x = "UMAP 1", y = "UMAP 2",
+       color = "Behaviour",    # change legend title for color
+       fill = "Behaviour",     # change legend title for fill
+       shape = "Frequency Bandwidth") +  # change legend title for shape
+  theme_classic() +
   theme(legend.position = "right")
 Behaviour_QB_Grunts
 ggsave("figures/CH2/UMAP_QB_Grunts_Behaviour.png", plot = Behaviour_QB_Grunts , width = 10, height = 6, dpi = 300)
-
 ##
 #IF YOU SEE A TREND IN THE UMAP PLOT USE THIS CODE TO CHECK WHICH VARIABLE IS MOST LIKELY PULLING POINTS APART
 
@@ -654,11 +943,13 @@ umap_df$freq_bandwidth<-Behav_UMAP$freq_bandwidth
 #bin freq_bandwidth
 umap_df<- umap_df %>%
   mutate(Frequency_Bandwidth = case_when(
-    freq_bandwidth <= 400 ~ "400 Hz or less",
-    freq_bandwidth <= 600 ~ "600 Hz or less",
-    freq_bandwidth <= 800 ~ "800 Hz or less",
-    freq_bandwidth > 800  ~ "800 Hz or more"
-  ))
+    freq_bandwidth <= 400 ~ "<400 Hz",
+    freq_bandwidth <= 600 ~ "400 to <600 Hz",
+    freq_bandwidth <= 800 ~ "600 to <800 Hz",
+    freq_bandwidth > 800  ~ "≥800 Hz"
+  ),
+Frequency_Bandwidth = factor(Frequency_Bandwidth,
+                             levels = c("<400 Hz", "400 to <600 Hz", "600 to <800 Hz", "≥800 Hz")))
 
 
 
@@ -681,18 +972,22 @@ par(mfrow = c(1, 2))
 
 ###########
 
-#Predicted values plot (shows how the Random Forest classified fish sounds)
 Behaviour_QB_Knocks <- ggplot(umap_df, aes(V1, V2, color = Activity, fill = Activity, shape = Frequency_Bandwidth)) +
   geom_point(alpha = 0.8, size = 2) +
   stat_ellipse(aes(group = Activity), level = 0.70, type = "norm", geom = "polygon", alpha = 0.1, color = NA, show.legend = FALSE) +
   stat_ellipse(aes(group = Activity), level = 0.70, type = "norm", geom = "path", size = 1, show.legend = FALSE) +
   scale_colour_manual(values = custom_colors) +
   scale_fill_manual(values = custom_colors) +
-  labs(title = "Quillback Knocks",
-       x = "UMAP 1", y = "UMAP 2") +
-  theme_classic()+
+  labs(title = "Quillback Rockfish Knocks",
+       x = "UMAP 1", y = "UMAP 2",
+       color = "Behaviour",    # change legend title for color
+       fill = "Behaviour",     # change legend title for fill
+       shape = "Frequency Bandwidth") +  # change legend title for shape
+  theme_classic() +
   theme(legend.position = "right")
+
 Behaviour_QB_Knocks
+
 ggsave("figures/CH2/UMAP_QB_Knocks_Behaviour.png", plot = Behaviour_QB_Knocks , width = 10, height = 6, dpi = 300)
 ##
 #IF YOU SEE A TREND IN THE UMAP PLOT USE THIS CODE TO CHECK WHICH VARIABLE IS MOST LIKELY PULLING POINTS APART
@@ -1018,7 +1313,7 @@ cor_df <- cor_df[order(abs(cor_df$UMAP1_corr) + abs(cor_df$UMAP2_corr), decreasi
 print(cor_df)
 
 ############
-#Copper - Grunts
+#Black - Grunts
 #############
 
 
@@ -1058,21 +1353,25 @@ umap_df$mean_length<-Behav_UMAP$mean_length
 umap_df$Frequency_75<-Behav_UMAP$freq_pct75
 umap_df$Frequency_25<-Behav_UMAP$freq_pct25
 
-#bin freq_bandwidth
+str(umap_df)
+
+#bin length
 umap_df<- umap_df %>%
   mutate(Length = case_when(
-    mean_length <= 250 ~ "250 mm or less",
-    mean_length  > 250  ~ "250 mm or more"
+    mean_length <= 250 ~ "≤250 mm",
+    mean_length  > 250  ~ ">250 mm"
   ))
 
 #bin freq_bandwidth
 umap_df<- umap_df %>%
-  mutate(Frequency_75 = case_when(
-    Frequency_75 <= 400 ~ "400 Hz or less",
-    Frequency_75  > 400  ~ "400 Hz or more"
+  mutate(Frequency_75bin = case_when(
+    Frequency_75 <= 400 ~ "≤400 Hz",
+    Frequency_75  > 400  ~ ">400 Hz"
   ))
 
 
+##########################
+#HAVING ISSUES WITH THE BLACK ROCKFISH UMAP PLOTS - COLOURS NOT SHOWING UP
 
 #umap_df$True <- test$Common
 # umap_df$Site<-test_wExtra$Site
@@ -1091,19 +1390,10 @@ custom_colors <- c(
 
 # Define custom colors for Length
 custom_colors_L <- c(
-  "200 mm or less" = "#003399",   
-  "250 mm or less" = "#FF6600", 
-  "300 mm or less" = "#33CC99",
-  "250 mm or more" =  "#FFCC00"
+  "≤250 mm" = "#FFCC00",   
+  ">250 mm" = "#FF6600"
 )
 
-# Define custom colors for F75
-custom_colors_F75 <- c(
-  "400 Hz or less" = "#003399",   
-  "250 mm or less" = "#FF6600", 
-  "400 Hz or more" = "#33CC99",
-  "250 mm or more" =  "#FFCC00"
-)
 
 
 
@@ -1118,21 +1408,32 @@ Behaviour_Black_Grunts_length  <- ggplot(umap_df, aes(V1, V2, color = Length, fi
   stat_ellipse(aes(group = Length), level = 0.70, type = "norm", geom = "path", size = 1, show.legend = FALSE) +
   scale_colour_manual(values = custom_colors_L) +
   scale_fill_manual(values = custom_colors_L) +
-  labs(title = "Black Grunts - Fish Length",
+  labs(title = "Fish Length",
        x = "UMAP 1", y = "UMAP 2") +
   theme_classic()+
   theme(legend.position = "right")
 Behaviour_Black_Grunts_length 
 
+
+
+# Define custom colors for F75
+custom_colors_F75 <- c(
+  "≤400 Hz" = "#003399",
+  ">400 Hz" =  "#33CC99"
+)
+
+
+
 #Predicted values plot (shows how the Random Forest classified fish sounds)
-Behaviour_Black_Grunts_F75  <- ggplot(umap_df, aes(V1, V2, color = Frequency_75, fill =Frequency_75)) +
+Behaviour_Black_Grunts_F75  <- ggplot(umap_df, aes(V1, V2, color = Frequency_75bin, fill =Frequency_75bin)) +
   geom_point(alpha = 0.8, size = 2) +
-  stat_ellipse(aes(group = Frequency_75), level = 0.70, type = "norm", geom = "polygon", alpha = 0.1, color = NA, show.legend = FALSE) +
-  stat_ellipse(aes(group = Frequency_75), level = 0.70, type = "norm", geom = "path", size = 1, show.legend = FALSE) +
+  stat_ellipse(aes(group = Frequency_75bin), level = 0.70, type = "norm", geom = "polygon", alpha = 0.1, color = NA, show.legend = FALSE) +
+  stat_ellipse(aes(group = Frequency_75bin), level = 0.70, type = "norm", geom = "path", size = 1, show.legend = FALSE) +
   scale_colour_manual(values = custom_colors_F75) +
   scale_fill_manual(values = custom_colors_F75) +
   labs(title = "Frequency 75%",
-       x = "UMAP 1", y = "UMAP 2") +
+       x = "UMAP 1", y = "UMAP 2", color = "Frequency 75%",  # set color legend title
+       fill = "Frequency 75%") +
   theme_classic()+
   theme(legend.position = "right")
 Behaviour_Black_Grunts_F75 
@@ -1144,7 +1445,9 @@ Behaviour_Black_Grunts  <- ggplot(umap_df, aes(V1, V2, color = Activity, fill = 
   scale_colour_manual(values = custom_colors) +
   scale_fill_manual(values = custom_colors) +
   labs(title = "Behaviour",
-       x = "UMAP 1", y = "UMAP 2") +
+       x = "UMAP 1", y = "UMAP 2",
+       color = "Behaviour",  # set color legend title
+       fill = "Behaviour") +
   theme_classic()+
   theme(legend.position = "right")
 Behaviour_Black_Grunts 
@@ -1172,6 +1475,11 @@ Black_UMAP_combined <- (Behaviour_Black_Grunts_length|Behaviour_Black_Grunts_F75
 Black_UMAP_combined 
 
 ggsave("figures/CH2/Black_UMAP_combined_Behaviour.png", plot = Black_UMAP_combined , width = 10, height = 6, dpi = 300)
+
+######################################################################################################################################
+
+###
+#DATA CLEANING NOTES: might be able to delete everything after this 
 
 #TRENDS - F75 higher for larger fish and for aggressive approaching sounds
 
