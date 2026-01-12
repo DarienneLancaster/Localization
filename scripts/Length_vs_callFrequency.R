@@ -807,7 +807,7 @@ Behav_UMAP<-fishdata%>%
     Activity = if_else(Activity == "" | is.na(Activity), "No activity", Activity),
     Activity = str_replace(Activity, "Chase other", "Chase"),
     Activity = str_replace(Activity, "Chase conspecific", "Chase"),
-    Activity = str_replace(Activity, "Guarding bait", "Flight"),
+    Activity = str_replace(Activity, "Guarding bait", "Fleeing"),
     Activity = str_replace(Activity, "Passing", "No activity"),
     Activity = str_replace(Activity, "No activity", "No activity"),
     Activity = str_replace(Activity, "Attracted", "Approach"))%>%
@@ -851,7 +851,7 @@ levels(as.factor(umap_df$Activity))
 # Define custom colors for species
 custom_colors <- c(
   "Chase" = "#003399",   
-  "Flight" = "#FF6600", 
+  "Fleeing" = "#FF6600", 
   "No activity" = "#33CC99",
   "Approach" = "#33CCFF",
   "Feeding" = "#FFCC00",
@@ -918,7 +918,7 @@ Behav_UMAP<-fishdata%>%
     Activity = if_else(Activity == "" | is.na(Activity), "No activity", Activity),
     Activity = str_replace(Activity, "Chase other", "Chase"),
     Activity = str_replace(Activity, "Chase conspecific", "Chase"),
-    Activity = str_replace(Activity, "Guarding bait", "Flight"),
+    Activity = str_replace(Activity, "Guarding bait", "Fleeing"),
     Activity = str_replace(Activity, "Passing", "No activity"),
     Activity = str_replace(Activity, "No activity", "No activity"),
     Activity = str_replace(Activity, "Attracted", "Approach"))%>%
@@ -961,7 +961,7 @@ levels(as.factor(umap_df$Activity))
 # Define custom colors for species
 custom_colors <- c(
   "Chase" = "#003399",   
-  "Flight" = "#FF6600", 
+  "Fleeing" = "#FF6600", 
   "No activity" = "#33CC99",
   "Approach" = "#33CCFF",
   "Feeding" = "#FFCC00",
@@ -1330,7 +1330,7 @@ Behav_UMAP<-fishdata%>%
     Activity = if_else(Activity == "" | is.na(Activity), "No activity", Activity),
     Activity = str_replace(Activity, "Chase other", "Chase"),
     Activity = str_replace(Activity, "Chase conspecific", "Chase"),
-    Activity = str_replace(Activity, "Guarding bait", "Flight"),
+    Activity = str_replace(Activity, "Guarding bait", "Fleeing"),
     Activity = str_replace(Activity, "Passing", "No activity"),
     Activity = str_replace(Activity, "No activity", "No activity"),
     Activity = str_replace(Activity, "Attracted", "Approach"))%>%
@@ -1358,8 +1358,8 @@ str(umap_df)
 #bin length
 umap_df<- umap_df %>%
   mutate(Length = case_when(
-    mean_length <= 250 ~ "≤250 mm",
-    mean_length  > 250  ~ ">250 mm"
+    mean_length <= 225 ~ "≤225 mm",
+    mean_length  > 225  ~ ">225 mm"
   ))
 
 #bin freq_bandwidth
@@ -1371,7 +1371,7 @@ umap_df<- umap_df %>%
 
 
 ##########################
-#HAVING ISSUES WITH THE BLACK ROCKFISH UMAP PLOTS - COLOURS NOT SHOWING UP
+
 
 #umap_df$True <- test$Common
 # umap_df$Site<-test_wExtra$Site
@@ -1381,7 +1381,7 @@ levels(as.factor(umap_df$Activity))
 # Define custom colors for Activity
 custom_colors <- c(
   "Chase" = "#003399",   
-  "Flight" = "#FF6600", 
+  "Fleeing" = "#FF6600", 
   "No activity" = "#33CC99",
   "Approach" = "#33CCFF",
   "Feeding" = "#FFCC00",
@@ -1390,8 +1390,8 @@ custom_colors <- c(
 
 # Define custom colors for Length
 custom_colors_L <- c(
-  "≤250 mm" = "#FFCC00",   
-  ">250 mm" = "#FF6600"
+  "≤225 mm" = "#FFCC00",   
+  ">225 mm" = "#FF6600"
 )
 
 
