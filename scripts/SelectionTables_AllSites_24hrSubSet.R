@@ -26,6 +26,10 @@ lp("stringr")
 
 TI_24hr<-imp_raven(path = "odata/24hrAnnotations_AllSites_Selection_Tables/Taylor_Islet/selections", all.data =  TRUE, only.spectro.view = FALSE)
 
+
+
+
+
 #filter to keep only rows between 3am and noon UTM (this is 8pm and 5am - dusk to dawn)
 #this should have the quietest audio files
 TI_24hr$time_parsed <- as.POSIXct(
@@ -159,13 +163,18 @@ FSperhour_TI22<-FSperHour_TI%>%
             FSsd = sd(total))
 
 # Step 1: Extract first two characters
-FSperhour_TI22$Hour <- substr(FSperhour_TI22$Begin_Hour, 1, 2)
+FSperhour_TI22$UTC <- substr(FSperhour_TI22$Begin_Hour, 1, 2)
 
-# Step 2: Remove leading zeros
-FSperhour_TI22$Hour <- sub("^0", "", FSperhour_TI22$Hour)
+#convert from UTC to pacific standard time (daylight savings - summertime)
+FSperhour_TI22<- FSperhour_TI22%>%
+  mutate(
+    # Convert factor to numeric, subtract 7, and wrap around 24 hours
+    Hour = (as.numeric(as.character(UTC)) - 7) %% 24
+  )
 
-# Step 3: Convert to numeric
+#Convert to numeric
 FSperhour_TI22$Hour <- as.numeric(FSperhour_TI22$Hour)
+
 
 FS_hour_summary1 <- FSperhour_TI22 %>%
   mutate(Diel = case_when(
@@ -210,9 +219,9 @@ TIpolar<-ggplot() +
     data = bg,
     aes(x = Hour, y = (ymin + ymax)/2, height = ymax, width = 1, fill = Diel),
     inherit.aes = FALSE,
-    alpha = 0.2
+    alpha = 0.4
   ) +
-  scale_fill_manual(values = c("day" = "#FFD700", "night" = "#1E90FF")) +
+  scale_fill_manual(values = c("day" = "#FFFF33", "night" = "#000066")) +
   
   # Allow a new fill scale for bars
   new_scale_fill() +
@@ -311,12 +320,16 @@ FSperhour_DR22<-FSperHour_DR%>%
             FSsd = sd(total))
 
 # Step 1: Extract first two characters
-FSperhour_DR22$Hour <- substr(FSperhour_DR22$Begin_Hour, 1, 2)
+FSperhour_DR22$UTC <- substr(FSperhour_DR22$Begin_Hour, 1, 2)
 
-# Step 2: Remove leading zeros
-FSperhour_DR22$Hour <- sub("^0", "", FSperhour_DR22$Hour)
+#convert from UTC to pacific standard time (daylight savings - summerDRme)
+FSperhour_DR22<- FSperhour_DR22%>%
+  mutate(
+    # Convert factor to numeric, subtract 7, and wrap around 24 hours
+    Hour = (as.numeric(as.character(UTC)) - 7) %% 24
+  )
 
-# Step 3: Convert to numeric
+#Convert to numeric
 FSperhour_DR22$Hour <- as.numeric(FSperhour_DR22$Hour)
 
 FS_hour_summary1 <- FSperhour_DR22 %>%
@@ -362,10 +375,10 @@ DRpolar<-ggplot() +
     data = bg,
     aes(x = Hour, y = (ymin + ymax)/2, height = ymax, width = 1, fill = Diel),
     inherit.aes = FALSE,
-    alpha = 0.2
+    alpha = 0.4
   ) +
   scale_fill_manual(
-    values = c("day" = "#FFD700", "night" = "#1E90FF"),
+    values = c("day" = "#FFFF33", "night" = "#000066"),
     name = NULL  # removes the legend title
   ) +
   
@@ -466,20 +479,24 @@ FSperhour_OH22<-FSperHour_OH%>%
             FSsd = sd(total))
 
 # Step 1: Extract first two characters
-FSperhour_OH22$Hour <- substr(FSperhour_OH22$Begin_Hour, 1, 2)
+FSperhour_OH22$UTC <- substr(FSperhour_OH22$Begin_Hour, 1, 2)
 
-# Step 2: Remove leading zeros
-FSperhour_OH22$Hour <- sub("^0", "", FSperhour_OH22$Hour)
+#convert from UTC to pacific standard time (daylight savings - summertime)
+FSperhour_OH22<- FSperhour_OH22%>%
+  mutate(
+    # Convert factor to numeric, subtract 7, and wrap around 24 hours
+    Hour = (as.numeric(as.character(UTC)) - 7) %% 24
+  )
 
-# Step 3: Convert to numeric
+#Convert to numeric
 FSperhour_OH22$Hour <- as.numeric(FSperhour_OH22$Hour)
+
 
 FS_hour_summary1 <- FSperhour_OH22 %>%
   mutate(Diel = case_when(
     Hour >= 6 & Hour <= 19 ~ "day",
     (Hour >= 20 & Hour <= 23) | (Hour >= 0 & Hour <= 5) ~ "night"
   ))
-
 ##
 
 FS_hour_summary1$maxBackground<-FS_hour_summary1$FSmean + FS_hour_summary1$FSsd
@@ -517,9 +534,9 @@ OHpolar<-ggplot() +
     data = bg,
     aes(x = Hour, y = (ymin + ymax)/2, height = ymax, width = 1, fill = Diel),
     inherit.aes = FALSE,
-    alpha = 0.2
+    alpha = 0.4
   ) +
-  scale_fill_manual(values = c("day" = "#FFD700", "night" = "#1E90FF")) +
+  scale_fill_manual(values = c("day" = "#FFFF33", "night" = "#000066")) +
   
   # Allow a new fill scale for bars
   new_scale_fill() +
@@ -581,15 +598,29 @@ OHpolar
 #make one plot
 
 lp("patchwork")
+lp("cowplot") 
+lp("magick")
+
+img_path <- "figures/CH3/Fish_clipart.jpg"  # replace with your JPG filename
 
 combined_polar <- TIpolar + OHpolar + DRpolar + 
   plot_layout(nrow = 1)  # 1 row, 3 columns
 
 combined_polar
 
+combined_with_fish <- ggdraw(combined_polar) +
+  draw_image(
+    img_path,
+    x = 0.85,  # horizontal position (0 = left, 1 = right)
+    y = 0.80,  # vertical position (0 = bottom, 1 = top)
+    width = 0.15,  # fraction of plot width
+    height = 0.15 # fraction of plot height
+  )
+combined_with_fish
+
 ggsave(
-  filename = "combined_polar.png",       # output file name
-  plot = combined_polar,                 # plot object
+  filename = "combined_polar_fish.png",       # output file name
+  plot = combined_with_fish,                 # plot object
   path = "figures/CH3",                  # folder path
   width = 16,                            # width in inches
   height = 6,                            # height in inches
