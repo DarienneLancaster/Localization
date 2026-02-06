@@ -123,6 +123,29 @@ summary_BOAT_OH <- OH_24hr %>%
     .groups = "drop"
   )
 
+#Count total number of Fish Sounds per site
+
+TI_totFS <- TI_24hr %>%
+  summarize(
+    totalFS_TI = sum(Class == "FS", na.rm = TRUE),
+    n_files = n_distinct(`Begin File`),
+    FS_per_file = totalFS_TI / n_files
+  )
+
+DR_totFS <- DR_24hr %>%
+  summarize(
+    totalFS_DR = sum(Class == "FS", na.rm = TRUE),
+    n_files = n_distinct(`Begin File`),
+    FS_per_file = totalFS_DR / n_files
+  )
+
+OH_totFS <- OH_24hr %>%
+  summarize(
+    totalFS_OH = sum(Class == "FS", na.rm = TRUE),
+    n_files = n_distinct(`Begin File`),
+    FS_per_file = totalFS_OH / n_files
+  )
+
 ###################################################################
 #Create polar plots of # of fish calls per hour
 #######################################################################
