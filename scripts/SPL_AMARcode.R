@@ -23,18 +23,19 @@ calib_value <- -175.7   # <-- replace with your AMAR calibration
 
 ##############################################################################
 # # Time interval for SPL (Welch window = seconds × 2)
-# set_welch <- 120  # 1-minute resolution
+ set_welch <- 120  # 1-minute resolution
 
 # 30-minute SPL (two SPL values per file)
-set_welch <- 1800   
+#set_welch <- 1800   
 
 ##############################################################################
-# Frequency band (boat band example)
-set_lcut <- 500
-set_hcut <- 980
+# Frequency band (boat/noise band - as defined by Xavier Mouy's dissertation)
+set_lcut <- 20
+set_hcut <- 1000
 
 ##############################################################################
 # Run SPL calculations on AMAR data files
+#NOTE: audio files must be in water to work, if you include files from before or after deployment they will not process.
 
 PAMMeta(
   atype = "Broadband",      # SPL
@@ -49,8 +50,8 @@ PAMMeta(
   plottype = "None",
   
   # AMAR filename format:
-  # AMAR173.1.20220908T210952Z.wav
-  timestring = "AMAR173.1.%Y%m%dT%H%M%SZ.wav"
+  # AMAR173.4.20220908T210952Z.wav
+  timestring = "AMAR173.4.%Y%m%dT%H%M%SZ.wav"
 )
 
 
@@ -63,7 +64,7 @@ PAMMeta(
 #when you open file rename as SPL
 
 # Set the directory path where your .rds files are located
-directory_path <- "odata/24hrAnnotations_AllSites_Selection_Tables/Ohiat_Island/OH_SPL/Meta_OH_SPL_Broadband_Abs_32000ptHannWindow_50pcOlap"  # Update this with the correct path
+directory_path <- "odata/SPL_LargeArray/SPL_DR_fulldeployment/Meta_AMAR173.4.32000.M36-V35-100_Broadband_Abs_32000ptHannWindow_50pcOlap"  # Update this with the correct path
 
 # Get a list of all .rds files in the directory
 rds_files <- list.files(directory_path, pattern = "\\.rds$", full.names = TRUE)
@@ -97,7 +98,7 @@ SPL_TI<-SPL%>%
   filter(SPL != "Inf")%>%
   mutate(Site_name = Site_name)
 
-write.csv(SPL_TI, file = "odata/24hrAnnotations_AllSites_Selection_Tables/SPL/SPL_TI.csv", row.names = FALSE)
+write.csv(SPL_TI, file = "odata/SPL_LargeArray/SPL_1min_fulldeployment_TI_20to1000Hz.csv", row.names = FALSE)
 
 ########
 #Ohiat Island SPL
@@ -112,7 +113,7 @@ SPL_OH<-SPL%>%
   filter(SPL != "Inf")%>%
   mutate(Site_name = Site_name)
 
-write.csv(SPL_OH, file = "odata/24hrAnnotations_AllSites_Selection_Tables/SPL/SPL_OH.csv", row.names = FALSE)
+write.csv(SPL_OH, file = "odata/24hrAnnotations_AllSites_Selection_Tables/SPL/SPL_OH_20to1000Hz.csv", row.names = FALSE)
 
 ######
 #Danger Rocks SPL
@@ -127,7 +128,7 @@ SPL_DR<-SPL%>%
   filter(SPL != "Inf")%>%
   mutate(Site_name = Site_name)
 
-write.csv(SPL_DR, file = "odata/24hrAnnotations_AllSites_Selection_Tables/SPL/SPL_DR.csv", row.names = FALSE)
+write.csv(SPL_DR, file = "odata/SPL_LargeArray/SPL_1min_fulldeployment_DR_20to1000Hz.csv", row.names = FALSE)
 
 #slice(-1)  # This removes the first row (getting strange date column at beginning with SPL value - check with Steph and Philina)
 
