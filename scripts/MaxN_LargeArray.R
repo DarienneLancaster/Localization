@@ -821,12 +821,38 @@ Method_detect_TI_plot <- Method_detect_TI %>%
 
 
 # 3. Plot
+
+##
+# 1. Create background layer
+bg_data_TI <- Method_detect_TI_plot %>%
+  distinct(Common) %>%
+  mutate(hours_detect = max(Method_detect_TI_plot$hours_detect, na.rm = TRUE))  # height of grey bars
+
+# 2. Plot with grey background bars
 Detect_TI <- ggplot(Method_detect_TI_plot, 
                     aes(x = Common, y = hours_detect, fill = Method)) +
-  geom_col(position = position_dodge(width = 0.9), color = "black") +
+  
+  # Grey background bars
+  geom_col(data = bg_data_TI,
+           aes(x = Common, y = hours_detect),
+           inherit.aes = FALSE,
+           fill = "grey80",
+           alpha = 0.5,
+           width = 0.8) +
+  
+  # Colored method bars on top
+  geom_col(position = position_dodge(width = 0.6),
+           width = 0.55,
+           color = "black",
+           alpha = 0.8) +
+  
   scale_fill_manual(values = c("Acoustics" = "#336699", 
                                "Video" = "#ffCC33", 
                                "SCUBA" = "#CC3300")) +
+  
+  # Increase spacing between species
+  scale_x_discrete(expand = expansion(mult = c(0.05, 0.15))) +
+  
   labs(
     x = "",
     y = "Time to first detection (hours)",
@@ -835,8 +861,11 @@ Detect_TI <- ggplot(Method_detect_TI_plot,
   ) +
   theme_classic() +
   theme(
-    axis.text.x = element_text(angle = 45, hjust = 1),
-    legend.position = "top"
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 14),
+    axis.text.y = element_text(size = 12),
+    axis.title.y = element_text(size = 14),
+    legend.position = "none",
+    plot.title = element_text(face = "bold", size = 16)
   )
 
 Detect_TI
@@ -866,40 +895,68 @@ small_flag <- Method_detect_DR_plot %>%
   mutate(y = 0.05)
 
 
+##
+# 1. Create grey background bars
+bg_data_DR <- Method_detect_DR_plot %>%
+  distinct(Common) %>%
+  mutate(hours_detect = max(Method_detect_DR_plot$hours_detect, na.rm = TRUE))  # full height
+
+# 2. Plot with grey background and method bars
 Detect_DR <- ggplot(Method_detect_DR_plot, aes(x = Common, y = hours_detect)) +
-  geom_col(
-    aes(fill = Method),
-    position = position_dodge(width = 0.9),
-    color = "black"
-  ) +
-  geom_point(
-    data = small_flag,
-    aes(x = Common, y = y),
-    color = "#CC3300",
-    size = 2
-  ) +
+  
+  # Grey background bars
+  geom_col(data = bg_data_DR,
+           aes(x = Common, y = hours_detect),
+           inherit.aes = FALSE,
+           fill = "grey80",
+           alpha = 0.3,
+           width = 0.8) +
+  
+  # Colored method bars
+  geom_col(aes(fill = Method),
+           position = position_dodge(width = 0.6),
+           width = 0.55,
+           color = "black",
+           alpha = 0.8) +
+  
+  # Points for very small hours_detect values
+  geom_point(data = small_flag,
+             aes(x = Common, y = y),
+             color = "#CC3300",
+             size = 2) +
+  
   scale_fill_manual(values = c("Acoustics" = "#336699", 
                                "Video" = "#ffCC33", 
                                "SCUBA" = "#CC3300")) +
+  
   scale_y_continuous(limits = c(0, 70)) +
+  
+  # Increase spacing between species
+  scale_x_discrete(expand = expansion(mult = c(0.05, 0.15))) +
+  
   labs(
     x = "",
     y = "Time to first detection (hours)",
     title = "Danger Rocks",
     fill = "Method"
   ) +
+  
   theme_classic() +
   theme(
-    axis.text.x = element_text(angle = 45, hjust = 1),
-    legend.position = "top"
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 14),
+    axis.text.y = element_text(size = 12),
+    axis.title.y = element_text(size = 14),
+    legend.position = "right",
+    plot.title = element_text(face = "bold", size = 16)
   )
 
 Detect_DR
 
+
 Detect_all<-Detect_TI + Detect_DR
 Detect_all
 
-ggsave("figures/CH3/TimetoDetection_AllMethods.png", plot = Detect_all, width = 10, height = 10, dpi = 300)
+ggsave("figures/CH3/TimetoDetection_AllMethods.png", plot = Detect_all, width = 16, height = 10, dpi = 300)
 
 ###
 #create flextable of survey effort times
@@ -967,6 +1024,20 @@ ft <- flextable(tbl1) %>%
   )
 
 ft
+
+library(officer)
+library(flextable)
+
+# Example flextable
+# ft <- flextable(your_dataframe)
+
+doc <- read_docx()
+doc <- body_add_flextable(doc, value = ft)
+print(doc, target = "figures/CH3/hourstodetectionbymethod.docx")
+
+
+save_as_image(x = ft, path = "figures/CH3/hourstodetectionbymethod.png")
+
 ##########################################################################################################
 #Calculate mean calls per hour, per day and total calls by species
 
@@ -1105,7 +1176,7 @@ Vid_Aud_DR_long <- Vid_Aud_DR %>%
   replace_na(list(value = 0))
 
 # 2. Scaling for secondary axis
-scale_factor <- max(Vid_Aud_DR_long %>% filter(metric == "mean_MaxN") %>% pull(value), na.rm = TRUE) /
+scale_factor_DR_AV <- max(Vid_Aud_DR_long %>% filter(metric == "mean_MaxN") %>% pull(value), na.rm = TRUE) /
   max(Vid_Aud_DR_long %>% filter(metric == "FSperHour") %>% pull(value), na.rm = TRUE)
 
 # Create order based on mean_MaxN descending
@@ -1119,30 +1190,61 @@ Vid_Aud_DR_long <- Vid_Aud_DR_long %>%
 Vid_Aud_DR_long <- Vid_Aud_DR_long %>%
   mutate(metric = factor(metric, levels = c("mean_MaxN", "FSperHour")))
 
+##
+# 1. Create background layer for species
+bg_data_DR <- Vid_Aud_DR_long %>%
+  distinct(Common) %>%
+  mutate(value = 1.2)  # full height of y-axis for background
+
+# 2. Plot with grey background bars
 Vid_Aud_DR_plot <- ggplot(Vid_Aud_DR_long,
-                          aes(x = Common, 
-                              y = ifelse(metric == "FSperHour", value * scale_factor, value),
+                          aes(x = Common,
+                              y = ifelse(metric == "FSperHour", value * scale_factor_DR_AV, value),
                               fill = metric)) +
   
-  geom_col(position = position_dodge(width = 0.9), color = "black") +
+  # Grey background bars
+  geom_col(data = bg_data_DR,
+           aes(x = Common, y = value),
+           inherit.aes = FALSE,
+           fill = "grey80",
+           alpha = 0.3,
+           width = 0.8) +
+  
+  # Metric bars on top
+  geom_col(position = position_dodge(width = 0.6),
+           width = 0.55,
+           color = "black") +
   
   scale_y_continuous(
     name = "Mean MaxN",
-    sec.axis = sec_axis(~ . / scale_factor, name = "Fish sounds per hour")
+    limits = c(0, 1.2),
+    sec.axis = sec_axis(~ . / scale_factor_DR_AV, name = "Fish sounds per hour")
   ) +
   
-  scale_fill_manual(name = "", values = c("mean_MaxN" = "#336699", "FSperHour" = "#ffCC33")) +
+  scale_fill_manual(name = "",
+                    values = c("mean_MaxN" = "#ffCC33",
+                               "FSperHour" = "#336699"),
+                    labels = c("mean_MaxN" = "Video",
+                               "FSperHour" = "Acoustics")) +
+  
+  # Increase spacing between species
+  scale_x_discrete(expand = expansion(mult = c(0.05, 0.15))) +
   
   labs(x = "", title = "Danger Rocks") +
   
   theme_classic() +
   theme(
-    axis.text.x = element_text(angle = 45, hjust = 1),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 12),
+    axis.text.y = element_text(size = 12),
     legend.position = "right",
-    plot.title = element_text(size = 16, face = "bold")
+    plot.title = element_text(size = 16, face = "bold"),
+    axis.title.y.right = element_text(color = "#336699", face = "bold", size = 16),
+    axis.title.y.left = element_text(color = "#ffCC00", face = "bold", size = 16)
   )
 
 Vid_Aud_DR_plot
+
+
 
 #############################################################################
 #look at most abundance fish calls per hour Taylor Islet
@@ -1167,7 +1269,7 @@ FSperHour_TI <- ggplot(Species_counts_TI,
   labs(
     x = "",
     y = "FSperHour",
-    title = "Danger Rocks"
+    title = "Taylor Islet"
   ) +
   theme_classic() +
   theme(
@@ -1198,7 +1300,7 @@ mm_TIbar <- ggplot(mm_TI_son,
   labs(
     x = "",
     y = "Mean MaxN",
-    title = "Danger Rocks"
+    title = "Taylor Islet"
   ) +
   theme_classic() +
   theme(
@@ -1222,7 +1324,7 @@ Vid_Aud_TI_long <- Vid_Aud_TI %>%
   replace_na(list(value = 0))
 
 # 2. Scaling for secondary axis
-scale_factor <- max(Vid_Aud_TI_long %>% filter(metric == "mean_MaxN") %>% pull(value), na.rm = TRUE) /
+scale_factor_TI_AV <- max(Vid_Aud_TI_long %>% filter(metric == "mean_MaxN") %>% pull(value), na.rm = TRUE) /
   max(Vid_Aud_TI_long %>% filter(metric == "FSperHour") %>% pull(value), na.rm = TRUE)
 
 # Create order based on mean_MaxN descending
@@ -1236,27 +1338,56 @@ Vid_Aud_TI_long <- Vid_Aud_TI_long %>%
 Vid_Aud_TI_long <- Vid_Aud_TI_long %>%
   mutate(metric = factor(metric, levels = c("mean_MaxN", "FSperHour")))
 
+##
+# 1. Create grey background layer
+bg_data_TI <- Vid_Aud_TI_long %>%
+  distinct(Common) %>%
+  mutate(value = 1.2)  # full height of y-axis
+
+# 2. Plot with grey background bars and method bars
 Vid_Aud_TI_plot <- ggplot(Vid_Aud_TI_long,
-                          aes(x = Common, 
-                              y = ifelse(metric == "FSperHour", value * scale_factor, value),
+                          aes(x = Common,
+                              y = ifelse(metric == "FSperHour", value * scale_factor_TI_AV, value),
                               fill = metric)) +
   
-  geom_col(position = position_dodge(width = 0.9), color = "black") +
+  # Grey background bars
+  geom_col(data = bg_data_TI,
+           aes(x = Common, y = value),
+           inherit.aes = FALSE,
+           fill = "grey80",
+           alpha = 0.3,
+           width = 0.8) +
+  
+  # Metric bars on top
+  geom_col(position = position_dodge(width = 0.6),
+           width = 0.55,
+           color = "black") +
   
   scale_y_continuous(
     name = "Mean MaxN",
-    sec.axis = sec_axis(~ . / scale_factor, name = "Fish sounds per hour")
+    limits = c(0, 1.2),
+    sec.axis = sec_axis(~ . / scale_factor_TI_AV, name = "Fish sounds per hour")
   ) +
   
-  scale_fill_manual(name = "", values = c("mean_MaxN" = "#336699", "FSperHour" = "#ffCC33")) +
+  scale_fill_manual(name = "",
+                    values = c("mean_MaxN" = "#ffCC33",
+                               "FSperHour" = "#336699"),
+                    labels = c("mean_MaxN" = "Video",
+                               "FSperHour" = "Acoustics")) +
+  
+  # Increase spacing between species
+  scale_x_discrete(expand = expansion(mult = c(0.05, 0.15))) +
   
   labs(x = "", title = "Taylor Islet") +
   
   theme_classic() +
   theme(
-    axis.text.x = element_text(angle = 45, hjust = 1),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 12),
+    axis.text.y = element_text(size = 12),
     legend.position = "none",
-    plot.title = element_text(size = 16, face = "bold")
+    plot.title = element_text(size = 16, face = "bold"),
+    axis.title.y.right = element_text(color = "#336699", face = "bold", size = 16),
+    axis.title.y.left = element_text(color = "#ffCC00", face = "bold", size = 16)
   )
 
 Vid_Aud_TI_plot
@@ -1267,7 +1398,7 @@ Vid_Aud_plot<- Vid_Aud_TI_plot + Vid_Aud_DR_plot
 
 Vid_Aud_plot#rerun audio vs. SCUBA to show each method gives very different answers (also show SCUBA vs. Video)
 
-ggsave("figures/CH3/MaxN_vs_FSperHour_allsites.png", plot = Vid_Aud_plot, width = 10, height = 10, dpi = 300)
+ggsave("figures/CH3/MaxN_vs_FSperHour_allsites.png", plot = Vid_Aud_plot, width = 10, height = 8, dpi = 300)
 
 
 #########################
@@ -1304,61 +1435,66 @@ Species_counts1<-left_join(Species_counts, dive_long_abund, by = c("Site", "Comm
 #############################################################################
 #look at most abundance fish calls per hour Taylor Islet  (SCUBA and Acoustic)
 
-Species_counts_DR<- Species_counts1%>%
+Species_counts_TI<- Species_counts1%>%
   filter(Site == "Taylor Islet")%>%
   filter(Common != "other")
 
-
-#############
-# 1. Convert to long format
-SCUBA_Aud_DR_long <- Species_counts_DR %>%
-  select(Common, Fishper_m3, FSperHour) %>%
-  pivot_longer(
-    cols = c(Fishper_m3, FSperHour),
-    names_to = "metric",
-    values_to = "value"
-  )%>%
-  replace_na(list(value = 0))
-
-# 2. Scaling for secondary axis
-scale_factor <- max(SCUBA_Aud_DR_long %>% filter(metric == "Fishper_m3") %>% pull(value), na.rm = TRUE) /
-  max(SCUBA_Aud_DR_long %>% filter(metric == "FSperHour") %>% pull(value), na.rm = TRUE)
-
-# Create order based on mean_MaxN descending
-common_order <- Species_counts_DR%>%
-  arrange(desc(Fishper_m3)) %>%
-  pull(Common)
-
-SCUBA_Aud_DR_long <- SCUBA_Aud_DR_long %>%
-  mutate(Common = factor(Common, levels = common_order))
-
-SCUBA_Aud_DR_long<- SCUBA_Aud_DR_long %>%
-  mutate(metric = factor(metric, levels = c("Fishper_m3", "FSperHour")))
-
-SCUBA_Aud_DR_plot <- ggplot(SCUBA_Aud_DR_long,
-                          aes(x = Common, 
-                              y = ifelse(metric == "FSperHour", value * scale_factor, value),
-                              fill = metric)) +
-  
-  geom_col(position = position_dodge(width = 0.9), color = "black") +
-  
-  scale_y_continuous(
-    name = "Fishper_m3",
-    sec.axis = sec_axis(~ . / scale_factor, name = "Fish sounds per hour")
-  ) +
-  
-  scale_fill_manual(name = "", values = c("Fishper_m3" = "red", "FSperHour" = "#ffCC33")) +
-  
-  labs(x = "", title = "Taylor Islet") +
-  
-  theme_classic() +
-  theme(
-    axis.text.x = element_text(angle = 45, hjust = 1),
-    legend.position = "none",
-    plot.title = element_text(size = 16, face = "bold")
-  )
-
-SCUBA_Aud_DR_plot
+# 
+# #############
+# # 1. Convert to long format
+# SCUBA_Aud_TI_long <- Species_counts_TI %>%
+#   select(Common, Fishper_m3, FSperHour) %>%
+#   pivot_longer(
+#     cols = c(Fishper_m3, FSperHour),
+#     names_to = "metric",
+#     values_to = "value"
+#   )%>%
+#   replace_na(list(value = 0))
+# 
+# # 2. Scaling for secondary axis
+# scale_factor_TI_AS <- max(SCUBA_Aud_TI_long %>% filter(metric == "Fishper_m3") %>% pull(value), na.rm = TRUE) /
+#   max(SCUBA_Aud_TI_long %>% filter(metric == "FSperHour") %>% pull(value), na.rm = TRUE)
+# 
+# # Create order based on mean_MaxN descending
+# common_order <- Species_counts_TI%>%
+#   arrange(desc(Fishper_m3)) %>%
+#   pull(Common)
+# 
+# SCUBA_Aud_TI_long <- SCUBA_Aud_TI_long %>%
+#   mutate(Common = factor(Common, levels = common_order))
+# 
+# SCUBA_Aud_TI_long<- SCUBA_Aud_TI_long %>%
+#   mutate(metric = factor(metric, levels = c("Fishper_m3", "FSperHour")))
+# 
+# SCUBA_Aud_TI_plot <- ggplot(SCUBA_Aud_TI_long,
+#                           aes(x = Common, 
+#                               y = ifelse(metric == "FSperHour", value * scale_factor_TI_AS, value),
+#                               fill = metric)) +
+#   
+#   geom_col(position = position_dodge(width = 0.9), color = "black") +
+#   
+#   scale_y_continuous(
+#     name = expression("Fish per " * m^3 * ""), limits = c(0,0.3),
+#     sec.axis = sec_axis(~ . / scale_factor_TI_AS, name = "Fish sounds per hour")
+#   ) +
+#   scale_fill_manual(name = "", 
+#                     values = c("Fishper_m3" = "#CC3300", 
+#                                "FSperHour" = "#ffCC33"),
+#                     labels = c("Fishper_m3" = "SCUBA",
+#                                "FSperHour" = "Acoustics")) +
+#   
+#   labs(x = "", title = " c)") +
+#   
+#   theme_classic() +
+#   theme(
+#     axis.text.x = element_text(angle = 45, hjust = 1),
+#     legend.position = "none",
+#     plot.title = element_text(size = 16, face = "bold"),
+#     axis.title.y.right = element_text(color = "#ffCC00", face = "bold", size = 16),  # <- yellow right axis title
+#     axis.title.y.left = element_text(color = "#CC3300", face = "bold", size = 16)
+#   )
+#   
+# SCUBA_Aud_TI_plot
 
 #############################################################################
 #look at most abundance fish calls per hour Danger Rocks (SCUBA and Acoustic)
@@ -1368,56 +1504,71 @@ Species_counts_DR<- Species_counts1%>%
   filter(Common != "other")
 
 
-#############
-# 1. Convert to long format
-SCUBA_Aud_DR_long <- Species_counts_DR %>%
-  select(Common, Fishper_m3, FSperHour) %>%
-  pivot_longer(
-    cols = c(Fishper_m3, FSperHour),
-    names_to = "metric",
-    values_to = "value"
-  )%>%
-  replace_na(list(value = 0))
+# #############
+# # 1. Convert to long format
+# SCUBA_Aud_DR_long <- Species_counts_DR %>%
+#   select(Common, Fishper_m3, FSperHour) %>%
+#   pivot_longer(
+#     cols = c(Fishper_m3, FSperHour),
+#     names_to = "metric",
+#     values_to = "value"
+#   )%>%
+#   replace_na(list(value = 0))
+# 
+# # 2. Scaling for secondary axis
+# scale_factor_DR_AS <- max(SCUBA_Aud_DR_long %>% filter(metric == "Fishper_m3") %>% pull(value), na.rm = TRUE) /
+#   max(SCUBA_Aud_DR_long %>% filter(metric == "FSperHour") %>% pull(value), na.rm = TRUE)
+# 
+# # Create order based on mean_MaxN descending
+# common_order <- Species_counts_DR%>%
+#   arrange(desc(Fishper_m3)) %>%
+#   pull(Common)
+# 
+# SCUBA_Aud_DR_long <- SCUBA_Aud_DR_long %>%
+#   mutate(Common = factor(Common, levels = common_order))
+# 
+# SCUBA_Aud_DR_long<- SCUBA_Aud_DR_long %>%
+#   mutate(metric = factor(metric, levels = c("Fishper_m3", "FSperHour")))
+# 
+# SCUBA_Aud_DR_plot <- ggplot(SCUBA_Aud_DR_long,
+#                             aes(x = Common, 
+#                                 y = ifelse(metric == "FSperHour", value * scale_factor_DR_AS, value),
+#                                 fill = metric)) +
+#   
+#   geom_col(position = position_dodge(width = 0.9), color = "black") +
+#   
+#   scale_y_continuous(
+#     name = expression("Fish per " * m^3 * ""), limits = c(0,0.3),
+#     sec.axis = sec_axis(~ . / scale_factor_DR_AS, name = "Fish sounds per hour")
+#   ) +
+#   scale_fill_manual(name = "", 
+#                     values = c("Fishper_m3" = "#CC3300", 
+#                                "FSperHour" = "#ffCC33"),
+#                     labels = c("Fishper_m3" = "SCUBA",
+#                                "FSperHour" = "Acoustics")) +
+#   
+#   labs(x = "", title = " d)") +
+#   
+#   theme_classic() +
+#   theme(
+#     axis.text.x = element_text(angle = 45, hjust = 1),
+#     legend.position = "right",
+#     plot.title = element_text(size = 16, face = "bold"),
+#     axis.title.y.right = element_text(color = "#ffCC00", face = "bold", size = 16),  # <- yellow right axis title
+#     axis.title.y.left = element_text(color = "#CC3300", face = "bold", size = 16)
+#   )
+# 
+# SCUBA_Aud_DR_plot
+# 
+# #join plots for both sites
+# 
+# SCUBA_Aud_plot<- SCUBA_Aud_TI_plot +SCUBA_Aud_DR_plot
+# 
+# SCUBA_Aud_plot 
+# 
+# ggsave("figures/CH3/SCUBA_vs_FSperHour_allsites.png", plot = SCUBA_Aud_plot, width = 10, height = 10, dpi = 300)
+# 
 
-# 2. Scaling for secondary axis
-scale_factor <- max(SCUBA_Aud_DR_long %>% filter(metric == "Fishper_m3") %>% pull(value), na.rm = TRUE) /
-  max(SCUBA_Aud_DR_long %>% filter(metric == "FSperHour") %>% pull(value), na.rm = TRUE)
-
-# Create order based on mean_MaxN descending
-common_order <- Species_counts_DR%>%
-  arrange(desc(Fishper_m3)) %>%
-  pull(Common)
-
-SCUBA_Aud_DR_long <- SCUBA_Aud_DR_long %>%
-  mutate(Common = factor(Common, levels = common_order))
-
-SCUBA_Aud_DR_long<- SCUBA_Aud_DR_long %>%
-  mutate(metric = factor(metric, levels = c("Fishper_m3", "FSperHour")))
-
-SCUBA_Aud_DR_plot <- ggplot(SCUBA_Aud_DR_long,
-                            aes(x = Common, 
-                                y = ifelse(metric == "FSperHour", value * scale_factor, value),
-                                fill = metric)) +
-  
-  geom_col(position = position_dodge(width = 0.9), color = "black") +
-  
-  scale_y_continuous(
-    name = "Fishper_m3",
-    sec.axis = sec_axis(~ . / scale_factor, name = "Fish sounds per hour")
-  ) +
-  
-  scale_fill_manual(name = "", values = c("Fishper_m3" = "red", "FSperHour" = "#ffCC33")) +
-  
-  labs(x = "", title = "Taylor Islet") +
-  
-  theme_classic() +
-  theme(
-    axis.text.x = element_text(angle = 45, hjust = 1),
-    legend.position = "none",
-    plot.title = element_text(size = 16, face = "bold")
-  )
-
-SCUBA_Aud_DR_plot
 
 #############################################################################
 #look at most abundance fish calls per hour Taylor Islet  (SCUBA and Video)
@@ -1426,59 +1577,70 @@ Species_counts_TI<- Species_counts1%>%
   filter(Site == "Taylor Islet")%>%
   filter(Common != "other")
 
-Vid_SCUBA_TI<-left_join(mm_TI_son, Species_counts_TI, by = "Common")
+# Vid_SCUBA_TI <- left_join(mm_TI_son, Species_counts_TI, by = "Common") %>%
+#   mutate(across(where(is.numeric), ~replace_na(., 0)))
+# 
+# 
+# 
+# 
+# #############
+# # 1. Convert to long format
+# SCUBA_Vid_TI_long <- Vid_SCUBA_TI %>%
+#   select(Common, Fishper_m3, mean_MaxN) %>%
+#   pivot_longer(
+#     cols = c(Fishper_m3, mean_MaxN),
+#     names_to = "metric",
+#     values_to = "value"
+#   )%>%
+#   replace_na(list(value = 0))
+# 
+# # 2. Scaling for secondary axis
+# scale_factor_TI_SV <- max(SCUBA_Vid_TI_long %>% filter(metric == "Fishper_m3") %>% pull(value), na.rm = TRUE) /
+#   max(SCUBA_Vid_TI_long %>% filter(metric == "mean_MaxN") %>% pull(value), na.rm = TRUE)
+# 
+# # Create order based on mean_MaxN descending
+# common_order <- Vid_SCUBA_TI%>%
+#   arrange(desc(Fishper_m3)) %>%
+#   pull(Common)
+# 
+# SCUBA_Vid_TI_long <- SCUBA_Vid_TI_long %>%
+#   mutate(Common = factor(Common, levels = common_order))
+# 
+# SCUBA_Vid_TI_long<- SCUBA_Vid_TI_long %>%
+#   mutate(metric = factor(metric, levels = c("Fishper_m3", "mean_MaxN")))
+# 
+# SCUBA_Vid_TI_plot <- ggplot(SCUBA_Vid_TI_long,
+#                             aes(x = Common, 
+#                                 y = ifelse(metric == "mean_MaxN", value * scale_factor_TI_SV , value),
+#                                 fill = metric)) +
+#   
+#   geom_col(position = position_dodge(width = 0.9), color = "black") +
+#   
+#   scale_y_continuous(
+#     name = expression("Fish per " * m^3 * ""),limits = c(0,0.3),
+#     sec.axis = sec_axis(~ . / scale_factor_TI_SV , name = "Mean MaxN")
+#   ) +
+#   scale_fill_manual(name = "", 
+#                     values = c("Fishper_m3" = "#CC3300", 
+#                                "mean_MaxN" = "#336699"),
+#                     labels = c("Fishper_m3" = "SCUBA",
+#                                "FSperHour" = "Acoustics")) +
+#   
+#   labs(x = "", title = " e)") +
+#   
+#   theme_classic() +
+#   theme(
+#     axis.text.x = element_text(angle = 45, hjust = 1),
+#     legend.position = "none",
+#     plot.title = element_text(size = 16, face = "bold"),
+#     axis.title.y.right = element_text(color = "#336699", face = "bold", size = 16),  # <- yellow right axis title
+#     axis.title.y.left = element_text(color = "#CC3300", face = "bold", size = 16)
+#   )
+#   
+#   
+# SCUBA_Vid_TI_plot
+# 
 
-
-#############
-# 1. Convert to long format
-SCUBA_Vid_TI_long <- Vid_SCUBA_TI %>%
-  select(Common, Fishper_m3, mean_MaxN) %>%
-  pivot_longer(
-    cols = c(Fishper_m3, mean_MaxN),
-    names_to = "metric",
-    values_to = "value"
-  )%>%
-  replace_na(list(value = 0))
-
-# 2. Scaling for secondary axis
-scale_factor <- max(SCUBA_Vid_TI_long %>% filter(metric == "Fishper_m3") %>% pull(value), na.rm = TRUE) /
-  max(SCUBA_Vid_TI_long %>% filter(metric == "mean_MaxN") %>% pull(value), na.rm = TRUE)
-
-# Create order based on mean_MaxN descending
-common_order <- Species_counts_TI%>%
-  arrange(desc(Fishper_m3)) %>%
-  pull(Common)
-
-SCUBA_Vid_TI_long <- SCUBA_Vid_TI_long %>%
-  mutate(Common = factor(Common, levels = common_order))
-
-SCUBA_Vid_TI_long<- SCUBA_Vid_TI_long %>%
-  mutate(metric = factor(metric, levels = c("Fishper_m3", "mean_MaxN")))
-
-SCUBA_Vid_TI_plot <- ggplot(SCUBA_Vid_TI_long,
-                            aes(x = Common, 
-                                y = ifelse(metric == "mean_MaxN", value * scale_factor, value),
-                                fill = metric)) +
-  
-  geom_col(position = position_dodge(width = 0.9), color = "black") +
-  
-  scale_y_continuous(
-    name = "Fishper_m3",
-    sec.axis = sec_axis(~ . / scale_factor, name = "Mean MaxN")
-  ) +
-  
-  scale_fill_manual(name = "", values = c("Fishper_m3" = "red", "mean_MaxN" = "blue")) +
-  
-  labs(x = "", title = "Taylor Islet") +
-  
-  theme_classic() +
-  theme(
-    axis.text.x = element_text(angle = 45, hjust = 1),
-    legend.position = "none",
-    plot.title = element_text(size = 16, face = "bold")
-  )
-
-SCUBA_Vid_TI_plot
 
 #############################################################################
 #look at most abundance fish calls per hour Danger Rocks (SCUBA and Acoustic)
@@ -1487,58 +1649,281 @@ Species_counts_DR<- Species_counts1%>%
   filter(Site == "Danger Rocks")%>%
   filter(Common != "other")
 
-Vid_SCUBA_DR<-left_join(mm_TI_son, Species_counts_DR, by = "Common")
+# Vid_SCUBA_DR<-left_join(mm_DR_son, Species_counts_DR, by = "Common")
+# 
+# 
+# #############
+# # 1. Convert to long format
+# SCUBA_Vid_DR_long <- Vid_SCUBA_DR %>%
+#   select(Common, Fishper_m3, mean_MaxN) %>%
+#   pivot_longer(
+#     cols = c(Fishper_m3, mean_MaxN),
+#     names_to = "metric",
+#     values_to = "value"
+#   )%>%
+#   replace_na(list(value = 0))
+# 
+# # 2. Scaling for secondary axis
+# scale_factor_DR_SV  <- max(SCUBA_Vid_DR_long %>% filter(metric == "Fishper_m3") %>% pull(value), na.rm = TRUE) /
+#   max(SCUBA_Vid_DR_long %>% filter(metric == "mean_MaxN") %>% pull(value), na.rm = TRUE)
+# 
+# # Create order based on mean_MaxN descending
+# common_order <- Vid_SCUBA_DR%>%
+#   arrange(desc(Fishper_m3)) %>%
+#   pull(Common)
+# 
+# SCUBA_Vid_DR_long <- SCUBA_Vid_DR_long %>%
+#   mutate(Common = factor(Common, levels = common_order))
+# 
+# SCUBA_Vid_DR_long<- SCUBA_Vid_DR_long %>%
+#   mutate(metric = factor(metric, levels = c("Fishper_m3", "mean_MaxN")))
+# 
+# SCUBA_Vid_DR_plot <- ggplot(SCUBA_Vid_DR_long,
+#                             aes(x = Common, 
+#                                 y = ifelse(metric == "mean_MaxN", value * scale_factor_DR_SV, value),
+#                                 fill = metric)) +
+#   
+#   geom_col(position = position_dodge(width = 0.9), color = "black") +
+#   
+#   scale_y_continuous(
+#     name = expression("Fish per " * m^3 * ""),limits = c(0,0.3),
+#     sec.axis = sec_axis(~ . / scale_factor_DR_SV, name = "Mean MaxN")
+#   ) +
+#   scale_fill_manual(name = "", 
+#                     values = c("Fishper_m3" = "#CC3300", 
+#                                "mean_MaxN" = "#336699"),
+#                     labels = c("Fishper_m3" = "SCUBA",
+#                                "FSperHour" = "Acoustics")) +
+#   
+#   labs(x = "", title = " f)") +
+#   
+#   theme_classic() +
+#   theme(
+#     axis.text.x = element_text(angle = 45, hjust = 1),
+#     legend.position = "right",
+#     plot.title = element_text(size = 16, face = "bold"),
+#     axis.title.y.right = element_text(color = "#336699", face = "bold", size = 16),  # <- yellow right axis title
+#     axis.title.y.left = element_text(color = "#CC3300", face = "bold", size = 16)
+#   )
+# 
+# 
+# SCUBA_Vid_DR_plot
+# 
+# #join plots for both sites
+# 
+# 
+# SCUBA_Vid_plot2 <- SCUBA_Vid_TI_plot + SCUBA_Vid_DR_plot
+# 
+# SCUBA_Vid_plot2 
+# 
+# ggsave("figures/CH3/SCUBA_vs_Vid_allsites.png", plot = SCUBA_Vid_plot, width = 10, height = 10, dpi = 300)
+# 
+# 
 
 
-#############
-# 1. Convert to long format
-SCUBA_Vid_DR_long <- Vid_SCUBA_DR %>%
-  select(Common, Fishper_m3, mean_MaxN) %>%
-  pivot_longer(
-    cols = c(Fishper_m3, mean_MaxN),
-    names_to = "metric",
-    values_to = "value"
-  )%>%
-  replace_na(list(value = 0))
+### fix up these plots and make a 2x3 plot showing all comparisons across methods
+  
+  
+######################
 
-# 2. Scaling for secondary axis
-scale_factor <- max(SCUBA_Vid_DR_long %>% filter(metric == "Fishper_m3") %>% pull(value), na.rm = TRUE) /
-  max(SCUBA_Vid_DR_long %>% filter(metric == "mean_MaxN") %>% pull(value), na.rm = TRUE)
+########################################
+#Make Scaled plots for VIdeo, acoustics, Scuba
 
-# Create order based on mean_MaxN descending
-common_order <- Species_counts_DR%>%
-  arrange(desc(Fishper_m3)) %>%
+Vid_SCUBA_Aud_TI <- left_join(mm_TI_son, Species_counts_TI, by = "Common") 
+
+##
+common_order1 <- Vid_SCUBA_Aud_TI %>%
+  arrange(desc(mean_MaxN)) %>%
   pull(Common)
 
-SCUBA_Vid_DR_long <- SCUBA_Vid_DR_long %>%
-  mutate(Common = factor(Common, levels = common_order))
+Vid_SCUBA_Aud_TI1 <- Vid_SCUBA_Aud_TI %>%
+  mutate(across(where(is.numeric), ~replace_na(., 0))) %>%
+  select(Common, Fishper_m3, FSperHour, mean_MaxN) %>%
+  pivot_longer(
+    cols = -Common,
+    names_to = "metric",
+    values_to = "value"
+  ) %>%
+  group_by(metric) %>%
+  mutate(value_scaled = scales::rescale(value)) %>%
+  ungroup() %>%
+  mutate(
+    Common = factor(Common, levels = common_order1),
+    metric = factor(metric, levels = c("mean_MaxN", "FSperHour","Fishper_m3" ))
+  )
 
-SCUBA_Vid_DR_long<- SCUBA_Vid_DR_long %>%
-  mutate(metric = factor(metric, levels = c("Fishper_m3", "mean_MaxN")))
 
-SCUBA_Vid_DR_plot <- ggplot(SCUBA_Vid_DR_long,
-                            aes(x = Common, 
-                                y = ifelse(metric == "mean_MaxN", value * scale_factor, value),
-                                fill = metric)) +
+AVS_scaled_plot_TI <- ggplot(Vid_SCUBA_Aud_TI1,
+                             aes(x = Common,
+                                 y = value_scaled,
+                                 fill = metric)) +
   
-  geom_col(position = position_dodge(width = 0.9), color = "black") +
+  # Grey background bar
+  geom_col(data = bg_data,
+           aes(x = Common, y = value_scaled),
+           inherit.aes = FALSE,
+           fill = "grey80",
+           alpha = 0.5,
+           width = 0.75) +   # slightly narrower
   
-  scale_y_continuous(
-    name = "Fishper_m3",
-    sec.axis = sec_axis(~ . / scale_factor, name = "mean MaxN")
+  # Metric bars (tighter within-group spacing)
+  geom_col(position = position_dodge(width = 0.6),
+           width = 0.55,     # narrower bars
+           color = "black",
+           alpha = 0.8) +
+  
+  scale_fill_manual(
+    values = c(
+      "Fishper_m3" = "#CC3300",
+      "FSperHour" = "#336699",
+      "mean_MaxN" = "#ffCC33"
+    ),
+    labels = c(
+      "Fishper_m3" = "SCUBA",
+      "FSperHour" = "Acoustics",
+      "mean_MaxN" = "Video"
+    )
   ) +
   
-  scale_fill_manual(name = "", values = c("Fishper_m3" = "red", "mean_MaxN" = "blue")) +
+  scale_x_discrete(expand = expansion(mult = c(0.05, 0.15))) +  # adds spacing
   
-  labs(x = "", title = "Danger Rocks") +
+  labs(
+    x = "",
+    y = "Relative abundance (min-max scaled) ",
+    title = "Taylor Islet"
+  ) +
   
   theme_classic() +
   theme(
-    axis.text.x = element_text(angle = 45, hjust = 1),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 14, colour = "black"),
+    axis.text.y = element_text(size = 14, colour = "black"),
+    axis.title.y = element_text(size = 16),
     legend.position = "none",
     plot.title = element_text(size = 16, face = "bold")
   )
 
-SCUBA_Vid_DR_plot
+AVS_scaled_plot_TI
 
-### fix up these plots and make a 2x3 plot showing all comparisons across methods
+##################
+#Scaled -Danger ROcks
+Vid_SCUBA_Aud_DR <- left_join(mm_DR_son, Species_counts_DR, by = "Common") 
+
+##
+common_order2 <- Vid_SCUBA_Aud_DR %>%
+  arrange(desc(mean_MaxN)) %>%
+  pull(Common)
+
+Vid_SCUBA_Aud_DR1 <- Vid_SCUBA_Aud_DR %>%
+  mutate(across(where(is.numeric), ~replace_na(., 0))) %>%
+  select(Common, Fishper_m3, FSperHour, mean_MaxN) %>%
+  pivot_longer(
+    cols = -Common,
+    names_to = "metric",
+    values_to = "value"
+  ) %>%
+  group_by(metric) %>%
+  mutate(value_scaled = scales::rescale(value)) %>%
+  ungroup() %>%
+  mutate(
+    Common = factor(Common, levels = common_order2),
+    metric = factor(metric, levels = c("mean_MaxN", "FSperHour","Fishper_m3" ))
+  )
+
+bg_data_DR <- Vid_SCUBA_Aud_DR1 %>%
+  distinct(Common) %>%
+  mutate(value_scaled = 1)
+
+##########
+# AVS_scaled_plot_DR <- ggplot(Vid_SCUBA_Aud_DR1,
+#                           aes(x = Common,
+#                               y = value_scaled,
+#                               fill = metric)) +
+#   geom_col(position = position_dodge(width = 0.9), color = "black", alpha = 0.8) +
+#   scale_fill_manual( name = "",
+#     values = c(
+#       "Fishper_m3" = "#CC3300",
+#       "FSperHour" = "#336699",
+#       "mean_MaxN" = "#ffCC33"
+#     ),
+#     labels = c(
+#       "Fishper_m3" = "SCUBA",
+#       "FSperHour" = "Acoustics",
+#       "mean_MaxN" = "Video"
+#     )
+#   ) +
+#   labs(
+#     x = "",
+#     y = "Scaled relative abundance",
+#     title = "Danger Rocks"
+#   ) +
+#   theme_classic() +
+#   theme(
+#     axis.text.x = element_text(angle = 45, hjust = 1, size = 14, colour = "black"),
+#     axis.text.y = element_text(size = 14, colour = "black"),
+#     axis.title.y = element_blank(),
+#     legend.position = "right",
+#     plot.title = element_text(size = 16, face = "bold")
+#   )
+# 
+# AVS_scaled_plot_DR
+
+#######
+
+AVS_scaled_plot_DR <- ggplot(Vid_SCUBA_Aud_DR1,
+                             aes(x = Common,
+                                 y = value_scaled,
+                                 fill = metric)) +
+  
+  # Grey background bar
+  geom_col(data = bg_data_DR,
+           aes(x = Common, y = value_scaled),
+           inherit.aes = FALSE,
+           fill = "grey80",
+           alpha = 0.5,
+           width = 0.75) +   # slightly narrower
+  
+  # Metric bars (tighter within-group spacing)
+  geom_col(position = position_dodge(width = 0.6),
+           width = 0.55,     # narrower bars
+           color = "black",
+           alpha = 0.8) +
+  
+  scale_fill_manual(
+    name = "Method",
+    values = c(
+      "Fishper_m3" = "#CC3300",
+      "FSperHour" = "#336699",
+      "mean_MaxN" = "#ffCC33"
+    ),
+    labels = c(
+      "Fishper_m3" = "SCUBA",
+      "FSperHour" = "Acoustics",
+      "mean_MaxN" = "Video"
+    )
+  ) +
+  
+  scale_x_discrete(expand = expansion(mult = c(0.05, 0.15))) +  # adds spacing
+  
+  labs(
+    x = "",
+    y = "Relative abundance (min-max scaled) ",
+    title = "Danger Rocks"
+  ) +
+  
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 14, colour = "black"),
+    axis.text.y = element_text(size = 14, colour = "black"),
+    axis.title.y = element_text(size = 16),
+    legend.position = "right",
+    plot.title = element_text(size = 16, face = "bold")
+  )
+
+AVS_scaled_plot_DR
+
+AVS_scaled_plot_ALL <- AVS_scaled_plot_TI + AVS_scaled_plot_DR
+AVS_scaled_plot_ALL
+
+ggsave("figures/CH3/Aud_Vid_SCUBA_scaled_compare_AllSites.png", plot = AVS_scaled_plot_ALL, width = 16, height = 10, dpi = 300)
+
+
