@@ -4,13 +4,13 @@ sound<-read.csv("wdata/Sound_Species_Behaviour_Length_20250213.csv", header = TR
 
 sound$Energy..dB.FS.
 
+
 # Sysgain value
 sysgain <- -167.6
 
 # Add new column Rec_Lev and subtract 20dB to account for factor 10 amplification
-sound$Rec_Lev <- (sound$Energy..dB.FS.) + (-20) - (sysgain)
+sound$Rec_Lev <- (sound$Energy..dB.FS.) - 20 - sysgain # maybe it was amplified by factor 10 twice?  Once when Aislyn did it and once when I reopened them?
 
-sound$Rec_Lev <- sound$Energy..dB.FS. - 20 - sysgain
 
 sound$Rec_Lev
 
@@ -32,5 +32,5 @@ summary_by_species <- sound1 %>%
     max_SL  = max(Source_Lev, na.rm = TRUE),
     min_SL  = min(Source_Lev, na.rm = TRUE)
   )
-
+summary_by_species
 
