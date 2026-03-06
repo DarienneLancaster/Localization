@@ -19,7 +19,7 @@ source('PAM-R/Viewer.R')
 amar_id <- "AMAR173"
 
 # AMAR hydrophone calibration value (NEGATIVE)
-calib_value <- -168.1  # <-- replace with your AMAR calibration
+calib_value <- -167.6  # <-- replace with your AMAR calibration
 
 #AMAR1 hyrdophone = sysgain = -168.1
 #AMAR4 hydrophone = sysgain = -167.6
@@ -33,7 +33,7 @@ calib_value <- -168.1  # <-- replace with your AMAR calibration
 
 ##############################################################################
 # Frequency band (boat/noise band - as defined by Xavier Mouy's dissertation)
-set_lcut <- 500
+set_lcut <- 20
 set_hcut <- 1000
 
 ##############################################################################
@@ -67,7 +67,7 @@ PAMMeta(
 #when you open file rename as SPL
 
 # Set the directory path where your .rds files are located
-directory_path <- "odata/24hrAnnotations_AllSites_Selection_Tables/Taylor_Islet/TI_SPL/Meta_TI_SPL_Broadband_Abs_32000ptHannWindow_50pcOlap"  # Update this with the correct path
+directory_path <- "odata/SPL_LargeArray/SPL_DR_fulldeployment_good/Meta_AMAR173.4.32000.M36-V35-100_Broadband_Abs_32000ptHannWindow_50pcOlap"  # Update this with the correct path
 
 # Get a list of all .rds files in the directory
 rds_files <- list.files(directory_path, pattern = "\\.rds$", full.names = TRUE)
@@ -103,7 +103,7 @@ SPL_TI<-SPL%>%
   filter(SPL != "Inf")%>%
   mutate(Site_name = Site_name)
 
-write.csv(SPL_TI, file = "odata/24hrAnnotations_AllSites_Selection_Tables/Taylor_Islet/TI_SPL/SPL_1min_24HRSUBSAMPLE_TI_500to1000Hz.csv", row.names = FALSE)
+write.csv(SPL_TI, file = "odata/SPL_LargeArray/SPL_1min_fulldeployment_TI_20to1000Hz_good20260304.csv", row.names = FALSE)
 
 ########
 #Ohiat Island SPL
@@ -133,7 +133,11 @@ SPL_DR<-SPL%>%
   filter(SPL != "Inf")%>%
   mutate(Site_name = Site_name)
 
-write.csv(SPL_DR, file = "odata/24hrAnnotations_AllSites_Selection_Tables/Danger_Rocks/DR_SPL/SPL_1min_24HRSUBSAMPLE_DR_20to1000Hz.csv", row.names = FALSE)
+write.csv(SPL_DR, file = "odata/SPL_LargeArray/SPL_1min_fulldeployment_DR_20to1000Hz_good20260304.csv", row.names = FALSE)
+
+
+hist(SPL_DR$SPL)
+hist(SPL_TI$SPL)
 
 #slice(-1)  # This removes the first row (getting strange date column at beginning with SPL value - check with Steph and Philina)
 
