@@ -576,13 +576,32 @@ ggsave("figures/CH3/TimetoDetection_DR.png", plot = Det_time_DR, width = 10, hei
 
 #Pull in TI and DR 1 min SPL
 
-SPL_TI<-read.csv("odata/SPL_LargeArray/SPL_1min_fulldeployment_TI_20to1000Hz.csv", header = TRUE)
+SPL_TI<-read.csv("odata/SPL_LargeArray/SPL_1min_fulldeployment_TI_20to1000Hz_good20260304.csv", header = TRUE)
 str(SPL_TI)
 
 SPL_TI <- SPL_TI %>%
   mutate(
     Date = as.POSIXct(Date, tz = "UTC"),   # convert to POSIXct
     BC_time = Date - hours(7)               # subtract 7 hours
+  )
+
+SPL_TI_sum <- SPL_TI %>%
+  summarise(
+    q5  = quantile(SPL, 0.05, na.rm = TRUE),
+    q25 = quantile(SPL, 0.25, na.rm = TRUE),
+    q50 = quantile(SPL, 0.50, na.rm = TRUE),
+    q75 = quantile(SPL, 0.75, na.rm = TRUE),
+    q95 = quantile(SPL, 0.95, na.rm = TRUE)
+  )
+
+#summarize total useable hours of acoustic data for TI deployment
+SPL_TI1 <- SPL_TI %>%
+  group_by(Site_name) %>%
+  summarise(
+    Total_hours = n() / 60,
+    Useable_hours = sum(SPL < 113, na.rm = TRUE) / 60,
+    Percent_useable_data = (Useable_hours/Total_hours)*100,
+    Method = "Acoustics"
   )
 
 SPL_TI2 <- SPL_TI %>%
@@ -599,7 +618,7 @@ SPL_TI2 <- SPL_TI %>%
 #####################
 #danger Rocks
 
-SPL_DR<-read.csv("odata/SPL_LargeArray/SPL_1min_fulldeployment_DR_20to1000Hz.csv", header = TRUE)
+SPL_DR<-read.csv("odata/SPL_LargeArray/SPL_1min_fulldeployment_DR_20to1000Hz_good20260304.csv", header = TRUE)
 str(SPL_DR)
 
 SPL_DR <- SPL_DR %>%
@@ -607,6 +626,83 @@ SPL_DR <- SPL_DR %>%
     Date = as.POSIXct(Date, tz = "UTC"),   # convert to POSIXct
     BC_time = Date - hours(7)               # subtract 7 hours
   )
+
+SPL_DR_sum <- SPL_DR %>%
+  summarise(
+    q5  = quantile(SPL, 0.05, na.rm = TRUE),
+    q25 = quantile(SPL, 0.25, na.rm = TRUE),
+    q50 = quantile(SPL, 0.50, na.rm = TRUE),
+    q75 = quantile(SPL, 0.75, na.rm = TRUE),
+    q95 = quantile(SPL, 0.95, na.rm = TRUE)
+  )
+
+#summarize total useable hours of acoustic data for DR deployment
+SPL_DR1 <- SPL_DR %>%
+  group_by(Site_name) %>%
+  summarise(
+    Total_hours = n() / 60,
+    Useable_hours = sum(SPL < 113, na.rm = TRUE) / 60,
+    Percent_useable_data = (Useable_hours/Total_hours)*100,
+    Method = "Acoustics"
+  )
+
+Sum_Monitoring_Time<-rbind(SPL_TI1, SPL_DR1)
+
+Sum_Monitoring_Time1 <- Sum_Monitoring_Time %>%
+  add_row(
+    Site_name = "TI",
+    Total_hours = 158.6,
+    Useable_hours = 142.0833,
+    Percent_useable_data = 89.5859,
+    Method = "Video"
+  )
+
+Sum_Monitoring_Time2 <- Sum_Monitoring_Time1 %>%
+  add_row(
+    Site_name = "DR",
+    Total_hours = 115.1,
+    Useable_hours = 78.6666,
+    Percent_useable_data = 68.3463,
+    Method = "Video"
+  )%>%
+  mutate(
+    Site_name = case_when(
+      Site_name == "TI" ~ "Taylor Islet",
+      Site_name == "DR" ~ "Danger Rocks",
+      TRUE ~ Site_name
+    )
+  ) %>%
+  arrange(desc(Site_name))
+
+Sum_Monitoring_Time2_ft <- flextable(Sum_Monitoring_Time2) %>%
+  set_header_labels(
+    Site_name = "Site name",
+    Total_hours = "Total hours",
+    Useable_hours = "Useable hours",
+    Percent_useable_data = "Percent useable data",
+    Method = "Method"
+  ) %>%
+  theme_booktabs() %>%
+  autofit()
+
+Sum_Monitoring_Time2_ft
+
+save_as_image(
+  Sum_Monitoring_Time2_ft,
+  path = "figures/CH3/Useable_monitoring_time_NEWSPL_20260306.png"
+)
+
+library(officer)
+
+doc <- read_docx() %>%
+  body_add_flextable(Sum_Monitoring_Time2_ft)
+
+print(doc, target = "figures/CH3/Useable_monitoring_time_NEWSPL_20260306.docx")
+
+
+#create summary table for useable video minutes and total video monitoring minutes
+
+
 
 SPL_DR2 <- SPL_DR %>%
   mutate(
@@ -704,7 +800,7 @@ FS_first_detect <- FS_joined1 %>%
 #now need to calculate how many minutes had SPLs below 113dB between time of first recording and time of detection. 
 
 SPL_LA_filt<-SPL_LA%>%
-  filter(SPL <= 113)%>%
+  filter(SPL <= 126)%>% #this is lowest source level value for all species (Canary Rockfish - 75% quartile range)
   arrange(Site_name, BC_time)%>%
   group_by(Site_name)%>%
   mutate(minute = row_number()-1)%>%
@@ -852,6 +948,7 @@ Detect_TI <- ggplot(Method_detect_TI_plot,
   
   # Increase spacing between species
   scale_x_discrete(expand = expansion(mult = c(0.05, 0.15))) +
+  #scale_y_continuous(limits = c(0, 82)) +
   
   labs(
     x = "",
@@ -862,8 +959,10 @@ Detect_TI <- ggplot(Method_detect_TI_plot,
   theme_classic() +
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1, size = 14),
-    axis.text.y = element_text(size = 12),
-    axis.title.y = element_text(size = 14),
+    axis.text.y = element_text(size = 16),
+    axis.title.y = element_text(size = 16),
+    legend.text = element_text(size = 14),
+    legend.title = element_text(size = 14),
     legend.position = "none",
     plot.title = element_text(face = "bold", size = 16)
   )
@@ -900,6 +999,9 @@ small_flag <- Method_detect_DR_plot %>%
 bg_data_DR <- Method_detect_DR_plot %>%
   distinct(Common) %>%
   mutate(hours_detect = max(Method_detect_DR_plot$hours_detect, na.rm = TRUE))  # full height
+lp("ggbreak")
+
+
 
 # 2. Plot with grey background and method bars
 Detect_DR <- ggplot(Method_detect_DR_plot, aes(x = Common, y = hours_detect)) +
@@ -929,7 +1031,7 @@ Detect_DR <- ggplot(Method_detect_DR_plot, aes(x = Common, y = hours_detect)) +
                                "Video" = "#ffCC33", 
                                "SCUBA" = "#CC3300")) +
   
-  scale_y_continuous(limits = c(0, 70)) +
+  scale_y_continuous(limits = c(0, 82)) +
   
   # Increase spacing between species
   scale_x_discrete(expand = expansion(mult = c(0.05, 0.15))) +
@@ -944,19 +1046,20 @@ Detect_DR <- ggplot(Method_detect_DR_plot, aes(x = Common, y = hours_detect)) +
   theme_classic() +
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1, size = 14),
-    axis.text.y = element_text(size = 12),
-    axis.title.y = element_text(size = 14),
+    axis.text.y = element_text(size = 16),
+    axis.title.y = element_text(size = 16),
+    legend.text = element_text(size = 14),
+    legend.title = element_text(size = 14),
     legend.position = "right",
     plot.title = element_text(face = "bold", size = 16)
   )
 
 Detect_DR
 
-
 Detect_all<-Detect_TI + Detect_DR
 Detect_all
 
-ggsave("figures/CH3/TimetoDetection_AllMethods.png", plot = Detect_all, width = 16, height = 10, dpi = 300)
+ggsave("figures/CH3/TimetoDetection_AllMethods.png", plot = Detect_all, width = 16, height = 16, dpi = 300)
 
 ###
 #create flextable of survey effort times
