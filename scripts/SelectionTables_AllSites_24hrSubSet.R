@@ -146,6 +146,29 @@ OH_totFS <- OH_24hr %>%
     FS_per_file = totalFS_OH / n_files
   )
 
+#Count total number of Pinnipeds per site
+
+TI_totP <- TI_24hr %>%
+  summarize(
+    totalP_TI = sum(Class == "HS", na.rm = TRUE),
+    n_files = n_distinct(`Begin File`),
+    FS_per_file = totalP_TI / n_files
+  )
+
+DR_totP <- DR_24hr %>%
+  summarize(
+    totalP_DR = sum(Class == "HS", na.rm = TRUE),
+    n_files = n_distinct(`Begin File`),
+    FS_per_file = totalP_DR / n_files
+  )
+
+OH_totP <- OH_24hr %>%
+  summarize(
+    totalP_OH = sum(Class == "HS", na.rm = TRUE),
+    n_files = n_distinct(`Begin File`),
+    FS_per_file = totalP_OH / n_files
+  )
+
 ###################################################################
 #Create polar plots of # of fish calls per hour
 #######################################################################
@@ -799,3 +822,192 @@ OHpolar_B<-ggplot() +
   )
 
 OHpolar_B
+
+############################
+
+#Pinnipeds TAYLOR ISLET
+
+PperHour_TI <- TI_24hr %>%
+  mutate(
+    Begin_Hour = format(
+      floor_date(
+        parse_date_time(`Begin Clock Time`, orders = "HMS"),
+        unit = "hour"
+      ),
+      "%H:%M:%S"
+    )
+  ) %>%
+  group_by(`End File`, Class, `Begin Date`, Begin_Hour) %>%
+  summarise(
+    total = n(),
+    .groups = "drop"
+  ) %>%
+  filter(Class == "HS") %>%
+  mutate(
+    Begin_Hour = factor(
+      Begin_Hour,
+      levels = c(
+        sprintf("%02d:00:00", 12:23),
+        sprintf("%02d:00:00", 0:11)
+      )
+    )
+  )
+
+##
+#calculate mean and SD of number of fish sounds per hour (this accounts for the number of file annotated for each hour which is not equal across days)
+Pperhour_TI22<-PperHour_TI%>%
+  group_by(Begin_Hour)%>%
+  summarize(Pmean = mean(total),
+            Psd = sd(total),
+            Ptotal = sum(total))
+
+# Step 1: Extract first two characters
+Pperhour_TI22$UTC <- substr(Pperhour_TI22$Begin_Hour, 1, 2)
+
+#convert from UTC to pacific standard time (daylight savings - summertime)
+Pperhour_TI22<- Pperhour_TI22%>%
+  mutate(
+    # Convert factor to numeric, subtract 7, and wrap around 24 hours
+    Hour = (as.numeric(as.character(UTC)) - 7) %% 24
+  )
+
+#Convert to numeric
+Pperhour_TI22$Hour <- as.numeric(Pperhour_TI22$Hour)
+
+
+P_hour_summaryTI1 <- Pperhour_TI22 %>%
+  mutate(Diel = case_when(
+    Hour >= 6 & Hour <= 19 ~ "day",
+    (Hour >= 20 & Hour <= 23) | (Hour >= 0 & Hour <= 5) ~ "night"
+  ))%>%
+  mutate(Site = "Taylor Islet")
+
+
+#################################
+#Pinnipeds Danger Rocks
+
+PperHour_DR <- DR_24hr %>%
+  mutate(
+    Begin_Hour = format(
+      floor_date(
+        parse_date_time(`Begin Clock Time`, orders = "HMS"),
+        unit = "hour"
+      ),
+      "%H:%M:%S"
+    )
+  ) %>%
+  group_by(`End File`, Class, `Begin Date`, Begin_Hour) %>%
+  summarise(
+    total = n(),
+    .groups = "drop"
+  ) %>%
+  filter(Class == "HS") %>%
+  mutate(
+    Begin_Hour = factor(
+      Begin_Hour,
+      levels = c(
+        sprintf("%02d:00:00", 12:23),
+        sprintf("%02d:00:00", 0:11)
+      )
+    )
+  )
+
+##
+#calculate mean and SD of number of fish sounds per hour (this accounts for the number of file annotated for each hour which is not equal across days)
+Pperhour_DR22<-PperHour_DR%>%
+  group_by(Begin_Hour)%>%
+  summarize(Pmean = mean(total),
+            Psd = sd(total),
+            Ptotal = sum(total))
+
+# Step 1: Extract first two characters
+Pperhour_DR22$UTC <- substr(Pperhour_DR22$Begin_Hour, 1, 2)
+
+#convert from UTC to pacific standard time (daylight savings - summertime)
+Pperhour_DR22<- Pperhour_DR22%>%
+  mutate(
+    # Convert factor to numeric, subtract 7, and wrap around 24 hours
+    Hour = (as.numeric(as.character(UTC)) - 7) %% 24
+  )
+
+#Convert to numeric
+Pperhour_DR22$Hour <- as.numeric(Pperhour_DR22$Hour)
+
+
+P_hour_summaryDR1 <- Pperhour_DR22 %>%
+  mutate(Diel = case_when(
+    Hour >= 6 & Hour <= 19 ~ "day",
+    (Hour >= 20 & Hour <= 23) | (Hour >= 0 & Hour <= 5) ~ "night"
+  ))%>%
+  mutate(Site = "Danger Rocks")
+
+#################################
+#Pinnipeds  Ohiat Island
+
+PperHour_OH <- OH_24hr %>%
+  mutate(
+    Begin_Hour = format(
+      floor_date(
+        parse_date_time(`Begin Clock Time`, orders = "HMS"),
+        unit = "hour"
+      ),
+      "%H:%M:%S"
+    )
+  ) %>%
+  group_by(`End File`, Class, `Begin Date`, Begin_Hour) %>%
+  summarise(
+    total = n(),
+    .groups = "drop"
+  ) %>%
+  filter(Class == "HS") %>%
+  mutate(
+    Begin_Hour = factor(
+      Begin_Hour,
+      levels = c(
+        sprintf("%02d:00:00", 12:23),
+        sprintf("%02d:00:00", 0:11)
+      )
+    )
+  )
+
+##
+#calculate mean and SD of number of fish sounds per hour (this accounts for the number of file annotated for each hour which is not equal across days)
+Pperhour_OH22<-PperHour_OH%>%
+  group_by(Begin_Hour)%>%
+  summarize(Pmean = mean(total),
+            Psd = sd(total),
+            Ptotal = sum(total))
+
+# Step 1: Extract first two characters
+Pperhour_OH22$UTC <- substr(Pperhour_OH22$Begin_Hour, 1, 2)
+
+#convert from UTC to pacific standard time (daylight savings - summertime)
+Pperhour_OH22<- Pperhour_OH22%>%
+  mutate(
+    # Convert factor to numeric, subtract 7, and wrap around 24 hours
+    Hour = (as.numeric(as.character(UTC)) - 7) %% 24
+  )
+
+#Convert to numeric
+Pperhour_OH22$Hour <- as.numeric(Pperhour_OH22$Hour)
+
+
+P_hour_summaryOH1 <- Pperhour_OH22 %>%
+  mutate(Diel = case_when(
+    Hour >= 6 & Hour <= 19 ~ "day",
+    (Hour >= 20 & Hour <= 23) | (Hour >= 0 & Hour <= 5) ~ "night"
+  ))%>%
+  mutate(Site = "Ohiat Island")
+
+P_summ_allsites<-rbind(P_hour_summaryTI1, P_hour_summaryDR1, P_hour_summaryOH1)
+
+#get totals by sites for night and day
+P_summ_allsites_sum <- P_summ_allsites %>%
+  group_by(Site, Diel) %>%
+  summarise(
+    total_Ptotal = sum(Ptotal, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+P_summ_allsites_sum
+
