@@ -1,8 +1,6 @@
 #calculate fish sound source levels using bandpass filtering and waveform energy calculations
 
-s<-read.csv("odata/FS_selection_tables_Edited_and_Original_combo/AMAR173.4.20220813T020710Z.wav.chan0.Table.1.selections.FS_E.txt")
-
-s<-imp_raven(path = paste0("odata/FS_selection_tables_Edited_and_Original_combo"), all.data =  TRUE, only.spectro.view = FALSE) #need to set only.spectro.view to false to see columns from waveform.
+s<-imp_raven(path = paste0("odata/FS_selection_tables_Edited_and_Original_combo/TI"), all.data =  TRUE, only.spectro.view = FALSE) #need to set only.spectro.view to false to see columns from waveform.
 
 names(s) <- gsub(" ", ".", names(s))
 which(names(s) %in% names(s)[duplicated(names(s))])
@@ -10,7 +8,7 @@ names(s) <- make.unique(names(s))
 
 s$`Begin.Time.(s)`
 s1<-s%>%
-  filter(Begin.File == "AMAR173.4.20220813T020710Z.wav")%>%
+  filter(Begin.File == "AMAR173.4.20220813T010710Z.wav")%>%
   select(Begin.File, Selection, Edits, `Begin.Time.(s)`, `End.Time.(s)`,
          `Low.Freq.(Hz)`, `High.Freq.(Hz)`, x_m, y_m, z_m, ) %>%
   separate(Edits, into = c("Edit", "Selection_N"), sep = "_", remove = FALSE)%>%
@@ -37,8 +35,8 @@ s1 <- s1 %>%
   ) %>%
   select(-ends_with("_fromSel"))  # clean up temporary columns
 
-s1<-s1%>%
-  filter(Edit != "r")
+s1 <- s1 %>%
+  filter(is.na(Edit) | Edit != "r")
 
 # ensure Selection_N is NA where blank
 s1 <- s1 %>%
@@ -54,20 +52,67 @@ s1 <- s1 %>%
 lp("tuneR")
 
 #load in test .wav file
-wav <- readWave("E:/Bamfield_2022_Large_Array/TI20220812_Taylor_Islet/AMAR/AMAR173.4.32000.M36-V35-100/AMAR173.4.20220813T020710Z.wav")
+wav <- readWave("E:/Bamfield_2022_Large_Array/TI20220812_Taylor_Islet/AMAR/AMAR173.4.32000.M36-V35-100/AMAR173.4.20220813T010710Z.wav")
 
+#wav <- readWave("odata/test/AMAR173.4.20220813T010710Z.wav")
 #get sample rate 32000
 fs <- wav@samp.rate
 
+# #try padding the selection to avoid ringing #doesn't make much of a difference
+# 
+# extract_selection <- function(i, wav, df, pad = 0.05) {
+#   
+#   start <- df[["Begin.Time.(s)"]][i]
+#   end   <- df[["End.Time.(s)"]][i]
+#   
+#   low  <- df[["Low.Freq.(Hz)"]][i]
+#   high <- df[["High.Freq.(Hz)"]][i]
+#   
+#   sr <- wav@samp.rate
+#   dur <- length(wav@left) / sr
+#   
+#   # padded window
+#   start_pad <- max(0, start - pad)
+#   end_pad   <- min(dur, end + pad)
+#   
+#   # extract padded segment
+#   seg_pad <- extractWave(
+#     wav,
+#     from = start_pad,
+#     to = end_pad,
+#     xunit = "time"
+#   )
+#   
+#   # filter padded segment
+#   seg_filt <- bwfilter(
+#     seg_pad,
+#     f = sr,
+#     from = low,
+#     to = high,
+#     bandpass = TRUE,
+#     n = 2,   # important
+#     output = "Wave"
+#   )
+#   
+#   # trim back to original window
+#   start_idx <- round((start - start_pad) * sr) + 1
+#   end_idx   <- start_idx + round((end - start) * sr) - 1
+#   
+#   seg_final <- seg_filt
+#   seg_final@left <- seg_filt@left[start_idx:end_idx]
+#   
+#   return(seg_final)
+# }
+
 #use begin and end time, and high low frequency from selection tables in dataframe s1 to bandpass filter
 extract_selection <- function(i, wav, df) {
-  
+
   start <- df[["Begin.Time.(s)"]][i]
   end   <- df[["End.Time.(s)"]][i]
-  
+
   low  <- df[["Low.Freq.(Hz)"]][i]
   high <- df[["High.Freq.(Hz)"]][i]
-  
+
   # extract segment first
   seg <- extractWave(
     wav,
@@ -75,7 +120,7 @@ extract_selection <- function(i, wav, df) {
     to = end,
     xunit = "time"
   )
-  
+
   # bandpass filter segment
   seg_filt <- bwfilter(
     seg,
@@ -83,9 +128,10 @@ extract_selection <- function(i, wav, df) {
     from = low,
     to = high,
     bandpass = TRUE,
+    n = 2, #change to 2nd order butterworth filter to reduce ringing on edges of selection
     output = "Wave"
   )
-  
+
   return(seg_filt)
 }
 
@@ -94,7 +140,7 @@ selections <- lapply(
   function(i) extract_selection(i, wav, s1)
 )
 
-plot(selections[[25]])
+plot(selections[[10]])
 
 #calculate Received levels
 
@@ -130,7 +176,7 @@ s1$SL_dB_re_uPa <- s1$RL_dB_re_uPa + 20 * log10(s1$distance_m)
 #compare to Raven estimates
 
 t<-sound1%>%
-  filter(Begin.File == "AMAR173.4.20220813T020710Z.wav")%>%
+  filter(Begin.File == "AMAR173.4.20220813T010710Z.wav")%>%
   select(Selection, Source_Lev)
 
 d<-s1%>%
