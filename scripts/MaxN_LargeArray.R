@@ -124,8 +124,32 @@ custom_colors <- c(
 
 
 ##
-meanMaxN <- ggplot(meanMaxN_TI_RRF, 
-                   aes(x = BC_hour, y = mean_MaxN, fill = Common)) +
+# meanMaxN_TI <- ggplot(meanMaxN_TI_RRF, 
+#                    aes(x = BC_hour, y = mean_MaxN, fill = Common)) +
+#   geom_col(width = 0.7) +
+#   geom_errorbar(
+#     aes(
+#       ymin = pmax(mean_MaxN - sd_MaxN, 0),
+#       ymax = mean_MaxN + sd_MaxN
+#     ),
+#     width = 0.2
+#   ) +
+#   facet_wrap(~ Common, scales = "fixed") +
+#   scale_x_continuous(breaks = 6:20) +
+#   scale_fill_manual(values = custom_colors) +
+#   labs(
+#     x = "Hour",
+#     y = "Mean MaxN",
+#     title = "Taylor Islet",
+#     fill = "Species"
+#   ) +
+#   theme_classic() +
+#   theme(legend.position = "none")
+# 
+# meanMaxN_TI
+
+meanMaxN_TI <- ggplot(meanMaxN_TI_RRF, 
+                      aes(x = BC_hour, y = mean_MaxN, fill = Common)) +
   geom_col(width = 0.7) +
   geom_errorbar(
     aes(
@@ -140,14 +164,20 @@ meanMaxN <- ggplot(meanMaxN_TI_RRF,
   labs(
     x = "Hour",
     y = "Mean MaxN",
-    title = "Mean MaxN by Hour for soniferous species",
+    title = "Taylor Islet",
     fill = "Species"
   ) +
   theme_classic() +
-  theme(legend.position = "none")
+  theme(
+    plot.title = element_text(size = 18, face = "bold"),  # main title
+    strip.text = element_text(size = 14, face = "bold"),  # facet titles
+    axis.title = element_text(size = 14),                 # axis titles
+    axis.text = element_text(size = 12)                  # axis text
+  ) +
+  theme(legend.position = "none")                         # keep legend hidden
 
-meanMaxN
-ggsave("figures/CH3/MaxN_meanHourly_TI.png", plot = meanMaxN, width = 10, height = 10, dpi = 300)
+meanMaxN_TI
+ggsave("figures/CH3/MaxN_meanHourly_TI.png", plot = meanMaxN_TI, width = 10, height = 10, dpi = 300)
 
 
 #Basic MaxN by species (not averaged across full deployment)
@@ -397,8 +427,32 @@ custom_colors <- c(
 )
 
 ##
-meanMaxN <- ggplot(meanMaxN_DR_RRF, 
-                   aes(x = BC_hour, y = mean_MaxN, fill = Common)) +
+# meanMaxN_DR <- ggplot(meanMaxN_DR_RRF, 
+#                    aes(x = BC_hour, y = mean_MaxN, fill = Common)) +
+#   geom_col(width = 0.7) +
+#   geom_errorbar(
+#     aes(
+#       ymin = pmax(mean_MaxN - sd_MaxN, 0),
+#       ymax = mean_MaxN + sd_MaxN
+#     ),
+#     width = 0.2
+#   ) +
+#   facet_wrap(~ Common, scales = "fixed") +
+#   scale_x_continuous(breaks = 6:20) +
+#   scale_fill_manual(values = custom_colors) +
+#   labs(
+#     x = "Hour",
+#     y = "Mean MaxN",
+#     title = "Danger Rocks",
+#     fill = "Species"
+#   ) +
+#   theme_classic() +
+#   theme(legend.position = "none")
+# 
+# meanMaxN_DR
+
+meanMaxN_DR <- ggplot(meanMaxN_DR_RRF, 
+                      aes(x = BC_hour, y = mean_MaxN, fill = Common)) +
   geom_col(width = 0.7) +
   geom_errorbar(
     aes(
@@ -413,15 +467,26 @@ meanMaxN <- ggplot(meanMaxN_DR_RRF,
   labs(
     x = "Hour",
     y = "Mean MaxN",
-    title = "Mean MaxN by Hour for soniferous species",
+    title = "Danger Rocks",
     fill = "Species"
   ) +
   theme_classic() +
-  theme(legend.position = "none")
+  theme(
+    plot.title = element_text(size = 18, face = "bold"),  # bold and larger main title
+    strip.text = element_text(size = 14, face = "bold"),  # bold and larger facet titles
+    axis.title = element_text(size = 14),                 # axis titles
+    axis.text = element_text(size = 12)                  # axis text
+  ) +
+  theme(legend.position = "none")                         # keep legend hidden
 
-meanMaxN
+meanMaxN_DR
 
-ggsave("figures/CH3/MaxN_meanHourly_DR.png", plot = meanMaxN, width = 10, height = 10, dpi = 300)
+ggsave("figures/CH3/MaxN_meanHourly_DR.png", plot = meanMaxN_DR, width = 10, height = 10, dpi = 300)
+
+meanMaxN_both<-meanMaxN_TI/meanMaxN_DR
+meanMaxN_both
+
+ggsave("figures/CH3/MaxN_meanHourly_AllSites.png", plot = meanMaxN_both, width = 10, height = 16, dpi = 300)
 
 
 #Basic MaxN by species (not averaged across full deployment)
@@ -689,7 +754,7 @@ Sum_Monitoring_Time2_ft
 
 save_as_image(
   Sum_Monitoring_Time2_ft,
-  path = "figures/CH3/Useable_monitoring_time_NEWSPL_20260306.png"
+  path = "figures/CH3/Useable_monitoring_time_NEWSPL_20260318.png"
 )
 
 library(officer)
@@ -697,7 +762,7 @@ library(officer)
 doc <- read_docx() %>%
   body_add_flextable(Sum_Monitoring_Time2_ft)
 
-print(doc, target = "figures/CH3/Useable_monitoring_time_NEWSPL_20260306.docx")
+print(doc, target = "figures/CH3/Useable_monitoring_time_NEWSPL_20260318.docx")
 
 
 #create summary table for useable video minutes and total video monitoring minutes
@@ -800,7 +865,7 @@ FS_first_detect <- FS_joined1 %>%
 #now need to calculate how many minutes had SPLs below 113dB between time of first recording and time of detection. 
 
 SPL_LA_filt<-SPL_LA%>%
-  filter(SPL <= 126)%>% #this is lowest source level value for all species (Canary Rockfish - 75% quartile range)
+  filter(SPL <= 113)%>% #this is lowest source level value for all species 
   arrange(Site_name, BC_time)%>%
   group_by(Site_name)%>%
   mutate(minute = row_number()-1)%>%
@@ -1031,7 +1096,7 @@ Detect_DR <- ggplot(Method_detect_DR_plot, aes(x = Common, y = hours_detect)) +
                                "Video" = "#ffCC33", 
                                "SCUBA" = "#CC3300")) +
   
-  scale_y_continuous(limits = c(0, 82)) +
+  scale_y_continuous(limits = c(0, 80)) +
   
   # Increase spacing between species
   scale_x_discrete(expand = expansion(mult = c(0.05, 0.15))) +
@@ -1066,6 +1131,8 @@ ggsave("figures/CH3/TimetoDetection_AllMethods.png", plot = Detect_all, width = 
 lp("flextable")
 lp("officer")
 
+str(Method_detect)
+
 tbl <- Method_detect %>%
   select(Site, Common, Method, hours_detect) %>%
   pivot_wider(
@@ -1086,13 +1153,11 @@ tbl <- Method_detect %>%
     !if_all(-c(Site, Species), ~ . == "not detected")
   )
 
-
-
 tbl1 <- tbl %>%
   mutate(
     across(
       -c(Site, Species),
-      ~ as_hms(as.numeric(.x) * 3600)
+      ~ as_hms(round(as.numeric(.x) * 3600, 0))   # round to nearest second
     )
   ) %>%
   mutate(
@@ -1201,6 +1266,144 @@ Species_counts$Common<- ifelse(Species_counts$Species == "caurinus", "Copper Roc
                                                                                                 ifelse(Species_counts$Species == "vacca", "Pile Perch", "other"))))))))))))
 
 
+############
+#count total minutes of useable data per hour of the day
+
+#count total minutes of useable audio per site per hour of the day
+AudioMin_SumHR <- SPL_LA_day %>%
+  mutate(
+    BC_time = ymd_hms(BC_time),                 # ensure datetime
+    BC_time = floor_date(BC_time, "hour")       # round down to hour
+  ) %>%
+  separate(BC_time, into = c("Date", "Hour"), sep = " ") %>%
+  group_by(Site_name, Hour) %>%
+  summarise(total_mins = n(), .groups = "drop") %>%
+  mutate(
+    Min_adjust = case_when(
+      Site_name == "TI" ~ total_mins,
+      Site_name == "DR" ~ total_mins,
+      TRUE ~ NA_real_
+    ),
+    total_hours = Min_adjust / 60,
+    Hour_num = as.numeric(str_sub(Hour, 1, 2))   # extract first two digits
+  ) %>%
+  rename(Site = Site_name) %>%                   # rename column
+  mutate(
+    Site = recode(Site,
+                  "DR" = "Danger Rocks",
+                  "TI" = "Taylor Islet")
+  )
+
+AudioMin_SumHR
+
+
+FS2 <- FS %>%
+  mutate(
+    datetime_utc = str_extract(Begin.File, "\\d{8}T\\d{6}Z"),
+    datetime_utc = ymd_hms(datetime_utc, tz = "UTC"),
+    datetime_bc  = datetime_utc - hours(7),
+    datetime_hr  = floor_date(datetime_bc, "hour")
+  ) %>%
+  separate(datetime_hr, into = c("Date", "Hour"), sep = " ") %>%
+  group_by(Site, Species, Hour) %>%
+  summarise(total_FS = n(), .groups = "drop") %>%
+  mutate(
+    Hour_num = as.numeric(str_sub(Hour, 1, 2))   # extract first two digits
+  ) %>%
+  arrange(Hour_num)
+
+FS3<-left_join(FS2, AudioMin_SumHR, by = c("Site", "Hour_num"))
+
+FS3t<- FS3%>%
+  mutate(CallsPerHour = total_FS/total_hours)
+
+FS3t$Common<- ifelse(FS3t$Species == "caurinus", "Copper Rockfish",
+                               ifelse(FS3t$Species == "maliger", "Quillback Rockfish",
+                                      ifelse(FS3t$Species == "pinniger", "Canary Rockfish",
+                                             ifelse(FS3t$Species == "miniatus", "Vermillion Rockfish",
+                                                    ifelse(FS3t$Species == "melanops", "Black Rockfish",
+                                                           ifelse(FS3t$Species == "elongatus", "Lingcod",
+                                                                  ifelse(FS3t$Species == "nicholsii", "Black Eyed Gobie",
+                                                                         ifelse(FS3t$Species == "marmoratus", "Cabezon",
+                                                                                ifelse(FS3t$Species == "stellatus", "Flatfish spp",
+                                                                                       ifelse(FS3t$Species == "pictus", "Painted Greenling",
+                                                                                              ifelse(FS3t$Species == "decagrammus", "Kelp Greenling",
+                                                                                                     ifelse(FS3t$Species == "vacca", "Pile Perch", "Sebastes spp"))))))))))))
+
+#where are other missing fish species like QB at DR?
+#add in Sebastes spp?
+
+# Split FS3t by Site
+plots_by_site <- FS3t %>%
+  group_split(Site) %>%            # list of dataframes per Site
+  lapply(function(FS3t) {
+    ggplot(FS3t, aes(x = Hour_num, y = CallsPerHour, fill = Common)) +
+      geom_col() +
+      facet_wrap(~ Common) +
+      scale_fill_manual(values = custom_colors) +
+      labs(
+        title = unique(FS3t$Site),
+        x = "Hour",
+        y = "Calls per Hour",
+        fill = "Species"        # change legend title here
+      ) +
+      theme_classic()
+  })
+
+# plots_by_site <- FS3t %>%
+#   group_split(Site) %>%            # list of dataframes per Site
+#   lapply(function(FS3t) {
+#     FS3t <- FS3t %>% 
+#       filter(Common != "other")    # remove rows where Common = "other"
+#     
+#     ggplot(FS3t, aes(x = Hour_num, y = CallsPerHour, fill = Common)) +
+#       geom_col() +
+#       facet_wrap(~ Common) +
+#       scale_x_continuous(breaks = seq(0, 23, by = 2)) +  # every other hour
+#       scale_fill_manual(values = custom_colors) +
+#       labs(
+#         title = unique(FS3t$Site),
+#         x = "Hour",
+#         y = "Calls per Hour",
+#         fill = "Species"        # legend title
+#       ) +
+#       theme_classic()
+#   })
+
+plots_by_site <- FS3t %>%
+  group_split(Site) %>%            # list of dataframes per Site
+  lapply(function(FS3t) {
+    FS3t <- FS3t %>% 
+      filter(Common != "other")    # remove rows where Common = "other"
+    
+    ggplot(FS3t, aes(x = Hour_num, y = CallsPerHour, fill = Common)) +
+      geom_col() +
+      facet_wrap(~ Common) +
+      scale_x_continuous(breaks = seq(0, 23, by = 2)) +  # every other hour
+      scale_fill_manual(values = custom_colors) +
+      labs(
+        title = unique(FS3t$Site),
+        x = "Hour",
+        y = "Calls per Hour",
+        fill = "Species"
+      ) +
+      theme_classic() +
+      theme(
+        plot.title = element_text(size = 18, face = "bold"),   # increase main title size
+        strip.text = element_text(size = 14, face = "bold"),   # increase facet titles
+        axis.title = element_text(size = 14),                  # increase axis titles
+        axis.text = element_text(size = 12)                   # increase axis text
+      )
+  })
+
+plots_by_site[[1]]
+plots_by_site[[2]]
+
+# Stack the two plots vertically
+FS_byHour<- plots_by_site[[2]]/plots_by_site[[1]]
+FS_byHour
+
+ggsave("figures/CH3/FishSoundsbyHour.png", plot = FS_byHour, width = 16, height = 16, dpi = 300)
 ################################################################
 #look at most abundance fish calls per hour DANGER ROCKS
 
@@ -1266,6 +1469,22 @@ mm_DRbar <- ggplot(mm_DR_son,
 mm_DRbar
 
 Vid_Aud_DR<-left_join(mm_DR_son, Species_counts_DR, by = "Common")
+
+#calculate ratio of fish sound to mean maxN
+Vid_Aud_DR_rat<-Vid_Aud_DR%>%
+  group_by(Common)%>%
+  mutate(SoundsPerFish = FSperHour/mean_MaxN)%>%
+  ungroup()%>%
+  dplyr::select(Common, Site, mean_MaxN, FSperHour, SoundsPerFish)%>%
+  mutate(
+    FSperHour = as.numeric(FSperHour),
+    SoundsPerFish = as.numeric(SoundsPerFish),
+    across(where(is.numeric), ~ round(., 2))
+  )%>%
+  mutate(
+    Site = if_else(is.na(Site), "Danger Rocks", Site),
+    across(-Site, ~ ifelse(is.na(.), "not detected", .))
+  )
 
 #############
 # 1. Convert to long format
@@ -1415,6 +1634,43 @@ mm_TIbar
 
 Vid_Aud_TI<-left_join(mm_TI_son, Species_counts_TI, by = "Common")
 
+#calculate ratio of fish sound to mean maxN
+Vid_Aud_TI_rat<-Vid_Aud_TI%>%
+  group_by(Common)%>%
+  mutate(SoundsPerFish = FSperHour/mean_MaxN)%>%
+  ungroup()%>%
+  dplyr::select(Common, Site, mean_MaxN, FSperHour, SoundsPerFish)%>%
+  mutate(
+    FSperHour = as.numeric(FSperHour),
+    SoundsPerFish = as.numeric(SoundsPerFish),
+    across(where(is.numeric), ~ round(., 2))
+  )%>%
+  mutate(
+    Site = if_else(is.na(Site), "Taylor Islet", Site),
+    across(-Site, ~ ifelse(is.na(.), "not detected", .))
+  )
+
+Vid_Aud_RAT<-rbind(Vid_Aud_TI_rat, Vid_Aud_DR_rat) 
+
+str(Vid_Aud_RAT)
+
+Vid_Aud_RAT_ft <- Vid_Aud_RAT %>%
+  rename(
+    "Mean MaxN" = mean_MaxN,
+    "Fish sounds per hour" = FSperHour,
+    "Call rate" = SoundsPerFish
+  ) %>%
+  arrange(Site) %>%
+  flextable() %>%
+  #merge_v(j = "Site") %>%        # visually group Site
+  valign(j = "Site", valign = "top") %>%
+  autofit() %>%
+  theme_booktabs()
+
+Vid_Aud_RAT_ft
+
+save_as_image(x = Vid_Aud_RAT_ft, path = "figures/CH3/MaxNvsFishSoundsRatio.png")
+
 #############
 # 1. Convert to long format
 Vid_Aud_TI_long <- Vid_Aud_TI %>%
@@ -1530,8 +1786,23 @@ dive_long_abund <- dive %>%
     "Lingcod",
     "Kelp Greenling"
   ))%>%
-  mutate(Fishper_m3 = Abundance/(270)) %>% #270 meters cubed surveyeyd (30m transect, 1.5 m on each side and 3m above = 270)
+  mutate(Fishper_m3 = round(Abundance / 270, 2)) %>%  # round to 2 decimals #270 meters cubed surveyeyd (30m transect, 1.5 m on each side and 3m above = 270)
   select("Site", "Common", "Fishper_m3")
+
+# Create flextable
+dive_long_abund_ft <- dive_long_abund %>%
+  rename("Fish per m³" = Fishper_m3) %>%  # Unicode for superscript 3
+  flextable() %>%
+  colformat_num(j = "Fish per m³", digits = 3) %>%  # round to 3 decimals
+  autofit() %>%
+  theme_booktabs()
+
+dive_long_abund_ft
+
+save_as_image(
+  dive_long_abund_ft,
+  path = "figures/CH3/Dive_Abundance_Table.png"
+)
 
 Species_counts1<-left_join(Species_counts, dive_long_abund, by = c("Site", "Common"))
 
