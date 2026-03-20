@@ -228,6 +228,14 @@ FS_hour_summary1 <- FSperhour_TI22 %>%
     (Hour >= 20 & Hour <= 23) | (Hour >= 0 & Hour <= 5) ~ "night"
   ))
 
+# SumTot_TI<-FS_hour_summary1%>%
+#   group_by(Diel)%>%
+#   summarize(total = sum(total),
+#             n = n())%>%
+#   mutate(callsperfile = total/n)%>%
+#   mutate(callsperhour = callsperfile*2)%>%
+#   mutate(Site = "Taylor Islet")
+
 ##
 #TI polar plot
 #######################
@@ -384,6 +392,14 @@ FS_hour_summary1 <- FSperhour_DR22 %>%
     (Hour >= 20 & Hour <= 23) | (Hour >= 0 & Hour <= 5) ~ "night"
   ))
 
+
+# SumTot_DR<-FS_hour_summary1%>%
+#   group_by(Diel)%>%
+#   summarize(total = sum(total),
+#             n = n())%>%
+#   mutate(callsperfile = total/n)%>%
+#   mutate(callsperhour = callsperfile*2)%>%
+#   mutate(Site = "Danger Rocks")
 ##
 
 FS_hour_summary1$maxBackground<-FS_hour_summary1$FSmean + FS_hour_summary1$FSsd
@@ -543,6 +559,43 @@ FS_hour_summary1 <- FSperhour_OH22 %>%
     Hour >= 6 & Hour <= 19 ~ "day",
     (Hour >= 20 & Hour <= 23) | (Hour >= 0 & Hour <= 5) ~ "night"
   ))
+
+# SumTot_OH<-FS_hour_summary1%>%
+#   group_by(Diel)%>%
+#   summarize(total = sum(total),
+#             n = n())%>%
+#   mutate(callsperfile = total/n)%>%
+#   mutate(callsperhour = callsperfile*2)%>%
+#   mutate(Site = "Ohiat Island")
+# 
+# SumTot<- rbind(SumTot_TI, SumTot_OH, SumTot_DR)%>%
+#   arrange(desc(Site))%>%
+#   relocate(Site, Diel = 1)
+# 
+# SumTot_ft <- SumTot %>%
+#   rename(
+#     "Diel period" = Diel,
+#     "Total calls" = total,
+#     "n" = n,
+#     "Calls per file (mean)" = callsperfile,
+#     "Calls per hour (mean)" = callsperhour
+#   ) %>%
+#   arrange(Site, `Diel period`) %>%
+#   flextable() %>%
+#   colformat_num(
+#     j = c("Calls per file (mean)", "Calls per hour (mean)"),
+#     digits = 2
+#   ) %>%
+#   autofit() %>%
+#   theme_booktabs()
+# 
+# SumTot_ft
+# 
+# save_as_image(
+#   SumTot_ft,
+#   path = "figures/CH3/DielPatternsbySiteTables.png"
+# )
+
 ##
 
 FS_hour_summary1$maxBackground<-FS_hour_summary1$FSmean + FS_hour_summary1$FSsd
